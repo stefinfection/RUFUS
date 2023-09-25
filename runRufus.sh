@@ -81,7 +81,7 @@ print_help ()
 	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
 	printf "\t%s\n" "-k,--kersize: size of k-mer to use (no default)"
 	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
-	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fractino of contaminant DNA"
+	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
 	printf "\t%s\n" "-L, --Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"
 	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
@@ -95,17 +95,17 @@ print_devhelp ()
 	printf 'Usage: %s [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [<controls-1>] ... [<control\
 s-n>] ...\n' "$0"
 	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
-	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multipe times)"
+	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multiple times)"
         printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
         printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
         printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
         printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
         printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
-        printf "\t%s\n" "-k,--kersize: size of k-mer to use (no default)"
+        printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
         printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
-        printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fractino of contaminant DNA"
+        printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
         printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-        printf "\t%s\n" "-L, --Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"	
+        printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
 	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
 
 	printf "\t%s\n" "################################################################################################"	
@@ -114,17 +114,17 @@ s-n>] ...\n' "$0"
 
 	printf "\t%s\n" "-f,--refhash: Jhash file containing reference hashList (no default)"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequecing.  Distirbution model is not used, -m = 20, saliva fix is set, max kmer depth seet to 1million (EXPERIMENTAL values used here have not been exhaustivly tested)"
+	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequencing.  Distribution model is not used, -m = 20, saliva fix is set, max kmer depth set to 1 million (EXPERIMENTAL values used here have not been exhaustivly tested)"
 	printf "\t%s\n" "-q1,--fastq1: If starting from fastq files, a list of the mate1 fastq files to improve RUFUS.filter"
 	printf "\t%s\n" "-q2,--fastq2: If starting from fastq files, a list of the mate2 fastq files to improve RUFUS.filter"
-	printf "\t%s\n" "-vs, --Very_Short_Assembly: use very short assembly methods, recomneded when you are expecting over 10,000 variants "
+	printf "\t%s\n" "-vs, --Very_Short_Assembly: use very short assembly methods, recommended when you are expecting over 10,000 variants "
 	printf "\t%s\n" "-pj, --Parallelize_Jelly: parallelize jellyfish step, only use if you have more than 96G of ram"
 	printf "\t%s\n" "-R, --Region: Run RUFUS only on a samtools style region"
-	printf "\t%s\n" "-fk, --filterK: Kmer threshold for number of kmers required to keep a read during filtering (default = 1)"
-	printf "\t%s\n" "-fq, --filterMinQ: Minimum base quality for fitler step, any kmer with any bases lower than this quality will be ignored (default = 15)"
-	printf "\t%s\n" "-pl, --ParLowK: Lowest kmer count to be kept when counting parent jellyfish tables (default = 2, using 1 will SIGNIFICANTLY increase run time and isnt advised)" 
-	printf "\t%s\n" "-StJ: Stop run after jellyfish steps" #TODO: dont requre reference and other non needed options if this is set
-	printf "\t%s\n" "-StH: Stop run after hash compare steps" #TODO: dont requre reference and other non needed options if this is set
+	printf "\t%s\n" "-fk, --filterK: kmer threshold for number of kmers required to keep a read during filtering (default = 1)"
+	printf "\t%s\n" "-fq, --filterMinQ: Minimum base quality for filter step, any kmer with any bases lower than this quality will be ignored (default = 15)"
+	printf "\t%s\n" "-pl, --ParLowK: Lowest kmer count to be kept when counting parent jellyfish tables (default = 2, using 1 will SIGNIFICANTLY increase run time and is not advised)"
+	printf "\t%s\n" "-StJ: Stop run after jellyfish steps" #TODO: dont require reference and other non needed options if this is set
+	printf "\t%s\n" "-StH: Stop run after hash compare steps" #TODO: dont require reference and other non needed options if this is set
 	printf "\t%s\n" "-StF: Stop run after filter steps" 
 	printf "\t\t%s\n" "This can be useful when you know you have low level contamination and want to remove kmers up to a certain count"
 	printf "\t%s\n" "-h,--help: HELP!!!!!!!!!!!!!!!"
@@ -587,7 +587,7 @@ ProbandExtension="${ProbandFileName##*.}"
 #echo "proband extension is $ProbandExtension"
 
 
-######## chekcing proband extension, FASTQ is not handeled, need to add that, for the meantime generator dumping to SAM needs to be used #############
+######## checking proband extension, FASTQ is not handled, need to add that, for the meantime generator dumping to SAM needs to be used #############
 if [[ "$ProbandExtension" != "cram" ]] && [[ "$ProbandExtension" != "bam" ]] || [[ ! -e "$_arg_subject" ]] && [[ "$ProbandExtension" != "generator" ]]
 then 
     echo "The proband bam/generator file" "$_arg_subject" " was not provided or does not exist; killing run with non-zero exit status"
@@ -694,7 +694,7 @@ fi
 
 
 ###################__PRINT_VARIABLES_USED__######################################
-#echo "~~~~~~~~~~~~ printing out paramater values used in script ~~~~~~~~~~~~~~~~"
+#echo "~~~~~~~~~~~~ printing out parameter values used in script ~~~~~~~~~~~~~~~~"
 #echo "value of ProbandGenerator $ProbandGenerator"
 #echo "Value of ParentGenerators:"
 #for parent  in "${ParentGenerators[@]}"
@@ -713,7 +713,7 @@ if [ -z "$_arg_refhash" ]
 then
     echo "Did not provide refHash"
 else
-    echo "privided refhash of: " "$_arg_refhash"
+    echo "provided refHash of: " "$_arg_refhash"
 fi
 
 if ! [ -z "$_arg_min" ]
@@ -745,6 +745,7 @@ done
 
 
 ##########################__SET_EXECUTABLE_PATHS__##############################
+# todo: make $RDIR optional argument for running on chpc
 RUFUSmodel=$RDIR/bin/ModelDist
 RUFUSfilter=$RDIR/bin/RUFUS.Filter
 RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
@@ -765,7 +766,7 @@ samblaster=$RDIR/bin/externals/samblaster/src/samblaster_project/samblaster
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
 if [ $_parallel_jelly == "yes" ]
 then 
-	######## TODO insted of assuming 3 samples, 
+	######## TODO instead of assuming 3 samples
 	JThreads=$(( Threads / 3 ))
 	if [ "$JThreads" -lt 3 ]
 	then
@@ -799,7 +800,7 @@ fi
 
 
 ###########################_EMPTY_JHASH_CHECK##############################
-########TODO just checking file size isnt a great idea, when jellyfish fales the fiels arent zero size
+########TODO just checking file size isn't a great idea, when jellyfish fails the fields arent zero size
 for parent in "${ParentGenerators[@]}"
 do
     ## Check Jhash files are not empty
@@ -840,7 +841,7 @@ done
 #if [ $_arg_exome == "FALSE" ] #[	-z "$_arg_min" ]
 if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
 then
-	echo "exome not set, assuming data is whole genome, bulding model" #echo "min not provided, building model" 
+	echo "exome not set, assuming data is whole genome, building model" #echo "min not provided, building model"
 	if [ -e "$ProbandGenerator.Jhash.histo.7.7.model" ]
 	then
 	 	echo "skipping model"
@@ -867,7 +868,7 @@ then
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
 			echo "INFO: MaxHashDepth = $MaxHashDepth"
 		else
-			echo "ERROR Model didnt run correcntly, exiting"
+			echo "ERROR Model didnt run correctly, exiting"
 			return -1
 		fi
 	else
@@ -906,7 +907,7 @@ if [ -z $MutantMinCov ]; then
 fi
 if [ "$MutantMinCov" -lt "2" ]
 then
-	echo "ERROR, model couldnt pick a sensible lower cutoff, check your subject bam file"
+	echo "ERROR, model couldn't pick a sensible lower cutoff, check your subject bam file"
         exit
 fi
 #################################__HASH_LIST_FILTER__#####################################
@@ -931,7 +932,7 @@ fi
 ########################################################################################
 
 if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
-	echo "ERROR: No mutant hashes identfied, either the files are exactly the same of something went wrong in previous step" 
+	echo "ERROR: No mutant hashes identified, either the files are exactly the same of something went wrong in previous step"
 	exit 100
 fi
 ########################################################################################
