@@ -1,0 +1,36 @@
+Bootstrap: library
+From: ubuntu:22.04
+
+%labels
+    Author Stephanie Georges
+    Version v0.0.1
+
+%post
+    apt-get update
+    apt-get install -y git python cmake wget build-essential g++-4.9 zlib1g-dev libbz2-dev libbz2-dev liblzma-dev bc libncurses5-dev samtools bamtools
+    add-apt-repository ppa:ubuntu-toolchain-r/test
+
+    git clone https://github.com/jandrewrfarrell/RUFUS.git
+    cd RUFUS
+    mkdir bin
+    cd bin
+    cmake ../
+    make
+         
+    apt-get purge -y --auto-remove git wget
+    rm -rf /var/lib/apt/lists/* #todo: what is this and do I need to keep it?
+        
+%environment
+    export PATH=$PATH:/RUFUS/bin
+
+%test
+    samtools || true
+    bamtools || true
+    cd testRun
+    ./runTest.sh
+    #todo: need to do more sophisticated checking here and output yes/no instead of vcf file
+      
+%runscript
+    echo "Arguments provided: $*"
+    ./runRufus.sh $@
+
