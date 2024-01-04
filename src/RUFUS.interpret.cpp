@@ -1,7 +1,7 @@
 
-/*This vertion imcorporates both copy number and mutation detection in 1
- *  * it needs to be run in two sptes, first the build, then the filter
- *   * it is split up to allow distribution to a cluster */
+/** This version incorporates both copy number and mutation detection in 1
+ ** it needs to be run in two steps, first the build, then the filter.
+ ** It is split up to allow distribution to a cluster */
 
 #include <unistd.h>
 #include <ios>
@@ -5231,170 +5231,133 @@ void ProcessHighAndLowDist()
 }
 int main (int argc, char *argv[])
 {
-
-cout << "###########################RUNNING THIS ONE#########################" << endl; 
-cout << "Modes	chr	pos	type	reff	alt	MutRef	MutAlt	Par1Ref	Par2Ref" << endl;	
-//	ifstream testthis [100]; 
-//	testthis[0].open("./test.txt"); 
-//	string boom2; 
-//	while (getline(testthis[0], boom2))
-//	{
-//		cout << boom2 << endl;
-//	}
-//	return 0;  
-	//************************************************
-	//my arg parser
-
-	string helptext;       
-	helptext = \
-"\
-RUFUS.interpret: converts RUFUS aligned contigs into a VCF \n\
-By Andrew Farrell\n\
-   The Marth Lab\n\
-\n\ 
-options:\
-  -h [ --help ]  Print help message\n\
-  -sam  arg  Path to input SAM file, omit for stdin\n\
-  -r    arg  Path to reference file \n\
-  -hf   arg  Path to HashFile from RUFUS.build\n\
-  -hS   arg  Hash Size\n\
-  -o    arg  Output stub\n\
-  -m    arg  Maximum varient size: default 1Mb\n\
-(Sorry it has to be a num, no 1kb, must be 1000\n\
-  -c    arg  Path to sorted.tab file for the parent sample\n\
-  -s    arg  Path to sorted.tab file for the subject sample\n\
-  -cR   arg  Path to the sorted.tab file fo the parnt sample hashes in the reference\n\
-  -sR   arg  Path to the sorted.tab file fo the subject sample hashes in the reference\n\
-  -mQ   arg  Minimum map quality to consider varients in\n\
-  -mod  arg  Path to the model file from RUFUS.model\n\
-  -e    arg  Path to Kmer file to exlude from LowCov check\n\
-  -mob  arg  Path to a bam file of the aligned contigs to a mobil element list\n\
-  -as   arg  alignemnt segments threshold (default: 10)\n\
-";
+    cout << "***Begin Interpret***" << endl;
+    cout << "Modes	chr	pos	type	ref	alt	MutRef	MutAlt	Par1Ref	Par2Ref" << endl;
+	string helptext =  "RUFUS.interpret: converts RUFUS aligned contigs into a VCF \n"
+                "By Andrew Farrell\n"
+                "The Marth Lab\n\n"
+                "options:"
+                "-h [ --help ]  Print help message\n"
+                "-sam  arg  Path to input SAM file, omit for stdin\n"
+                "-r    arg  Path to reference file \n"
+                "-hf   arg  Path to HashFile from RUFUS.build\n"
+                "-hS   arg  Hash Size\n"
+                "-o    arg  Output stub\n"
+                "-m    arg  Maximum variant size: default 1Mb\n"
+                "(Sorry it has to be a num, no 1kb, must be 1000\n"
+                "-c    arg  Path to sorted.tab file for the parent sample\n"
+                "-s    arg  Path to sorted.tab file for the subject sample\n"
+                "-cR   arg  Path to the sorted.tab file fo the parent sample hashes in the reference\n"
+                "-sR   arg  Path to the sorted.tab file fo the subject sample hashes in the reference\n"
+                "-mQ   arg  Minimum map quality to consider variants in\n"
+                "-mod  arg  Path to the model file from RUFUS.model\n"
+                "-e    arg  Path to Kmer file to exclude from LowCov check\n"
+                "-mob  arg  Path to a bam file of the aligned contigs to a mobil element list\n"
+                "-as   arg  alignment segments threshold (default: 10)\n";
 	
-	string MutHashFilePath = "" ;
+	string MutHashFilePath = "";
 	string MutHashFilePathReference = "";
-	//MaxVarentSize = 1000000;
-	string RefFile = ""; 
+	string RefFile = "";
 	string HashListFile = "" ; 	
 	string samFile = "stdin"; 
 	string outStub= "";
 	string ModelFilePath = "";
 	string ExcludeFilePath = ""; 
 	string MobBam = ""; 
-	 SegThreshold = 10; 
+    SegThreshold = 10;
 	int MinMapQual = 40; 
-	for(int i = 1; i< argc; i++)
-	{
+	for(int i = 1; i < argc; i++) {
 		cout << i << " = " << argv[i] << endl; 
 	}
 	cout <<"****************************************************************************************" << endl;
 	vector <int> ParentHashFilePaths; 
 	vector <int> ParentHashFilePathsReference;
-	for(int i = 1; i< argc; i++)
-	{
+	for (int i = 1; i< argc; i++) {
 		string p = argv[i];
 		cout << i << " = " << argv[i]<< endl;
-		if( p == "-h")
-		{
+		if(p == "-h") {
 			//print help 
 			cout << helptext << endl;
 			return 0; 
 		}
-		else if (p == "-r")
-		{
+		else if (p == "-r") {
 			RefFile = argv[i+1];
 			i=i+1;
 			 cout << "YAAAY added RefFile = " << RefFile << endl;	
 		}
-		else if (p == "-sam")
-		{
+		else if (p == "-sam") {
 			samFile =  argv[i+1];
 			i++;
 		}
-		else if (p == "-o")
-		{
+		else if (p == "-o") {
 			outStub =  argv[i+1];
 			i++;
 		}
-		else if (p == "-hf")
-		{
+		else if (p == "-hf") {
 			HashListFile =  argv[i+1];
 			i++;
 		}
-		else if (p == "-hs")
-		{
+		else if (p == "-hs") {
 			HashSize =  atoi(argv[i+1]);
 			i++;
 		}
-		else if (p == "-m")
-		{
+		else if (p == "-m") {
 			MaxVarentSize =  atoi(argv[i+1]);
 			i++;
 			cout << "YAAAY added MaxVarSize = " << MaxVarentSize << endl;
 		}
-		else if (p == "-as")
-		{
+		else if (p == "-as") {
 			SegThreshold = atoi(argv[i+1]);
 			SegThresholdCigar = atoi(argv[i+1]);
 			i++;
 			cout << "AlignmentSegmentThreshold = " << SegThreshold << endl; 
 		}
-		else if (p == "-c")
-		{
+		else if (p == "-c") {
 			cout << "Par Hash = " << argv[i+1] << endl;
 			ParentHashFilePaths.push_back(i+1);
 			i=i+1;
 		}
-		else if (p == "-cR")
-		{
+		else if (p == "-cR") {
 			cout << "Par Ref Hash = " << argv[i+1] << endl;
 			ParentHashFilePathsReference.push_back(i+1);
 			i=i+1;
 		}
-		else if (p == "-s")
-		{
+		else if (p == "-s") {
 			cout << "Sub Hash = " << argv[i+1] << endl;
 			MutHashFilePath = argv[i+1];
 			i+=1;
 		}
-		else if (p == "-sR")
-		{
+		else if (p == "-sR") {
 			cout << "Sub Hash = " << argv[i+1] << endl;
 			MutHashFilePathReference = argv[i+1];
 			i+=1;
 		}
-		else if (p == "-mod")
-		{
+		else if (p == "-mod") {
 			cout << "model file = " << argv[i+1] << endl;
 			ModelFilePath = argv[i+1];
 			i+=1;
 		}
-		else if (p == "-mQ")
-		{
+		else if (p == "-mQ") {
 			cout << "Min Mapping Qualtiy = " << argv[i+1] << endl;
 			MinMapQual = atoi(argv[i+1]);
 			i+=1;
 		}
-		else if(p == "-e")
-		{
+		else if(p == "-e") {
 		  	cout << "Exclue File Path = " << argv[i+1] << endl; 
 			ExcludeFilePath = argv[i+1]; 
 			i+=1; 
 		}
-		else if (p == "-mob")
-		{
+		else if (p == "-mob") {
 			cout << "Mobil Eelement aligned sam file = " << argv[i+1] << endl; 
 			MobBam = argv[i+1]; 
 			i+=1; 
 		}
-		else
-		{
-			cout << "ERROR: unkown command line paramater -" <<  argv[i] << "-"<< endl;
-			return 0; 
-		}
-		
+		else {
+            cout << "ERROR: unkown command line paramater -" << argv[i] << "-" << endl;
+            return 0;
+        }
 	}
+
 	//check values 
 	if (RefFile == "")
 	{
@@ -5416,10 +5379,10 @@ options:\
 			return -1; 
 		}
 	}
-	ProcessDist(ModelFilePath);
-	if (IsExome == false)
-	{	ProcessHighAndLowDist(); 
 
+	ProcessDist(ModelFilePath);
+	if (IsExome == false) {
+        ProcessHighAndLowDist();
 		cout << "checking Dist File" << endl;
         	/*for (int copy =0; copy < 5; copy++)
         	{
@@ -5437,9 +5400,9 @@ options:\
 			cout << "GenePrior " << i <<  " = " << GenPrior[i] << endl; 
 		}*/
 	}
+
 	unordered_map <string, MobRead> mobs; 
-	if (MobBam != "")
-	{	
+	if (MobBam != "") {
 		cout << "mob aligned contigs provided: " << MobBam << endl; 
 		cout << "reading in sam file " << endl; 
 		ifstream reader; 
@@ -5609,15 +5572,15 @@ options:\
 //		//return -1;
 //	}
 	
-      	ifstream HashList;
-      	HashList.open (HashListFile);
-      	if ( HashList.is_open())
-      	{	 cout << "HashList Open " << HashListFile << endl;}   //cout << "##File Opend\n";
-      	else
-      	{
-      		cout << "Error, HashList could not be opened";
-      		return -1;
-      	}
+    ifstream HashList;
+    HashList.open (HashListFile);
+    if ( HashList.is_open())
+    {	 cout << "HashList Open " << HashListFile << endl;}   //cout << "##File Opend\n";
+    else
+    {
+        cout << "Error, HashList could not be opened";
+        return -1;
+    }
 	string line = "";
 	getline(HashList, line);
 	cout << "line = " << line << endl; 
@@ -5722,8 +5685,9 @@ options:\
 	//write VCF header
 	VCFOutFile << "##fileformat=VCFv4.1" << endl;
 	VCFOutFile << "##fileDate=" << time(0) << endl;
+    // todo: add in run command here
 	VCFOutFile << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-	VCFOutFile << "##FORMAT=<ID=AK,Number=1,Type=Integer,Description=\"Alternte Kmer Count\">" << endl;
+	VCFOutFile << "##FORMAT=<ID=AK,Number=1,Type=Integer,Description=\"Alternate Kmer Count\">" << endl;
 	VCFOutFile << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total Kmer depth across the variant\">" << endl;
 	VCFOutFile << "##FORMAT=<ID=RO,Number=1,Type=Integer,Description=\"Mode of reference kmer counts\">" << endl;
 	VCFOutFile << "##FORMAT=<ID=AO,Number=1,Type=Integer,Description=\"Mode of alt kmer counts\">" << endl;
@@ -5731,7 +5695,7 @@ options:\
 	VCFOutFile << "##INFO=<ID=CP,Number=1,Type=String,Description=\"position of the call within the assembled contig\">" << endl;
 	VCFOutFile << "##INFO=<ID=EN,Number=1,Type=String,Description=\"in development, something to do with entropy\">" << endl;
 	VCFOutFile << "##INFO=<ID=FEX,Number=1,Type=String,Description=\"Filters failed and value\">" << endl;
-	VCFOutFile << "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Strand Bias of the aassembled contig\">" << endl;
+	VCFOutFile << "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Strand Bias of the assembled contig\">" << endl;
 	VCFOutFile << "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of SV detected\">" << endl;
 	VCFOutFile << "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of SV detected\">" << endl; 
 	VCFOutFile << "##INFO=<ID=END,Number=1,Type=Integer,Description=\"END of SV detected\">" << endl; 
@@ -5741,8 +5705,8 @@ options:\
 	VCFOutFile << "##INFO=<ID=FS,Number=1,Type=String,Description=\"Full score, supporting kmers possible varient kmers based on sequence\">"<< endl;
 	VCFOutFile << "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Mapping quality of the contig that created the call\">"<< endl;
 	VCFOutFile << "##INFO=<ID=cigar,Number=1,Type=String,Description=\"Cigar string for the contig that created the call\">"<< endl;
-	VCFOutFile << "##INFO=<ID=VT,Number=1,Type=String,Description=\"Varient Type\">"<< endl;	
-	VCFOutFile << "##INFO=<ID=CVT,Number=1,Type=String,Description=\"Compressed Varient Type\">"<< endl;
+	VCFOutFile << "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant Type\">"<< endl;
+	VCFOutFile << "##INFO=<ID=CVT,Number=1,Type=String,Description=\"Compressed Variant Type\">"<< endl;
 	VCFOutFile << "##INFO=<ID=NR,Number=1,Type=Integer,Description=\"Number of total reads in target region\">" << std::endl;
 	VCFOutFile << "##INFO=<ID=NH,Number=1,Type=Integer,Description=\"Number of alu heads in target region\">" << std::endl;
 	VCFOutFile << "##INFO=<ID=NT,Number=1,Type=Integer,Description=\"Number of polyA tails in target region\">" << std::endl;
@@ -5750,12 +5714,12 @@ options:\
 	VCFOutFile << "##INFO=<ID=TB,Number=1,Type=Integer,Description=\"Is tail left bound, right bound, or double bound\">" << std::endl;
 	VCFOutFile << "##INFO=<ID=AS,Number=1,Type=Integer,Description=\"Number of alignment segments in the contig\">" << std::endl;
 	VCFOutFile << "##INFO=<ID=MT,Number=1,Type=String,Description=\"Mobil element sequence inserted\">"<< endl;
-	VCFOutFile << "##INFO=<ID=SVID,Number=1,Type=String,Description=\"Uniuqe ID given to an SV event with multiple brekends so it can be quicky identified\">"<< endl;
+	VCFOutFile << "##INFO=<ID=SVID,Number=1,Type=String,Description=\"Unique ID given to an SV event with multiple break-ends so it can be quickly identified\">"<< endl;
 	VCFOutFile << "##INFO=<ID=SOURCE,Number=1,Type=String,Description=\"Location in the genome where the inserted sequence came from\">"<< endl;
 	VCFOutFile << "##INFO=<ID=SVDES,Number=1,Type=String,Description=\"If available RUFUS will interpret the SV type for you\">"<< endl;
 	VCFOutFile << "##INFO=<ID=MATEID,Number=1,Type=String,Description=\"If available, the id of the call that is the mate of this one\">"<< endl;
 	VCFOutFile << "##FILTER=<ID=PA,Description=\"PoorAlignment\">" << std::endl;	
-	VCFOutFile << "##FILTER=<ID=PLC,Description=\"Parents are at low coverage in this region, cannt be sure of genotype\">" << std::endl;
+	VCFOutFile << "##FILTER=<ID=PLC,Description=\"Parents are at low coverage in this region, can't be sure of genotype\">" << std::endl;
 	VCFOutFile << "##FILTER=<ID=LCH,Description=\"Parents have hashes showing variant at low coverage, likely inherited\">" << std::endl;
 	VCFOutFile << "##FILTER=<ID=SB,Description=\"Contig fails string bias filter\">" << std::endl; 
 	VCFOutFile << "##ALT=<ID=INS:ME:ALU,Description=\"Insertion of ALU element\">" << std::endl;
@@ -5890,7 +5854,7 @@ options:\
 
 
 	cout << "finding multi contig events, " << reads.size() << endl; 
-	//find multi contig events insertionsf
+	//find multi contig events insertions
 	for (int i = 0; i < reads.size()-1; i++)
 	{
 	 	int pos, pos2, kdep, kdep2;

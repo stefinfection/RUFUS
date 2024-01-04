@@ -1,6 +1,6 @@
 /*By ANDREW FARRELL
  * RUFUS.CheckHashFilter.cpp
- * TODO: describe funciton of file
+ * TODO: describe function of file
  */
 
 #include <bitset>
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 
 	int BufferSize = 240;
 
-	cout << "Paramaters are:\n	PreBuiltMutHash = " << argv[1]
+	cout << "Parameters are:\n	PreBuiltMutHash = " << argv[1]
 			 << "\n	Mutant.mate1.fq = " << argv[2]
 			 << "\n	Mutant.mate2.fq = " << argv[3] 
 			 << "\n	out stub = " << argv[4]
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 	cout << "here " << endl;	
  
 	if (MutFileM1.is_open()) {
-		cout << "##File Opend\n";
+		cout << "##File Opened\n";
 	} else {
 		cout << "Error, MutFile could not be opened";
 		return 0;
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	MutFileM2.open(argv[3]);
 	
 	if (MutFileM2.is_open()) {
-		cout << "##File Opend\n";
+		cout << "##File Opened\n";
 	} else {
 		cout << "Error, MutFile could not be opened";
 		return 0; 
@@ -159,8 +159,7 @@ int main(int argc, char *argv[])
 	string BufferMate1[2400];
 	string BufferMate2[2400];
 
-	while (getline(MutFileM1, L1)) 
-	{
+	while (getline(MutFileM1, L1)) {
 		lines++;
 		BufferMate1[0] = L1;
 		getline(MutFileM1, BufferMate1[1]);
