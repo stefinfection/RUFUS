@@ -188,6 +188,8 @@ sudo apt-get install libncurses5-dev
 t2.micro with AWS-Linux
 [Install Singularity](https://github.com/apptainer/singularity/blob/master/INSTALL.md)
 ```
+mkdir singularity_temp
+SINGULARITY_TMPDIR=/home/ec2-user/singularity-temp
 sudo -E singularity build rufus.sif rufus.def
 ```
 
