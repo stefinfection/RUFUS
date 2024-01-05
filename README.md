@@ -184,5 +184,8 @@ sudo apt-get install bc
 sudo apt-get install libncurses5-dev
 ```
 
-
+## To Build Singularity Container on EC2 instance
+```
+sudo -E singularity build rufus.sif rufus.def
+```
 
