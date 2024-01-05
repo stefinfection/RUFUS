@@ -185,6 +185,8 @@ sudo apt-get install libncurses5-dev
 ```
 
 ## To Build Singularity Container on EC2 instance
+t2.micro with AWS-Linux
+[Install Singularity](https://github.com/apptainer/singularity/blob/master/INSTALL.md)
 ```
 sudo -E singularity build rufus.sif rufus.def
 ```
