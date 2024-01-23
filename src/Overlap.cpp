@@ -31,25 +31,25 @@ using namespace std;
 
 bool FullOut = false;
 
-int RebuildHashTable(vector<string>& sequenes, int Ai, int SearchHash, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long, int>& Hashesize) 
+int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long, int>& Hashesize)
 {
 	cout << "\nDestrying HashTable\n";
 	Hashes.clear();
 	cout << "HashTable destroyed\n";
 	cout << "Rebuilding HashTable - starting at " << Ai << endl;
-	int size = sequenes.size();
+	int size = sequences.size();
 
 	#pragma omp parallel for num_threads(12) shared(Hashes)
 	for (int i = Ai; i < size; i++) {
 
 		if (i % 10000 > 1 && i % 10000 < Threads) {
-			//pragma omp critical (sequenes)
-			{cout << "	 Hashed " << i << " of " << sequenes.size() << "\r";}
+			//pragma omp critical (sequences)
+			{cout << "	 Hashed " << i << " of " << sequences.size() << "\r";}
 		
 		}
 		string Sequence; 
-		//pragma omp critical (sequenes)
-		{Sequence = sequenes[i];}
+		//pragma omp critical (sequences)
+		{Sequence = sequences[i];}
 		int LoopLimit = Sequence.size() - SearchHash;
 		for (int j = 0; j < LoopLimit; j++) {
 			string hash = Sequence.substr(j, SearchHash);
@@ -593,28 +593,31 @@ string FlipStrands(string strand) {
 	}
 	return NewStrand;
 }
-void compresStrand(string S, int& F, int& R) {
+void compressStrand(string S, int& F, int& R) {
 	for (int i = 0; i < S.size(); i++) {
 		if (S.c_str()[i] == '+')
 			F++;
 		else if (S.c_str()[i] == '-')
 			R++;
 	}
-	return;
 }
 
-int main(int argc, char* argv[]) {
-	int SearchHash = 30;
-	int ACT = 0;
-	float MinPercent;
-	int MinOverlap;
-	int MinCoverage;
-	cout << "you gave " << argc << " Arguments" << endl;
 
+int main(int argc, char* argv[]) {
+    float MinPercent = stof(argv[2]);
+    long int MinOverlap = strtol(argv[3], nullptr, 0);
+    long int MinCoverage = strtol(argv[4], nullptr, 0);
+    long int SearchHash = strtol(argv[6], nullptr, 0); // if doesn't exist set to 30?
+    long int ACT = strtol(argv[7], nullptr, 0);
+    long int TrimLCcuttoff = strtol(argv[9], nullptr, 0);
+    long int Threads = strtol(argv[10], nullptr, 0);
+    long int Buffer = 100 * Threads;
+
+    cout << "you gave " << argc << " Arguments" << endl;
 	if (argc != 11) {
-		cout << "ERROR, wrong numbe of arguemnts\nCall is: FASTQ, MinPercent, "
+		cout << "ERROR, wrong number of arguments \n Call is: FASTQ, MinPercent, "
 						"MinOverlap, MinCoverage, ReportStub, SearchHashSize, ACT, OutFile "
-						"LCendTrimEpth Threads"
+						"LCendTrimLength Threads"
 				 << endl;
 		return 0;
 	}
@@ -622,30 +625,15 @@ int main(int argc, char* argv[]) {
 	ifstream fastq;
 	fastq.open(argv[1]);
 
+    // todo: put a bunch of try-catch blocks here instead of manual if/else
 	if (fastq.is_open()) {
 		cout << "Parent File open - " << argv[1] << endl;
-	}	// cout << "##File Opend\n";
+	}
 	else {
 		cout << "Error, ParentHashFile could not be opened";
 		return 0;
 	}
 
-	//TODO: Factor out temps and cast to string
-	string temp = argv[2];
-	MinPercent = atof(temp.c_str());
-	temp = argv[3];
-	MinOverlap = atoi(temp.c_str());
-	temp = argv[4];
-	MinCoverage = atoi(temp.c_str());
-	temp = argv[6];
-	SearchHash = atoi(temp.c_str());
-	temp = argv[7];
-	ACT = atoi(temp.c_str());
-	temp = argv[9];
-	int TrimLCcuttoff = atoi(temp.c_str());
-	temp = argv[10];
-	int Threads = atoi(temp.c_str());
-	int Buffer = 100 * Threads;
 	ofstream report;
 	std::stringstream ss;
 	string FirstPassFile = argv[1];
@@ -660,9 +648,9 @@ int main(int argc, char* argv[]) {
 		return 0;
 	}
 
-	ofstream Depreport;
+	ofstream DepReport;
 	FirstPassFile += "d";
-	Depreport.open(FirstPassFile.c_str());
+    DepReport.open(FirstPassFile.c_str());
 	if (report.is_open()) {
 	} else {
 		cout << "ERROR, Mut-Output file could not be opened - " << FirstPassFile
@@ -1146,33 +1134,33 @@ int main(int argc, char* argv[]) {
 				count++;
 			 	int F = 0;
 				int R = 0;
-				compresStrand(strand[i], F, R); 
+				compressStrand(strand[i], F, R);
 	//report << "@NODE_" << i << "_L=" << sequenes[i].size()			 << "_D=" << maxDep << endl;
 	report << "@NODE_" << argv[6] << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
 				report << sequenes[i] << endl;
 				report << "+" << endl;
 				report << qual[i] << endl;
 
-				Depreport << "@NODE_" << argv[6] << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
-				Depreport << sequenes[i] << endl;
-				Depreport << "+" << endl;
-				Depreport << qual[i] << endl;
-				Depreport << strand[i] << endl;
+				DepReport << "@NODE_" << argv[6] << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
+				DepReport << sequenes[i] << endl;
+				DepReport << "+" << endl;
+				DepReport << qual[i] << endl;
+				DepReport << strand[i] << endl;
 				unsigned char C = depth[i].c_str()[0];
 				int booya = C;
-				Depreport << booya;
+				DepReport << booya;
 
 				for (int w = 1; w < depth[i].size(); w++) {
 					C = depth[i].c_str()[w];
 					booya = C;
-					Depreport << ' ' << booya;
+					DepReport << ' ' << booya;
 				}
 
-				Depreport << endl;
+				DepReport << endl;
 			}
 		}
 	}
 	cout << "Wrote " << count << " sequences" << endl;
 	report.close();
-	Depreport.close();
+	DepReport.close();
 }
