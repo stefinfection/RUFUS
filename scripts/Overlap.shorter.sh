@@ -1,5 +1,22 @@
 #!/bin/bash
 
+# Despite it's name, this is the only script currently utilized by RUFUS, despite any mode. When speed is true, veryfast
+# mode is used.
+#
+# veryfast mode consists of the following criteria:
+# 1. Reads going into OverlapSam are filtered by length - must be 150bp or shorter
+# 2. OverlapSam is run with the following parameters:
+#   a. Min Percentage is 99%
+#   b. Min Overlap is 25bp
+#   c. Min Coverage is 3bp
+#
+# normal mode consists of the following criteria:
+# 1. OverlapSame is run with the following parameters:
+#   a. Min Percentage is 95%
+#   b. Min Overlap is 20bp
+#   c. Min Coverage is 1bp
+
+
 set -e
 
 humanRef=$1
@@ -64,11 +81,6 @@ OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
 MOBList=$RDIR/resources/primate_non-LTR_Retrotransposon.fasta
 
-#if [ -s $NameStub.overlap.hashcount.fastq ]
-#then
-#	echo "Skipping Overlap"
-#else
-
 if [ -s ./$File.bam ]; then
   echo "skipping align"
 else
@@ -112,7 +124,6 @@ else
     $OverlapSam <(samtools view -F 3328 $File.bam) .95 20 1 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
   fi
 
-  #if [ $( wc -l ./TempOverlap/$NameStub.sam.fastqd | awk '{print $1}') -eq "0" ]; then
   if [ $(head ./TempOverlap/$NameStub.sam.fastqd | wc -l | awk '{print $1}') -eq "0" ]; then
     echo "ERROR Assembly produce output for ./TempOverlap/$NameStub.sam.fastqd"
     exit 100

@@ -5,5 +5,7 @@ src/externals/gkno_launcher/
 cloud/1000G.RUFUSreference.sorted.min45.tab
 *.o
 *test*
-idea/
-idea/*
+.idea/
+.idea/*
+cmake-build-debug/*
+cmake-build-debug/
