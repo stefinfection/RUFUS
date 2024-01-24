@@ -10,7 +10,6 @@ RDIR=$CDIR/../
 
 
 JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
-SORT="$RDIR/scripts/sort"
 
 if [ -e "$GEN.Jhash" ]
 then

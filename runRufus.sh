@@ -30,8 +30,8 @@ RDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Testing variables for individual steps
 ENABLE_JELLY="TRUE"
-ENABLE_MODEL="FALSE"
-ENABLE_HASH_FILTER="FALSE"
+ENABLE_MODEL="TRUE"
+ENABLE_HASH_FILTER="TRUE"
 ENABLE_BUILD="FALSE"
 ENABLE_FILTER="FALSE"
 ENABLE_OVERLAP="FALSE"
@@ -390,7 +390,6 @@ assign_positional_args ()
 }
 
 which samtools || die "ERROR, samtools not installed, exiting"
-#which bamtools || die "ERROR, bamtools not installed, exiting"
 
 parse_commandline "$@"
 
@@ -786,7 +785,7 @@ then
 
     	for parent in "${ParentGenerators[@]}"
     	do
-    	      bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
+        bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
     	done
 
     	bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
@@ -884,7 +883,7 @@ then
         echo "INFO: MaxHashDepth = $MaxHashDepth"
       else
         echo "ERROR Model didnt run correctly, exiting"
-        return -1
+        return 1
       fi
     else
       echo "min coverage provided of $_arg_min, setting min kmer to that"
@@ -895,7 +894,7 @@ then
     if [	-z "$_arg_min" ]
     then
       echo "min coverage must be provided with an exome run"
-      return -1;
+      return 1;
     else
   ####TODO: check what im dond here
       echo "3" > "$ProbandGenerator".Jhash.histo.7.7.model;
@@ -907,31 +906,30 @@ then
       #touch "$ProbandGenerator".Jhash.histo.7.7.model
     fi
   fi
+
+  ########################################################################################
+  if [ "$_arg_stop" = "jelly" ];
+  then
+          echo "-StJ used, stopping run";
+          exit 1;
+  fi
+
+  #######################################################################################
+  if [ -z $MutantMinCov ]; then
+  	echo "ERROR: No min coverage set, possible error in Model"
+  	exit 100
+  fi
+  if [ "$MutantMinCov" -lt "2" ]
+  then
+  	echo "ERROR, model couldn't pick a sensible lower cutoff, check your subject bam file"
+          exit
+  fi
 else
   echo "Skipping Model for testing mode"
 fi
-
-
-########################################################################################
-if [ "$_arg_stop" = "jelly" ];
-then
-        echo "-StJ used, stopping run";
-        exit 1;
-fi
-
-#######################################################################################
-if [ -z $MutantMinCov ]; then 
-	echo "ERROR: No min coverage set, possible error in Model"
-	exit 100
-fi
-if [ "$MutantMinCov" -lt "2" ]
-then
-	echo "ERROR, model couldn't pick a sensible lower cutoff, check your subject bam file"
-        exit
-fi
 #################################__HASH_LIST_FILTER__#####################################
 
-if [ "$ENABLE_HASH_FILTER" == "TRUE"]
+if [ "$ENABLE_HASH_FILTER" == "TRUE" ]
 then
   echo "########### Running Mutant Hash Identification ##############"
 
@@ -948,25 +946,25 @@ then
       bash $PullSampleHashes $ProbandGenerator.Jhash "$ProbandGenerator".temp $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
       wait
   fi
+
+  ########################################################################################
+
+  if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
+  	echo "ERROR: No mutant hashes identified, either the files are exactly the same of something went wrong in previous step"
+  	exit 100
+  fi
+  ########################################################################################
+  if [ "$_arg_stop" = "hash" ];
+  then
+          echo "-StH used, stopping run";
+          exit 1;
+  fi
 else
   echo "Skipping Hash Filter for testing mode"
 fi
 
-########################################################################################
 
-if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
-	echo "ERROR: No mutant hashes identified, either the files are exactly the same of something went wrong in previous step"
-	exit 100
-fi
-########################################################################################
-if [ "$_arg_stop" = "hash" ];
-then
-        echo "-StH used, stopping run";
-        exit 1;
-fi
-
-
-if [ "$ENABLE_FILTER" == "TRUE"]
+if [ "$ENABLE_FILTER" == "TRUE" ]
 then
   ######################__RUFUS_FILTER__##################################################
   echo "########### starting RUFUS filter ###########"
@@ -1083,41 +1081,41 @@ then
       samtools index "$ProbandGenerator".Mutations.fastq.bam
   	fi
   fi
+
+  ########################################################################################
+  if [ $_arg_saliva == "TRUE" ]
+  then
+  	echo "saliva sample provided, only using aligned mutant contigs"
+  	if [ -e  "$ProbandGenerator".Mutations.fastq.FULL.bam ]
+  	then
+  		echo "skipping saliva filter"
+  	else
+
+  		mv "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.FULL.bam
+  		samtools index "$ProbandGenerator".Mutations.fastq.FULL.bam
+  		rm "$ProbandGenerator".Mutations.fastq.bam.bai
+  		samtools view -F 12 -b "$ProbandGenerator".Mutations.fastq.FULL.bam > "$ProbandGenerator".Mutations.fastq.bam
+  		samtools index "$ProbandGenerator".Mutations.fastq.bam
+  	fi
+  fi
+
+
+
+  if [ $( samtools view "$ProbandGenerator".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
+          echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq.  Either the files are exactly the same of something went wrong in previous step"
+          exit 100
+  fi
+  #################################################################################
+  if [ "$_arg_stop" = "filter" ];
+  then
+          echo "-StF used, stopping run";
+          exit 1;
+  fi
 else
   echo "Skipping Filter for testing mode"
 fi
 
-########################################################################################
-if [ $_arg_saliva == "TRUE" ]
-then 
-	echo "saliva sample provided, only using aligned mutant contigs"
-	if [ -e  "$ProbandGenerator".Mutations.fastq.FULL.bam ]
-	then 
-		echo "skipping saliva filter"
-	else
-		
-		mv "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.FULL.bam 
-		samtools index "$ProbandGenerator".Mutations.fastq.FULL.bam
-		rm "$ProbandGenerator".Mutations.fastq.bam.bai
-		samtools view -F 12 -b "$ProbandGenerator".Mutations.fastq.FULL.bam > "$ProbandGenerator".Mutations.fastq.bam
-		samtools index "$ProbandGenerator".Mutations.fastq.bam
-	fi
-fi
-
-
-
-if [ $( samtools view "$ProbandGenerator".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
-        echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq.  Either the files are exactly the same of something went wrong in previous step" 
-        exit 100
-fi 
-#################################################################################
-if [ "$_arg_stop" = "filter" ];
-then
-        echo "-StF used, stopping run";
-        exit 1;
-fi
-
-if [ "$ENABLE_OVERLAP" == "TRUE"]
+if [ "$ENABLE_OVERLAP" == "TRUE" ]
 then
   ###################__RUFUS_OVERLAP__#############################################
   if [ -e $ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf.gz ]

@@ -26,6 +26,21 @@ int HashSize = -1;
 bool FullOut = false;
 unordered_map<string, bool> DupCheck;
 
+/***
+ *
+ * @param sequences
+ * @param quals
+ * @param Ap
+ * @param Aqp
+ * @param Ai
+ * @param overlap
+ * @param index
+ * @param minPercentPassed
+ * @param PerfectMatch
+ * @param MinOverlapPassed
+ * @param Threads
+ * @return
+ */
 int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string Aqp, int Ai, int &overlap, int &index,
            float minPercentPassed, bool &PerfectMatch, int MinOverlapPassed, int Threads) {
     int QualityOffset = 33; //=64;
@@ -618,6 +633,8 @@ int main(int argc, char *argv[]) {
     std::vector<string> Unqual;
     std::vector<string> Undepth;
     std::vector<string> Unstrand;
+
+    // todo: are these lines?
     int lines = -1;
     string L1;
     string L2;
@@ -625,6 +642,7 @@ int main(int argc, char *argv[]) {
     string L4;
     string L5;
     string L6;
+
     unsigned long LongHash;
     int Rejects = 0;
     string Fastqd = argv[1];
@@ -646,31 +664,18 @@ int main(int argc, char *argv[]) {
     }
 
 
+    // e.g. MutHashFile= $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
+    // todo: left off here - what does this file format look like?
     while (getline(MutHashFile, L1)) {
-        vector<string> temp;
-        /*	temp = Util::Split(L1, '\t');
 
-            if (temp.size() == 2) {
-                unsigned long b = Util::HashToLong(temp[0]);
-                unsigned long revb = Util::HashToLong(Util::RevComp(temp[0]));
-                Mutations.insert(pair<unsigned long, int>(b, 0));
-                Mutations.insert(pair<unsigned long, int>(revb, 0));
-                HashSize = temp[0].size();
-            } else if (temp.size() == 4) {
-                unsigned long b = Util::HashToLong(temp[3]);
-                unsigned long revb = Util::HashToLong(Util::RevComp(temp[3]));
-                Mutations.insert(pair<unsigned long, int>(b, 0));
-                Mutations.insert(pair<unsigned long, int>(revb, 0));
-                HashSize = temp[3].size();
-            }
-            if (temp.size() == 1) {*/
-        temp = Util::Split(L1, ' ');
+        // Split line by spaces
+        vector<string> temp = Util::Split(L1, ' ');
+
         unsigned long b = Util::HashToLong(temp[0]);
         unsigned long revb = Util::HashToLong(Util::RevComp(temp[0]));
         Mutations.insert(pair<unsigned long, int>(b, 0));
         Mutations.insert(pair<unsigned long, int>(revb, 0));
         HashSize = temp[0].size();
-        //}
     }
 
     if (HashSize == -1) {
@@ -687,7 +692,7 @@ int main(int argc, char *argv[]) {
                  << Rejects
                  << " reads\r";
         }
-        vector<string> temp = Util::Split(L1, '\t');
+        vector<string> temp = Util::Split(L1, '\t');    // Temporary string vector
         temp[9] = ReplaceLowQBase(temp[9], temp[10], 10);
         //temp[9] = TrimKends(temp[9], temp[10], 15);
         int ReadSize = temp[10].size();
@@ -851,6 +856,7 @@ int main(int argc, char *argv[]) {
         int k = -1;
         int bestIndex = -1;
         bool PerfectMatch = false;
+
         int booya = Align3(sequences, qual, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Threads);
         if (FullOut) {
             cout << "best forward score is " << booya << " k is " << k << endl;
