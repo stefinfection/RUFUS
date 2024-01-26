@@ -32,9 +32,9 @@ RDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ENABLE_JELLY="TRUE"
 ENABLE_MODEL="TRUE"
 ENABLE_HASH_FILTER="TRUE"
-ENABLE_BUILD="FALSE"
-ENABLE_FILTER="FALSE"
-ENABLE_OVERLAP="FALSE"
+ENABLE_FILTER="TRUE"
+ENABLE_OVERLAP="TRUE"
+ENABLE_CLEANUP="FALSE"
 
 die()
 {
@@ -845,6 +845,7 @@ then
     ##############################################################################
 else
     echo "Skipping Jellyfish for testing mode"
+    exit 0
 fi
 
 
@@ -926,6 +927,7 @@ then
   fi
 else
   echo "Skipping Model for testing mode"
+  exit 0
 fi
 #################################__HASH_LIST_FILTER__#####################################
 
@@ -961,6 +963,7 @@ then
   fi
 else
   echo "Skipping Hash Filter for testing mode"
+  exit 0
 fi
 
 
@@ -1113,6 +1116,7 @@ then
   fi
 else
   echo "Skipping Filter for testing mode"
+  exit 0
 fi
 
 if [ "$ENABLE_OVERLAP" == "TRUE" ]
@@ -1131,6 +1135,7 @@ then
   fi
 else
   echo "Skipping Overlap for testing mode"
+  exit 0
 fi
 
 ##############################################################################################
@@ -1144,24 +1149,32 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-
-echo "cleaning up VCF"
-
-grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-echo "ar_mosaic = $_arg_mosaic"
-if [ "$_arg_mosaic" == "TRUE" ]
+if [ "$ENABLE_CLEANUP" == "TRUE" ]
 then
-	echo "including mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+  echo "cleaning up VCF"
+
+  grep ^# $ProbandGeneratorV2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+  grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+  echo "ar_mosaic = $_arg_mosaic"
+  if [ "$_arg_mosaic" == "TRUE" ]
+  then
+  	echo "including mosaic";
+  	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+  else
+  	echo "excluding mosaic";
+  	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+  fi
+
+  bgzip -f ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+  tabix ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf.gz
+
+  echo "done with everything"
+  exit 0
 else
-	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+  echo "Skipping final vcf cleanup for test mode"
+  exit 0
+
+  # Remove named pipes
+  find . -type p -delete
 fi
-
-bgzip -f ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
-tabix ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf.gz
-
-echo "done with everything"
-exit 0
 # ] <-- needed because of Argbash
