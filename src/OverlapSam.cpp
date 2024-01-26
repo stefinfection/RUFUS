@@ -544,7 +544,7 @@ int NumLowQbases(string qual, int min) {
 /***
  *
  * @param argc 10
- * @param argv 1) SAM, 2) MinPercent, 3) MinOverlap, 4) MinCoverage, 5) ReportStub, 6) NodeStub, 7) LCcutoff, 8) HashPath, 9) Threads
+ * @param argv 1) BAM, 2) MinPercent, 3) MinOverlap, 4) MinCoverage, 5) ReportStub, 6) NodeStub, 7) LCcutoff, 8) HashPath, 9) Threads
  * @return 0
  */
 int main(int argc, char *argv[]) {
@@ -590,10 +590,10 @@ int main(int argc, char *argv[]) {
          << "\n Threads = " << argv[9]
          << endl;
 
-    // Open the fastq file
-    ifstream fastq;
-    fastq.open(argv[1]);
-    if (fastq.is_open()) {
+    // Open the file
+    ifstream bam_file;
+    bam_file.open(argv[1]);
+    if (bam_file.is_open()) {
         cout << "File open - " << argv[1] << endl;
     } else {
         cout << "Error, Proband could not be opened";
@@ -684,7 +684,7 @@ int main(int argc, char *argv[]) {
     }
     cout << "HashSize = " << HashSize << endl;
 
-    while (getline(fastq, L1)) {
+    while (getline(bam_file, L1)) {
         counter++;
         if (counter % 100 == 1) {
             cout << "Read in " << counter << " reads, with " << goodreads << " aligned reads, " << unalignedCounter

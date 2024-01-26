@@ -20,7 +20,7 @@
 set -e
 
 humanRef=$1
-File=$2
+File=$2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
 FinalCoverage=$3
 NameStub=$4.V2
 HashList=$5 # e.g. $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
@@ -98,6 +98,7 @@ if [ "$speed" == "veryfast" ]; then
   if [ -s ./TempOverlap/$NameStub.sam.fastqd ]; then
     echo "skipping sam assemble"
   else
+    # Process substitution
     $OverlapSam <(samtools view -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 ') .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
     #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
   fi
@@ -193,8 +194,6 @@ fi
 if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]; then
   echo "skipping contig alignment"
 else
-  #        $bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-  #	$bwa mem -t $Threads -Y -E 0,0 -O 6,6 -d 500 -w 500  -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
   $bwa mem -t $Threads -Y $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - >./$NameStub.overlap.hashcount.fastq.bam
   samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
@@ -291,7 +290,6 @@ done
 
 #echo "final parent String is  $parentCRString"
 ##########################################################################################
-echo "here"
 if [ -s ./Intermediates/$NameStub.ref.RepRefHash ]; then
   echo "Exclude already exists"
 else

@@ -5685,7 +5685,8 @@ int main (int argc, char *argv[])
 	//write VCF header
 	VCFOutFile << "##fileformat=VCFv4.1" << endl;
 	VCFOutFile << "##fileDate=" << time(0) << endl;
-    // todo: add in run command here
+    // TODO: put in rufus command line invocation
+
 	VCFOutFile << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
 	VCFOutFile << "##FORMAT=<ID=AK,Number=1,Type=Integer,Description=\"Alternate Kmer Count\">" << endl;
 	VCFOutFile << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total Kmer depth across the variant\">" << endl;
