@@ -64,6 +64,7 @@ ofstream Translocationsbed;
 ofstream Unaligned; 
 map <string, int> Hash; 
 /////////////////////////
+
 const vector<string> Split(const string& line, const char delim) {
     vector<string> tokens;
     stringstream lineStream(line);
@@ -498,7 +499,7 @@ class MobRead
 	string seq;
 	string qual;
 	void parse(string read);
-	int AS = -1; 
+	int AS = -1;  // todo: what is this?
 	void processCigar(); 
 	void write(); 
 };
@@ -5247,8 +5248,8 @@ int main (int argc, char *argv[])
                 "(Sorry it has to be a num, no 1kb, must be 1000\n"
                 "-c    arg  Path to sorted.tab file for the parent sample\n"
                 "-s    arg  Path to sorted.tab file for the subject sample\n"
-                "-cR   arg  Path to the sorted.tab file fo the parent sample hashes in the reference\n"
-                "-sR   arg  Path to the sorted.tab file fo the subject sample hashes in the reference\n"
+                "-cR   arg  Path to the sorted.tab file for the parent sample hashes in the reference\n"
+                "-sR   arg  Path to the sorted.tab file for the subject sample hashes in the reference\n"
                 "-mQ   arg  Minimum map quality to consider variants in\n"
                 "-mod  arg  Path to the model file from RUFUS.model\n"
                 "-e    arg  Path to Kmer file to exclude from LowCov check\n"
@@ -5401,6 +5402,7 @@ int main (int argc, char *argv[])
 		}*/
 	}
 
+    // Parse mobile elements into hashmap
 	unordered_map <string, MobRead> mobs; 
 	if (MobBam != "") {
 		cout << "mob aligned contigs provided: " << MobBam << endl; 
@@ -5439,15 +5441,18 @@ int main (int argc, char *argv[])
 		}
 	}
 	cout << "yaya finished mob " << endl;
+
+
 	#pragma omp parallel sections
 	{
 		#pragma omp section
 		{
+            // Parse parent hash files into local data structures
 			for (int i = 0; i < ParentHashFilePaths.size(); i++) 
 			{
 				cout << "adding a entry to ParentHashes " << i << endl; 
 				unordered_map <unsigned long int, int> hl;
-				 ParentHashes.push_back(hl);
+                ParentHashes.push_back(hl);
 			}
 			#pragma omp parallel for shared(ParentHashes)  
 			for (int i = 0; i < ParentHashFilePaths.size(); i++)
@@ -5465,6 +5470,7 @@ int main (int argc, char *argv[])
 					hash = HashToLong(RevComp(temp[0])); 
 					hl[hash] = atoi(temp[1].c_str()); 
 				}
+                // todo: technically ParentHashes might have race condition here
 				cout << "pushing back " << i << " size of parent hash is " << ParentHashes.size() << endl; 
 				#pragma omp critical
 				{
@@ -5473,6 +5479,7 @@ int main (int argc, char *argv[])
 					reader.close(); 
 				}
 			}
+
 			cout << "done with parent Alt Hashes, starting Ref " << endl; 	
 			#pragma omp parallel for
 			for (int i = 0; i < ParentHashFilePathsReference.size(); i++)
@@ -5500,16 +5507,16 @@ int main (int argc, char *argv[])
 			
 			}
 		}
+
 		#pragma omp section
 		{
-
+            // Parse sample hash files into local data structures
 			cout << "reading in mutant alt hashes" << endl; 
 			ifstream reader;
 			reader.open (MutHashFilePath);
 			string line = "";
 			while (getline(reader, line))
 			{
-		
 				vector <string> temp = Split(line, ' ');
 				unsigned long hash = HashToLong(temp[0]);
 				MutantHashes[hash] = atoi(temp[1].c_str());
@@ -5532,8 +5539,10 @@ int main (int argc, char *argv[])
 			}
 			reader.close();			
 		}
+
 		#pragma omp section
 		{
+            // Parse exclude hash into local data structure
 			ifstream reader;
 			string line; 
 			reader.open(ExcludeFilePath); 
@@ -5551,7 +5560,8 @@ int main (int argc, char *argv[])
 	}
 	//***********************************************
 	//cout << "Call is Reference Contigs.fa OutStub HashList MaxVarientSize" << endl;
-	double vm, rss, MAXvm, MAXrss;
+
+    double vm, rss, MAXvm, MAXrss;
 	MAXvm = 0;
 	MAXrss = 0;
 	process_mem_usage(vm, rss, MAXvm, MAXrss);
@@ -5560,6 +5570,7 @@ int main (int argc, char *argv[])
 	
 	int BufferSize = 1000;
 
+    // todo: move this until where we actually use it?
 	Reff.open(RefFile);
 
 //	ifstream ModelFile; 
@@ -5575,7 +5586,7 @@ int main (int argc, char *argv[])
     ifstream HashList;
     HashList.open (HashListFile);
     if ( HashList.is_open())
-    {	 cout << "HashList Open " << HashListFile << endl;}   //cout << "##File Opend\n";
+    {	 cout << "HashList Open " << HashListFile << endl;}
     else
     {
         cout << "Error, HashList could not be opened";

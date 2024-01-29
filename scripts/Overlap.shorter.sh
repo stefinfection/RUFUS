@@ -70,7 +70,7 @@ RDIR=$CDIR/../
 AddSA=$RDIR/scripts/AddSAtoReadSame.pl
 OverlapHash=$RDIR/bin/Overlap
 OverlapRegion2=$RDIR/bin/OverlapRegion
-OverlapRegionSmall=$RDIR/bin/OverlapRegion.small
+OverlapRegionSmall=$RDIR/bin/OverlapRegion.small # todo: unused
 ReplaceQwithDinFASTQD=$RDIR/bin/ReplaceQwithDinFASTQD
 ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ
 AnnotateOverlap=$RDIR/bin/AnnotateOverlap
@@ -216,7 +216,7 @@ echo "starting reference pull "
 if [ -e ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]; then
   echo "skipping pull reference sequecnes"
 else
-
+  # This step makes a fastq file for the reference genome at the sites identified in the samples
   bedtools getfasta -bed <(bedtools bamtobed -i ./$NameStub.overlap.hashcount.fastq.bam | awk '{s=$2-100; if (s<0) {print $1 "\t" 0  "\t" $3+100} else {print $1 "\t" s  "\t" $3+100}}') -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq
 
 fi
@@ -243,6 +243,7 @@ echo "pull hashes from sample"
 if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample ]; then
   echo "skipping  Intermediates/$NameStub.overlap.asembly.hash.fastq.sample file already exitst"
 else
+  # todo: I think this is pulling out overlap/contig hashes from the original sample hash (functionally what does this do?)
   echo "starting hash lookup this one"
   bash $CheckHash $SampleJhash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov >Intermediates/$NameStub.overlap.asembly.hash.fastq.sample &
   echo "done with hash lookup"
@@ -260,6 +261,7 @@ done
 
 wait
 
+# pull hashes from reference
 if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample ]; then
   echo "skipping Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample"
 else
@@ -297,7 +299,7 @@ else
     echo "refhash not provided, skipping"
     touch Intermediates/$NameStub.ref.RepRefHash
   else
-
+    # this is called with recommended parameters as of 2024 SJG
     echo "this one"
     echo "bash $CheckHash $refHash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov > Intermediates/$NameStub.ref.RepRefHash"
     bash $CheckHash $refHash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov >Intermediates/$NameStub.ref.RepRefHash
@@ -308,11 +310,15 @@ wait
 
 echo "starting overlap index"
 samtools index ./$NameStub.overlap.hashcount.fastq.bam
-echo "done with overlap index"
-echo ""
-echo ""
-echo ""
+echo -e "done with overlap index \n\n\n"
 dumbFix=$(awk '{split($1, a, ".V2"); print a[1]}' <<<$NameStub)
-echo "$RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 20 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash"
+echo "$RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 20 "\
+ "-r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) "\
+ "-sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample "\
+ "-s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash"
 
-samtools view ./$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn | $RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r $humanRef -hf $HashList -o ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash
+samtools view ./$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn \
+ | $RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist \
+ -mQ 10 -r $humanRef -hf $HashList -o ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize \
+  $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample \
+   -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash
