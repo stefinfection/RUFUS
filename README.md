@@ -186,7 +186,7 @@ sudo apt-get install libncurses5-dev
 
 ## To Build Singularity Container on EC2 instance
 m7gd.4xlarge with Ubuntu
-[Install Singularity](https://github.com/apptainer/singularity/blob/master/INSTALL.md)
+[Install Singularity CE](https://github.com/sylabs/singularity/blob/main/INSTALL.md)
 ```
 mkdir singularity_temp
 export SINGULARITY_TMPDIR=/home/ec2-user/singularity-temp
