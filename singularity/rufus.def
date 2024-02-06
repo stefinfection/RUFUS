@@ -7,7 +7,7 @@ From: ubuntu:22.04
 
 %post
     apt-get update
-    apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev liblzma-dev bc libncurses5-dev samtools bamtools
+    apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev liblzma-dev bc libncurses5-dev samtools bamtools bedtools
     add-apt-repository ppa:ubuntu-toolchain-r/test
 
     cd /opt
