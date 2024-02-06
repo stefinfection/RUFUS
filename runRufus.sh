@@ -2,6 +2,8 @@
 #check this dev branch thing
 
 echo "CAUTION: YOU ARE RUNNING THE DEVELOPMENT VERSION OF RUFUS"
+echo "${@}"
+exit 5
 
 set -e 
 

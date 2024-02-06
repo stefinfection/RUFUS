@@ -5582,7 +5582,8 @@ int main (int argc, char *argv[])
 //		cout << "Error no model file given, not worring abou this now" << endl;
 //		//return -1;
 //	}
-	
+
+    // todo: left off here
     ifstream HashList;
     HashList.open (HashListFile);
     if ( HashList.is_open())
