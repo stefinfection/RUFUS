@@ -185,7 +185,8 @@ sudo apt-get install libncurses5-dev
 ```
 
 ## To Build Singularity Container on EC2 instance
-m7gd.4xlarge with Ubuntu
+c7i.8xlarge with Ubuntu
+Requires 64GB of memory to successfully run test
 [Install Singularity CE](https://github.com/sylabs/singularity/blob/main/INSTALL.md)
 ```
 mkdir singularity_temp
