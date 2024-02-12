@@ -2719,26 +2719,23 @@ void SamRead::parseMutations( char *argv[], vector<SamRead>& reads)
 				if (low < 0)
 				  low = 0; 
 
-				for(int k = low ; k <= i+50 and k < hashes.size(); k++)
-				{
-	       				for (int j = 0; j < parentCounts.size(); j++)
-					{
-						int sum = 0; 
-						if (hashesRef[k] == hashes[k])
-						{sum = parentCountsReference[j][k]; /*cout <<hashesRef[k]<< "\t" << hashes[k] << "\tParSame-" << sum; */}
-						else
-						{sum = parentCounts[j][k] + parentCountsReference[j][k]; /* cout <<hashesRef[k]<< "\t" << hashes[k] << "\tParDiff-" << sum; */ }
-						
-						if (sum <= ParLowCovThreshold  and parentCounts[j][k] + parentCountsReference[j][k] > 2 )
-						{
-							NumLowCov++;
-							// cout << "\tLOWCOV-" << NumLowCov ;
-						}
-					}
-					//cout << endl;
+				for(int k = low ; k <= i+50 and k < hashes.size(); k++) {
+                    for (int j = 0; j < parentCounts.size(); j++) {
+                            int sum = 0;
+                            if (hashesRef[k] == hashes[k]) {
+                                sum = parentCountsReference[j][k]; /*cout <<hashesRef[k]<< "\t" << hashes[k] << "\tParSame-" << sum; */
+                            } else {
+                                sum = parentCounts[j][k] + parentCountsReference[j][k]; /* cout <<hashesRef[k]<< "\t" << hashes[k] << "\tParDiff-" << sum; */
+                            }
 
+                            if (sum <= ParLowCovThreshold and parentCounts[j][k] + parentCountsReference[j][k] > 2 ) {
+                                NumLowCov++;
+                                // cout << "\tLOWCOV-" << NumLowCov ;
+                            }
+                    }
+					//cout << endl;
 				}
-				//////////////////////////////check if the parenst contain any of mut hashes//////////////////////////////////////////
+				//////////////////////////////check if the parents contain any of mut hashes//////////////////////////////////////////
 				bool LowCov = false; 
 				int lowCount = 0;
 				low = i - HashSize ; 
