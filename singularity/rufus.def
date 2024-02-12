@@ -10,17 +10,25 @@ From: ubuntu:22.04
     apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev bc libncurses5-dev autoconf automake make liblzma-dev libcurl4-gnutls-dev libssl-dev samtools bamtools bedtools 
     add-apt-repository ppa:ubuntu-toolchain-r/test
 
+    # install vt
     cd /opt
+    git clone https://github.com/atks/vt.git
+    cd vt
+    git submodule update --init --recursive
+    make
+    make test
 
     # install htslib
+    cd /opt
     git clone --recurse-submodules https://github.com/samtools/htslib.git
     cd htslib
     autoreconf -i
     ./configure
     make
-    make install 
+    make install
 
     # install rufus
+    cd /opt
     git clone https://github.com/stefinfection/RUFUS.git
     cd RUFUS
     git checkout singularity_builder
@@ -33,16 +41,14 @@ From: ubuntu:22.04
 
 %environment
     export PATH=$PATH:/opt/RUFUS/bin
+    export RUFUS_ROOT=/opt/RUFUS
 
 %test
     samtools || true
     bamtools || true
     bedtools || true
     bgzip || true
-    #cp -r /opt/RUFUS/testRun/* /mnt
-    #cd /mnt
-    #bash /mnt/runTest.sh
-    #echo "Test ran successfully"
+    vt || true
 
 %runscript
     echo "Arguments provided: $*"
