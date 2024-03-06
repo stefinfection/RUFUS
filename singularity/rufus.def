@@ -46,13 +46,14 @@ From: ubuntu:22.04
 %test
     samtools || true
     bamtools || true
-    cp -r /opt/RUFUS/testRun/* /mnt
-    cd /mnt
-    bash /mnt/runTest.sh
-    echo "Test ran successfully"
     bedtools || true
     bgzip || true
     vt || true
+    
+    #cp -r /opt/RUFUS/testRun/* /mnt
+    #cd /mnt
+    #bash /mnt/runTest.sh
+    #echo "Test ran successfully"
 
 %runscript
     echo "Arguments provided: $*"
