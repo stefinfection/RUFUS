@@ -185,7 +185,7 @@ sudo apt-get install libncurses5-dev
 ```
 
 ## To Build Singularity Container on EC2 instance
-t2.micro with AWS-Linux
+c6i.8xl with Ubuntu
 [Install Singularity](https://github.com/apptainer/singularity/blob/master/INSTALL.md)
 ```
 mkdir singularity_temp
