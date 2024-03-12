@@ -1,6 +1,4 @@
 #!/bin/bash
-#check this dev branch thing
-
 
 set -e 
 
@@ -395,9 +393,11 @@ echo "  _arg_exclude=:"
 	  	echo "		$each"
 	done           
 echo "  _arg_controls=:"
+    arg_control_string=""
 	for each in "${_arg_controls[@]}"                           #
 	do                                                          #
-		echo "		$each"                                              #
+		echo "		$each"
+        arg_control_string="$arg_control_string $each"                                              #
 	done           
 
 echo "  _arg_subject=$_arg_subject" 
@@ -752,6 +752,7 @@ RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
 RUFUSOverlap=$RDIR/scripts/Overlap.shorter.sh
 RunJelly=$RDIR/scripts/RunJellyForRUFUS.sh
 PullSampleHashes=$RDIR/scripts/CheckJellyHashList.sh
+RemoveCoInheritedVars=$RDIR/scripts/remove_coinherited.sh
 modifiedJelly=$RDIR/bin/externals/modified_jellyfish/src/modified_jellyfish_project/bin/jellyfish
 bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
 RUFUSfilterFASTQ=$RDIR/bin/RUFUS.Filter
@@ -1113,20 +1114,25 @@ fi
 
 echo "cleaning up VCF"
 
+PREFINAL_VCF="$ProbandGenerator.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
+
 grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 echo "ar_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 else
 	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
-bgzip -f ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf
-tabix ./$ProbandGenerator.V2.overlap.hashcount.fastq.bam.FINAL.vcf.gz
+bgzip -f ./$PREFINAL_VCF
+tabix ./$PREFINAL_VCF
+
+echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
+bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
 
 echo "done with everything"
 exit 0

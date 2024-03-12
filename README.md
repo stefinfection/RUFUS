@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 RUFUS
 =====
 
@@ -193,3 +194,4 @@ export SINGULARITY_TMPDIR=/home/ec2-user/singularity-temp
 sudo -E singularity build rufus.sif rufus.def
 ```
 
+=======

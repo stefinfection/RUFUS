@@ -12,8 +12,10 @@ SAMPLE_NAME=$3     # Sample name, used in vcf output file name
 ARG_LIST=("$@")
 CONTROL_BAM_LIST=("${ARG_LIST[@]:3}") # Remaining args, all control bams
 
+echo "Arguments to remove coinherited script: $ARG_LIST"
+
 # static vars
-OUT_VCF="$SAMPLE_NAME.FINAL.intersected.vcf.gz"
+OUT_VCF="$SAMPLE_NAME.FINAL.vcf.gz"
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
 
@@ -46,7 +48,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $OUT_VCF $CONTROL_VCF
         
     # save the new vcf as rufus final vcf
-	OUTFILE=$ISEC_OUT_DIR/0000.vcf
+	OUT_VCF=$ISEC_OUT_DIR/0000.vcf
 
     # clean up aligned control file, if it exists
 	if [ "$MADE_CONTROL_BAM" = true ]; then
