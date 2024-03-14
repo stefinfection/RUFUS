@@ -1,6 +1,8 @@
 #!/bin/bash
 #check this dev branch thing
 
+echo "You are running the STAGING version of RUFUS: v0.3.0"
+
 # Check for correct version of gcc
 gcc_expected="10.2.0"
 gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
@@ -994,31 +996,35 @@ then
 			wait
 		fi
 	fi
-	#if [ $(wc -l "$ProbandGenerator".Mutations.Mate1.fastq | awk '{print $1}') -eq "0" ]; then	
-	if [ $(head "$ProbandGenerator".Mutations.Mate1.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
+	
+    if [ $(head "$ProbandGenerator".Mutations.Mate1.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
 		echo "ERROR: No mutant fastq reads idenfied.  Either the files are exactly the same of something went wrong in previous step" 
 		exit 100
 	fi
-	
+
 	shortinsert="false"
 	if [ -e "$ProbandGenerator".Mutations.fastq.bam ]
 	then 
 		echo "skipping mapping mates" 
 	else
+        # Sort fastq mates
+        sortedMate1Fastq="$ProbandGenerator".sorted.Mutations.Mate1.fastq
+        sortedMate2Fastq="$ProbandGenerator".sorted.Mutations.Mate2.fastq
+
+        cat "$ProbandGenerator".Mutations.Mate1.fastq | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedMate1Fastq
+        cat "$ProbandGenerator".Mutations.Mate2.fastq | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedMate2Fastq
+
 		if [ $shortinsert = "false" ]
 		then
 			echo "skipping fastp fix"
-	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
+	                $bwa mem -t $Threads $_arg_ref_bwa $sortedMate1Fastq $sortedMate2Fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
 	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
 		else
 			echo "using fastp fix" 
-			#cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq > "$ProbandGenerator".Mutations.fastq
-	        	#$bwa mem -t $Threads $_arg_ref_bwa <( cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq)  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
-	        	$fastp -i "$ProbandGenerator".Mutations.Mate1.fastq -I "$ProbandGenerator".Mutations.Mate2.fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
+	        $fastp -i $sortedMate1Fastq -I $sortedMate2Fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
 			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
 			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
 			samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
-			#$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
 			samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
 			samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
 			samtools index "$ProbandGenerator".Mutations.fastq.bam
