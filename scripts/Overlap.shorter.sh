@@ -78,7 +78,12 @@ if [ -s ./$File.bam ]
 then 
 	echo "skipping align"
 else
-	$bwa mem -t $Threads $humanRefBwa "$File" | samtools sort -T $File -O bam - > $File.bam
+    # Ensure fastq is sorted for reproducibility
+    # todo: this branch needs to be tested
+    sortedFastq="sorted."$File
+    cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
+    
+	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | samtools sort -T $File -O bam - > $File.bam
 	samtools index $File.bam 
 fi
 
@@ -200,13 +205,22 @@ if [ $( head ./$NameStub.overlap.hashcount.fastq | wc -l | awk '{print $1}') -eq
         exit 100
 fi
 
+# Sort fastq file used in subsequence bwa calls for reproducibility
+sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
+if [ -s ./$NameStub".overlap.hashcount.fastq" ]
+then
+    echo "skipping overlap hashcount fastq sort"
+else
+    cat ./$NameStub.overlap.hashcount.fastq | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > ./$sortedFastq
+fi
+
 if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]
 then 
 	echo "skipping contig alignment" 
 else
 #        $bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
 #	$bwa mem -t $Threads -Y -E 0,0 -O 6,6 -d 500 -w 500  -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-        $bwa mem -t $Threads -Y  $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+        $bwa mem -t $Threads -Y  $humanRefBwa ./$sortedFastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
 	samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
@@ -217,12 +231,12 @@ fi
 
 echo "string hash lookup"
 #############################################################################################################
-echo "staring MOB check"
+echo "staring MOB check on sorted fastq"
 if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam ]
 then
 	echo "skipping MOB alignemnt check "
-else 
-	$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
+else
+	$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
 fi 
 
 

@@ -1144,7 +1144,7 @@ else
 fi
 
 bgzip -f ./$PREFINAL_VCF
-tabix ./$PREFINAL_VCF
+tabix ./$PREFINAL_VCF".gz"
 
 echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
