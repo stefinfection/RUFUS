@@ -23,7 +23,7 @@
 using namespace std;
 unordered_map<unsigned long, int> Mutations;
 int HashSize = -1;
-bool FullOut = false;
+bool FullOut = false; // todo: get rid of this and use verbose per function
 unordered_map<string, bool> DupCheck;
 
 /***
@@ -31,7 +31,7 @@ unordered_map<string, bool> DupCheck;
  * @param sequences
  * @param quals
  * @param Ap
- * @param Aqp
+ * @param A_qualp
  * @param Ai
  * @param overlap
  * @param index
@@ -41,86 +41,95 @@ unordered_map<string, bool> DupCheck;
  * @param Threads
  * @return
  */
-int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string Aqp, int Ai, int &overlap, int &index,
+
+/*
+ * Ai = index in sequence vector
+ * Compare sequence A to B, where B is the 9 subsequent sequences in the vector
+ */
+int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A_qualp, int Ai, int &overlap, int &index,
            float minPercentPassed, bool &PerfectMatch, int MinOverlapPassed, int Threads) {
-    int QualityOffset = 33; //=64;
-    int MinQual = 20;
+    // int QualityOffset = 33; //=64; todo: UNUSED
+    // int MinQual = 20; todo: UNUSED
     bool verbose = false;
     int bestScore = 0;
-    int NumReads = sequences.size();
+    //int NumReads = sequences.size(); todo: UNUSED
+
+    // todo: these give overlapping windows? e.g. 1-10, 2-11, 3-12, etc.
     int start = Ai + 1;
     int end = start + 10;
     if (end > sequences.size()) {
         end = sequences.size();
     }
-    if (FullOut == true) { cout << "staring alignment from " << start << " to " << end << endl; }
 
-#pragma omp parallel for shared(Ap, Aqp, index, overlap, bestScore) num_threads(Threads)
+    if (FullOut) { cout << "staring alignment from " << start << " to " << end << endl; }
+
+#pragma omp parallel for shared(Ap, A_qualp, index, overlap, bestScore) num_threads(Threads)
     for (int j = start; j < end; j++) {
+
+        // Thread local variables
         int MinOverlap = MinOverlapPassed;
         float minPercent = minPercentPassed;
         int LocalBestScore = 0;
         int LocalIndex = -1;
         int LocalOverlap = 0;
-        string A;
-        int Alen;
-        string Aq;
-        //#pragma omp critical
-        {
-            A = Ap;
-            Alen = A.length();
-            Aq = Aqp;
-        }
-        string B;
-        string Bq;
-        int Blength = -1;
-        int Alength = Alen;
-        int k;
 
+        // todo: instead of this, pass into pragma as firstprivate
+        string A = Ap;
+        int A_length = A.length();
+        string A_qual = A_qualp;
+
+        string B;
+        string B_qual;
         //#pragma omp critical
         {
-            B = sequences[j];
-            Bq = quals[j];
+            B = sequences[j]; // todo: reading from global here - indices are overlapping b/w threads so could be reading from same index at same time
+            B_qual = quals[j];  // todo: reading from global here
         }
-        Blength = B.length();
+        int B_length = B.length();
+
+        // Find smallest/largest window
         int window = -1;
         int longest = -1;
-        bool Asmaller = true;
-
-        if (Blength > Alength) {
-            window = Alength;
-            longest = Blength;
-            Asmaller = false;
+        bool A_smaller = true;
+        if (B_length > A_length) {
+            window = A_length;
+            longest = B_length;
+            A_smaller = false;
         } else {
-            window = Blength;
-            longest = Alength;
-            Asmaller = true;
+            window = B_length;
+            longest = A_length;
+            A_smaller = true;
         }
 
-        int MM = window - (window * minPercent);
-        int Acount = 0;
-        int Bcount = 0;
+        // todo: what is this
+        int minMatchCount = window - (window * minPercent);
+        int A_count = 0;
+        int B_count = 0;
 
-        for (int i = 0; i <= longest - window; i++) {
+        // Difference b/w the two sequences
+        int delta = longest - window;
+        for (int i = 0; i <= delta; i++) {
             float score = 0;
-            //first check where the reads completely overlap
-            for (k = 0; k < window; k++) {
-                if (A.c_str()[k + Acount] == B.c_str()[k + Bcount]) {
-                    if (B.c_str()[k + Bcount] != 'N' && (int) Aq.c_str()[k + Acount] > 5 &&
-                        (int) Bq.c_str()[k + Bcount] > 5) {
+            // First check bases within the window size
+            for (int k = 0; k < window; k++) {
+                // If we find a match that isn't N and has a quality score on both strands > 5, increment score
+                if (A.c_str()[k + A_count] == B.c_str()[k + B_count]) {
+                    if (B.c_str()[k + B_count] != 'N' && (int) A_qual.c_str()[k + A_count] > 5 &&
+                        (int) B_qual.c_str()[k + B_count] > 5) {
                         score++;
                     }
                 }
-                if ((k - score) > MM) {
+                // If we already have too few matches, abort this overlap
+                if ((k - score) > minMatchCount) {
                     score = -1;
                     break;
                 }
             }
 
-            if (Asmaller) {
-                Acount++;
+            if (A_smaller) {
+                A_count++;
             } else {
-                Bcount++;
+                B_count++;
             }
 
             if (verbose) {
@@ -129,11 +138,12 @@ int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A
 
             float percent = score / (window);
             if (percent >= minPercent) {
-                if (FullOut == true) { cout << percent << " = " << score << " / " << window << endl; }
+                if (FullOut) { cout << percent << " = " << score << " / " << window << endl; }
+
                 if (LocalBestScore < score) {
                     LocalBestScore = score;
                     LocalIndex = j;
-                    if (Asmaller) {
+                    if (A_smaller) {
                         LocalOverlap = i * -1;
                     } else {
                         LocalOverlap = i;
@@ -146,27 +156,28 @@ int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A
             }
         }
 
-        if (PerfectMatch == false) {
+        // If we don't have a perfect match anywhere within the sliding window, keep trying to align outside of min length
+        if (!PerfectMatch) {
             for (int i = window - 1; i >= MinOverlap; i--) {
                 if (verbose) { cout << "i = " << i << endl; }
 
                 float score = 0;
-                for (k = 0; k <= i; k++) {
+                for (int k = 0; k <= i; k++) {
                     if (verbose) {
-                        cout << "	k = " << k << " so A = " << Alength - i + k << " /\\ B = " << 0 + k << endl;
+                        cout << "	k = " << k << " so A = " << A_length - i + k << " /\\ B = " << 0 + k << endl;
                     }
                     if (verbose) {
-                        cout << "		 A >> " << A.c_str()[Alength - i + k - 1] << "=" << B.c_str()[0 + k] << " << B"
+                        cout << "		 A >> " << A.c_str()[A_length - i + k - 1] << "=" << B.c_str()[0 + k] << " << B"
                              << endl;
                     }
 
-                    if (A.c_str()[Alength - i + k - 1] == B.c_str()[0 + k]) {
-                        if (B.c_str()[0 + k] != 'N' && (int) Aq.c_str()[Alength - i + k - 1] > 5 &&
-                            (int) Bq.c_str()[0 + k] > 5) {
+                    if (A.c_str()[A_length - i + k - 1] == B.c_str()[0 + k]) {
+                        if (B.c_str()[0 + k] != 'N' && (int) A_qual.c_str()[A_length - i + k - 1] > 5 &&
+                            (int) B_qual.c_str()[0 + k] > 5) {
                             score++;
                         }
                     }
-                    if ((k - score) > MM) {
+                    if ((k - score) > minMatchCount) {
                         score = -1;
                         break;
                     }
@@ -181,7 +192,7 @@ int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A
                     if (LocalBestScore < score) {
                         LocalBestScore = score;
                         LocalIndex = j;
-                        LocalOverlap = i - Alength + 1;
+                        LocalOverlap = i - A_length + 1;
                         if (score == i) {
                             break;
                         }
@@ -192,14 +203,14 @@ int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A
             for (int i = window - 1; i >= MinOverlap; i--) {
                 if (verbose) { cout << "i = " << i << endl; }
                 float score = 0;
-                for (k = 0; k <= i; k++) {
-                    if (B.c_str()[Blength - i + k - 1] == A.c_str()[0 + k]) {
-                        if (A.c_str()[0 + k] != 'N' && (int) Aq.c_str()[0 + k] > 5 &&
-                            (int) Bq.c_str()[Blength - i + k - 1] > 5) {
+                for (int k = 0; k <= i; k++) {
+                    if (B.c_str()[B_length - i + k - 1] == A.c_str()[0 + k]) {
+                        if (A.c_str()[0 + k] != 'N' && (int) A_qual.c_str()[0 + k] > 5 &&
+                            (int) B_qual.c_str()[B_length - i + k - 1] > 5) {
                             score++;
                         }
                     }
-                    if ((k - score) > MM) {
+                    if ((k - score) > minMatchCount) {
                         score = -1;
                         break;
                     }
@@ -215,7 +226,7 @@ int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A
                     if (LocalBestScore < score) {
                         LocalBestScore = score;
                         LocalIndex = j;
-                        LocalOverlap = Blength - i - 1;
+                        LocalOverlap = B_length - i - 1;
                         if (score == i) {
                             break;
                         }
@@ -235,7 +246,7 @@ int Align3(vector<string> &sequences, vector<string> &quals, string Ap, string A
     return bestScore;
 }
 
-string ColapsContigs(string A, string B, int k, string Aq, string &Bq,
+string ColapsContigs(string A, string B, int k, string A_qual, string &B_qual,
                      string &Ad, string &Bd, string &As, string &Bs) {
     bool verbose = false;
     if (verbose) {
@@ -266,28 +277,28 @@ string ColapsContigs(string A, string B, int k, string Aq, string &Bq,
     for (int i = 0; i < Asize + Bsize; i++) {
         char Abase = 'Z';
         char Bbase = 'Z';
-        char Aqual = '!';
-        char Bqual = '!';
+        char A_qualual = '!';
+        char B_qualual = '!';
         unsigned char Adep = 0;
         unsigned char Bdep = 0;
 
         if (((i - Aoffset) >= 0) && ((i - Aoffset) < A.length())) {
             Abase = A.c_str()[i - Aoffset];
-            Aqual = Aq.c_str()[i - Aoffset];
+            A_qualual = A_qual.c_str()[i - Aoffset];
             Adep = Ad.c_str()[i - Aoffset];
         } else {
             Abase = 'Z';
-            Aqual = '!';
+            A_qualual = '!';
             Adep = 0;
         }
 
         if (i - Boffset >= 0 && i - Boffset < B.length()) {
             Bbase = B.c_str()[i - Boffset];
-            Bqual = Bq.c_str()[i - Boffset];
+            B_qualual = B_qual.c_str()[i - Boffset];
             Bdep = Bd.c_str()[i - Boffset];
         } else {
             Bbase = 'Z';
-            Bqual = '!';
+            B_qualual = '!';
             Bdep = 0;
         }
 
@@ -299,10 +310,10 @@ string ColapsContigs(string A, string B, int k, string Aq, string &Bq,
         if (Abase == Bbase && Abase != 'Z') {
             newString += Abase;
 
-            if (Aqual >= Bqual) {
-                newQual += Aqual;
+            if (A_qualual >= B_qualual) {
+                newQual += A_qualual;
             } else {
-                newQual += Bqual;
+                newQual += B_qualual;
             }
 
             if ((int) Adep + (int) Bdep < 250) {
@@ -313,44 +324,48 @@ string ColapsContigs(string A, string B, int k, string Aq, string &Bq,
 
         } else if (Abase == 'Z' && Bbase != 'Z') {
             newString += Bbase;
-            newQual += Bqual;
+            newQual += B_qualual;
             newDepth += Bdep;
         } else if (Abase != 'Z' && Bbase == 'Z') {
             newString += Abase;
-            newQual += Aqual;
+            newQual += A_qualual;
             newDepth += Adep;
         } else if (Abase != 'Z' && Bbase != 'Z') {
 
             if (Abase == 'N' && Bbase != 'N') {
                 newString += Bbase;
-                newQual += Bqual;
+                newQual += B_qualual;
                 newDepth += Bdep;
             } else if (Abase != 'N' && Bbase == 'N') {
                 newString += Abase;
-                newQual += Aqual;
+                newQual += A_qualual;
                 newDepth += Adep;
-            } else if (Aqual >= Bqual) {
+            } else if (A_qualual >= B_qualual) {
                 newString += Abase;
-                newQual += Aqual;
+                newQual += A_qualual;
                 newDepth += Adep;
             } else {
                 newString += Bbase;
-                newQual += Bqual;
+                newQual += B_qualual;
                 newDepth += Bdep;
             }
 
         } else if (Abase == 'Z' && Bbase == 'Z') {
-            Bq = newQual;
+            B_qual = newQual;
             Bd = newDepth;
             break;
         }
     }
-    Bq = newQual;
+    B_qual = newQual;
     Bd = newDepth;
     Bs += As;
     return newString;
 }
 
+// This needs to be re-written - assigning quality from passed pointer
+// but actually returning string. Instead return a struct with both.
+// todo
+// Also make the if statements more clear and rename - not trimming ends, but trimming any bases that are N
 string TrimNends(string S, string &qual) {
     bool base = false;
     string NewS = "";
@@ -520,13 +535,15 @@ void compresStrand(string S, int &F, int &R) {
     return;
 }
 
+// todo: get rid of global variables and pass them as arguments
+// This method splits each hash by Ns and then checks if the hash is in the hash list
 int CountHashes(string seq) {
     int count = 0;
     for (int i = 0; i < seq.size() - HashSize; i++) {
         string hash = seq.substr(i, HashSize);
         size_t found = hash.find("N");
         if (found == string::npos) {
-            if (Mutations.count(Util::HashToLong(hash)) > 0) { count++; }
+            if (Mutations.count(Util::HashToLong(hash)) > 0) { count++; } // todo: is count ever >1?
         }
     }
     return count;
@@ -544,7 +561,7 @@ int NumLowQbases(string qual, int min) {
 /***
  *
  * @param argc 10
- * @param argv 1) BAM, 2) MinPercent, 3) MinOverlap, 4) MinCoverage, 5) ReportStub, 6) NodeStub, 7) LCcutoff, 8) HashPath, 9) Threads
+ * @param argv 1) BAM, 2) MinPercent, 3) MinOverlap, 4) MinCoverage, 5) SamFile Output??, 6) NodeStub, 7) LCcutoff, 8) HashPath, 9) Threads
  * @return 0
  */
 int main(int argc, char *argv[]) {
@@ -605,7 +622,7 @@ int main(int argc, char *argv[]) {
     string FirstPassFile = argv[1];
     std::stringstream ss;
     ss << argv[5] << ".fastq";
-    FirstPassFile = ss.str();
+    FirstPassFile = ss.str();   // This is name of output file (will eventually be .sam.fastqd)
     report.open(FirstPassFile.c_str());
     cout << "min percent check = " << MinPercent << endl;
     if (report.is_open()) {
@@ -614,9 +631,10 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    // todo: is this fastqd that gets output?
     ofstream Depreport;
     FirstPassFile += "d";
-    Depreport.open(FirstPassFile.c_str());
+    Depreport.open(FirstPassFile.c_str());  // This is output stream for .sam.fastqd
 
     if (report.is_open()) {
     } else {
@@ -634,7 +652,7 @@ int main(int argc, char *argv[]) {
     std::vector<string> Undepth;
     std::vector<string> Unstrand;
 
-    // todo: are these lines?
+    // Correspond with fastqd format?
     int lines = -1;
     string L1;
     string L2;
@@ -645,27 +663,27 @@ int main(int argc, char *argv[]) {
 
     unsigned long LongHash;
     int Rejects = 0;
-    string Fastqd = argv[1];
+    string Fastqd = argv[1]; // todo: unused and misleading
     cout << "Reading in SAM \n";
     int counter = 0;
     int unalignedCounter = 0;
     int goodreads = 0;
     int lowMapQual = 0;
     int other = 0;
+
     cout << "reading in hash list" << endl;
     ifstream MutHashFile;
     MutHashFile.open(HashPath);
     if (MutHashFile.is_open()) {
         cout << "Parent File open - " << argv[1] << endl;
-    }
-    else {
+    } else {
         cout << "Error, ParentHashFile could not be opened";
         return 0;
     }
 
 
     // e.g. MutHashFile= $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
-    // todo: left off here - what does this file format look like?
+    // Populate Mutations lookup from Jellyfish hash list
     while (getline(MutHashFile, L1)) {
 
         // Split line by spaces
@@ -675,7 +693,7 @@ int main(int argc, char *argv[]) {
         unsigned long revb = Util::HashToLong(Util::RevComp(temp[0]));
         Mutations.insert(pair<unsigned long, int>(b, 0));
         Mutations.insert(pair<unsigned long, int>(revb, 0));
-        HashSize = temp[0].size();
+        HashSize = temp[0].size(); // todo: this is only populated/used when last line assigned - is every hash size the same?
     }
 
     if (HashSize == -1) {
@@ -684,6 +702,7 @@ int main(int argc, char *argv[]) {
     }
     cout << "HashSize = " << HashSize << endl;
 
+    // Iterate through bam file
     while (getline(bam_file, L1)) {
         counter++;
         if (counter % 100 == 1) {
@@ -697,8 +716,10 @@ int main(int argc, char *argv[]) {
         //temp[9] = TrimKends(temp[9], temp[10], 15);
         int ReadSize = temp[10].size();
         bool b[16];
-        int v = atoi(temp[1].c_str());
+        int v = atoi(temp[1].c_str()); // bitwise FLAG field
 
+        // Generate a binary representation of FLAG
+        // See samtools format for each bit meaning
         for (int j = 0; j < 16; ++j) {
             b[j] = 0 != (v & (1 << j));
         }
@@ -707,100 +728,109 @@ int main(int argc, char *argv[]) {
         //	cout << "skipping exact match sequence " << L1 << endl;
         //}
         //else
-        {
+        // todo: get rid of these brackets - confusing
+        //{
             int lowq = NumLowQbases(temp[10], 20);
             int length = temp[10].length();
-            DupCheck[temp[9]] == true;
+            //DupCheck[temp[9]] == true;
+
+            // Reject if secondary alignment (b[8]) or supplementary alignment (b[11]) or PCR or optical duplicate (b[10])
+            // or if the length of the seq is < 50 or if 33% of the bases are low quality
             if (b[8] or b[11] or b[10] or temp[9].length() < 50 or ((double) lowq / (double) length > 0.33)) {
-                //cout << "rejected" << endl;
-                //cout << L1 << endl;
                 Rejects++;
-            } else if (b[2])//or atoi(temp[4].c_str())<5)
-            {
-                if (b[2])
-                    unalignedCounter++;
-                else if (atoi(temp[4].c_str()) < 5)
-                    lowMapQual++;
-                else
-                    other++;
-                string L4 = temp[10];
-                string L2 = temp[9]; ////////sequence//////////
-                L2 = TrimNends(L2, L4);
-                int hashes = CountHashes(L2);
-                //cout << "poorly mapped read " << L1 << endl;
-                //cout << "with Hash = " << hashes << endl;
-                if ((double) L2.size() / (double) ReadSize > .6) {
-                    ReadSize = L2.size();
-                    lines++;
-                    Unsequences.push_back(L2);
-                    Unqual.push_back(L4);
-                    if (hashes > 0) {
-                        if (b[0] == 0) {
-                            Unstrand.push_back(".");
-                        } else if (b[4] == 0) {
-                            Unstrand.push_back("+");
-                        } else if (b[4] == 1) {
-                            Unstrand.push_back("-");
-                        }
-                    } else
+            }
+            // Unmapped bit is b[2]
+            if (b[2])
+                unalignedCounter++;
+            else if (atoi(temp[4].c_str()) <
+                     5) // temp[4] is MAPQ todo: make const var at top for mapq cutoff instead of hardcoding here
+                lowMapQual++;
+            else
+                other++;
+            string L4 = temp[10]; // QUAL field
+            string L2 = temp[9]; // SEQ field
+
+            // Remove non-ACGT bases from sequence (and their corresponding QUAL digit)
+            // NOTE: this updates L2 AND L4 (even though doesn't return L4)
+            L2 = TrimNends(L2, L4);
+
+            int hashes = CountHashes(L2);
+            //cout << "poorly mapped read " << L1 << endl;
+            //cout << "with Hash = " << hashes << endl;
+            // Only keep a read if the trimmed sequence is > 60% of the original sequence
+            // todo: make 0.6 a const var at top
+            if ((double) L2.size() / (double) ReadSize > .6) {
+                ReadSize = L2.size();
+                lines++;
+                Unsequences.push_back(L2);
+                Unqual.push_back(L4);
+                if (hashes > 0) {
+                    if (b[0] == 0) {
                         Unstrand.push_back(".");
-
-                    string depths = "";
-                    unsigned char C = 1;
-
-                    for (int i = 0; i < L2.length(); i++) {
-                        depths += C;
+                    } else if (b[4] == 0) {
+                        Unstrand.push_back("+");
+                    } else if (b[4] == 1) {
+                        Unstrand.push_back("-");
                     }
+                } else
+                    Unstrand.push_back(".");
 
-                    Undepth.push_back(depths);
+                string depths = "";
+                unsigned char C = 1; // todo: this is misleading, don't really need a variable
 
-                } else {
-                    Rejects++;
+                for (int i = 0; i < L2.length(); i++) {
+                    depths += C;
                 }
+
+                Undepth.push_back(depths);
 
             } else {
-                goodreads++;
-                //cout << "good alignment" << endl;
-                string L4 = temp[10];
-                string L2 = temp[9];
-                L2 = TrimNends(L2, L4);
-                int hashes = CountHashes(L2);
-
-                //cout << "Hash = " << hashes << endl;
-                //if (hashes > 0)
-                //{
-                if ((double) L2.size() / (double) ReadSize > .6) {
-                    ReadSize = L2.size();
-                    lines++;
-                    sequences.push_back(L2);
-                    qual.push_back(L4);
-                    string depths = "";
-
-                    if (hashes > 0) {
-                        if (b[0] == 0) {
-                            strand.push_back(".");
-                        } else if (b[4] == 0) {
-                            strand.push_back("+");
-                        } else if (b[4] == 1) {
-                            strand.push_back("-");
-                        }
-                    } else
-                        strand.push_back(".");
-
-                    unsigned char C = 1;
-
-                    for (int i = 0; i < L2.length(); i++) {
-                        depths += C;
-                    }
-
-                    depth.push_back(depths);
-
-                } else {
-                    Rejects++;
-                }
-                //}
+                Rejects++;
             }
-        }
+
+            // todo: I don't think this is ever executed since the if statement above is always true
+//        } else {
+//            goodreads++;
+//            //cout << "good alignment" << endl;
+//            string L4 = temp[10];
+//            string L2 = temp[9];
+//            L2 = TrimNends(L2, L4);
+//            int hashes = CountHashes(L2);
+//
+//            //cout << "Hash = " << hashes << endl;
+//            //if (hashes > 0)
+//            //{
+//            if ((double) L2.size() / (double) ReadSize > .6) {
+//                ReadSize = L2.size();
+//                lines++;
+//                sequences.push_back(L2);
+//                qual.push_back(L4);
+//                string depths = "";
+//
+//                if (hashes > 0) {
+//                    if (b[0] == 0) {
+//                        strand.push_back(".");
+//                    } else if (b[4] == 0) {
+//                        strand.push_back("+");
+//                    } else if (b[4] == 1) {
+//                        strand.push_back("-");
+//                    }
+//                } else
+//                    strand.push_back(".");
+//
+//                unsigned char C = 1;
+//
+//                for (int i = 0; i < L2.length(); i++) {
+//                    depths += C;
+//                }
+//
+//                depth.push_back(depths);
+//
+//            } else {
+//                Rejects++;
+//            }
+//            //}
+//        }
     }
 
     cout << endl;
@@ -817,7 +847,7 @@ int main(int argc, char *argv[]) {
 
     for (std::vector<string>::size_type i = 0; i < sequences.size(); i++) {
         string A = sequences[i];
-        string Aqual = qual[i];
+        string A_qualual = qual[i];
         string Adep = depth[i];
         string Astr = strand[i];
 
@@ -857,20 +887,20 @@ int main(int argc, char *argv[]) {
         int bestIndex = -1;
         bool PerfectMatch = false;
 
-        int booya = Align3(sequences, qual, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Threads);
+        int booya = Align3(sequences, qual, A, A_qualual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Threads);
         if (FullOut) {
             cout << "best forward score is " << booya << " k is " << k << endl;
         }
 
         if (!(PerfectMatch)) {
             string revA = Util::RevComp(A);
-            string revAqual = Util::RevQual(Aqual);
+            string revA_qualual = Util::RevQual(A_qualual);
             string revAdep = Util::RevQual(Adep);
             string revAstr = FlipStrands(Astr);
             int revk = -1;
             int revbestIndex = -1;
             int revbooya =
-                    Align3(sequences, qual, revA, revAqual, i, revk, revbestIndex, MinPercent, PerfectMatch, MinOverlap,
+                    Align3(sequences, qual, revA, revA_qualual, i, revk, revbestIndex, MinPercent, PerfectMatch, MinOverlap,
                            Threads);
             if (FullOut) {
                 cout << "best reverse score is " << revbooya << " k is " << revk
@@ -879,7 +909,7 @@ int main(int argc, char *argv[]) {
 
             if (revbooya > booya) {
                 A = revA;
-                Aqual = revAqual;
+                A_qualual = revA_qualual;
                 Adep = revAdep;
                 Astr = revAstr;
                 k = revk;
@@ -900,7 +930,7 @@ int main(int argc, char *argv[]) {
         } else {
             FoundMatch++;
             string B = sequences[bestIndex];
-            string Bqual = qual[bestIndex];
+            string B_qualual = qual[bestIndex];
             string Bdep = depth[bestIndex];
             string Bstr = strand[bestIndex];
 
@@ -956,7 +986,7 @@ int main(int argc, char *argv[]) {
             }
 
             string combined =
-                    ColapsContigs(A, B, k, Aqual, Bqual, Adep, Bdep, Astr, Bstr);
+                    ColapsContigs(A, B, k, A_qualual, B_qualual, Adep, Bdep, Astr, Bstr);
 
             if (combined.size() != Bdep.size()) {
                 cout << " ERRPR combined is the wrong size\n	C= " << combined.size()
@@ -964,7 +994,7 @@ int main(int argc, char *argv[]) {
             }
 
             sequences[bestIndex] = combined;
-            qual[bestIndex] = Bqual;
+            qual[bestIndex] = B_qualual;
             depth[bestIndex] = Bdep;
             strand[bestIndex] = Bstr;
             sequences[i] = "moved";

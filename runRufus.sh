@@ -11,7 +11,7 @@ set -e
 # Example taken from http://argbash.readthedocs.io/en/stable/example.html
 
 
-# ARG_OPTIONAL_SINGLE([subject],[s],[generator file containing the subject of interest])
+# ARG_OPTIONAL_SINGLE([subject],[s],[generator file containing the subject of interest])c
 # ARG_OPTIONAL_SINGLE([ref],[r],[file path to the desired reference file])
 # ARG_OPTIONAL_SINGLE([threads],[t],[number of threads to use])
 # ARG_OPTIONAL_SINGLE([kmersize],[k],[size of Khmer to use])
@@ -757,7 +757,6 @@ done
 ##########################__SET_EXECUTABLE_PATHS__##############################
 # todo: make $RDIR optional argument for running on chpc
 RUFUSmodel=$RDIR/bin/ModelDist
-RUFUSfilter=$RDIR/bin/RUFUS.Filter
 RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
 RUFUSOverlap=$RDIR/scripts/Overlap.shorter.sh
 RunJelly=$RDIR/scripts/RunJellyForRUFUS.sh
@@ -1028,7 +1027,7 @@ then
   		if [ $shortinsert = "false" ]
   		then
   			echo "skipping fastp fix"
-  	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
+  	                $ -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
   	                samtools index "$ProbandGenerator".Mutations.fastq.bam
   		else
   			echo "using fastp fix"
@@ -1151,6 +1150,7 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
+# todo: what does the cleanup do
 if [ "$ENABLE_CLEANUP" == "TRUE" ]
 then
   echo "cleaning up VCF"

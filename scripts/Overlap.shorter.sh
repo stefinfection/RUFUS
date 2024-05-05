@@ -11,7 +11,7 @@
 #   c. Min Coverage is 3bp
 #
 # normal mode consists of the following criteria:
-# 1. OverlapSame is run with the following parameters:
+# 1. OverlapSam is run with the following parameters:
 #   a. Min Percentage is 95%
 #   b. Min Overlap is 20bp
 #   c. Min Coverage is 1bp
@@ -22,7 +22,7 @@ set -e
 humanRef=$1
 File=$2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
 FinalCoverage=$3
-NameStub=$4.V2
+NameStub=$4.V2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
 HashList=$5 # e.g. $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
 HashSize=$6
 Threads=$7
@@ -46,7 +46,7 @@ Threads=$7
 
 echo "final coverage is $FinalCoverage"
 
-echo "RUNNING Overlap.shorter.sh"
+echo "RUNNING Overlap.shorter.sh" # note: I changed this output - production rufus will say THIS ONE instead
 echo "@@@@@@@@@@@@@__IN_OVERLAP__@@@@@@@@@@@@@@@"
 echo "human ref in Overlap is $humanRef"
 echo "bwa human ref in Overlap is $humanRefBwa"
@@ -84,6 +84,7 @@ MOBList=$RDIR/resources/primate_non-LTR_Retrotransposon.fasta
 if [ -s ./$File.bam ]; then
   echo "skipping align"
 else
+  # todo: sort fastq first
   $bwa mem -t $Threads $humanRefBwa "$File" | samtools sort -T $File -O bam - >$File.bam
   samtools index $File.bam
 fi
