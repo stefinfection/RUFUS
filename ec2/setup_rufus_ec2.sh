@@ -27,4 +27,4 @@ cd
 cd /mnt/rufus-runs/SMHTCOLO829BLT50-X-X-M45-A001-dac-SMAARNRVZGBE-insilico500X_GRCh38.aligned.sorted/
 mkdir logs
 cd launchers
-ls | parallel -j 40 'bash {} >/mnt/rufus-runs/SMHTCOLO829BLT50-X-X-M45-A001-dac-SMAARNRVZGBE-insilico500X_GRCh38.aligned.sorted_k3/logs/{}.out 2>/mnt/rufus-runs/SMHTCOLO829BLT50-X-X-M45-A001-dac-SMAARNRVZGBE-insilico500X_GRCh38_k3.aligned.sorted/logs/{}.err'
+ls | parallel -j 40 'bash {} >/mnt/rufus-runs/SMHTCOLO829BLT50-X-X-M45-A001-dac-SMAARNRVZGBE-insilico500X_GRCh38.aligned.sorted_k3/logs/{}.out 2>/mnt/rufus-runs/SMHTCOLO829BLT50-X-X-M45-A001-dac-SMAARNRVZGBE-insilico500X_GRCh38.aligned.sorted_k3/logs/{}.err'
