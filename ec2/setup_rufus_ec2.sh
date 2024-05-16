@@ -1,4 +1,5 @@
 #!/bin/bash
+IP=$1
 
 # install dependencies and tools
 apt install tabix
@@ -9,7 +10,7 @@ apt install -y nfs-common
 echo "installed all tools and dependencies"
 
 # mount nfs drive
-mount 172.31.17.24:/mnt /mnt
+mount $IP:/mnt /mnt
 echo "mounted nfs drive"
 
 # change ownership of mnt
