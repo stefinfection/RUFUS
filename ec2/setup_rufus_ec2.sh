@@ -16,6 +16,7 @@ cmake ..
 make
 
 # check to make sure paths are updated
+# DO THIS DON'T FORGET AGAIN
 echo "CHECK generate_mb_scripts_ec2.sh to make sure looking for resources in /mnt/resources now..."
 echo "UPDATE RUFUS KMER PARAMETER then run the rest of setup script"
 
