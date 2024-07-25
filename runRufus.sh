@@ -1130,6 +1130,7 @@ then
       echo "########### Starting RUFUS overlap ###########"
       # todo: this is where we need to pass command for vcf header appending
       # todo: Overlap.shorter.sh is always used for RUFUSOverlap - put all other versions in scripts/Overlap for now
+      # todo: this is hardcoded to 5 and we need to change it to argument
       echo "bash $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed"" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
       bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
       echo "Done with RUFUS overlap"
