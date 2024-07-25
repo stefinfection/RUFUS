@@ -8,7 +8,7 @@
 # 2. OverlapSam is run with the following parameters:
 #   a. Min Percentage is 99%
 #   b. Min Overlap is 25bp
-#   c. Min Coverage is 3bp
+#   c. Min Coverage is 3bp - todo: this needs to be set to command line arg
 #
 # normal mode consists of the following criteria:
 # 1. OverlapSam is run with the following parameters:
@@ -21,7 +21,7 @@ set -e
 
 humanRef=$1
 File=$2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
-FinalCoverage=$3
+FinalCoverage=$3 #todo: what is the difference between this and minOverlap
 NameStub=$4.V2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
 HashList=$5 # e.g. $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
 HashSize=$6
@@ -100,12 +100,14 @@ if [ "$speed" == "veryfast" ]; then
     echo "skipping sam assemble"
   else
     # Process substitution
+    # todo: this is hardcoded to 3
     $OverlapSam <(samtools view -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 ') .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
     #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
   fi
   if [ -s ./TempOverlap/$NameStub.final.fastqd ]; then
     echo "skipping second assemble"
   else
+    # todo: this is hardcoded to 5
     $OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads
   fi
   if [ -s ./$NameStub.overlap.hashcount.fastq ]; then
