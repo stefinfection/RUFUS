@@ -246,7 +246,7 @@ echo "pull hashes from sample"
 if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample ]; then
   echo "skipping  Intermediates/$NameStub.overlap.asembly.hash.fastq.sample file already exitst"
 else
-  # todo: I think this is pulling out overlap/contig hashes from the original sample hash (functionally what does this do?)
+  # todo: I think this is pulling out overlap/contig hashes from the original sample hash
   echo "starting hash lookup this one"
   bash $CheckHash $SampleJhash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov >Intermediates/$NameStub.overlap.asembly.hash.fastq.sample &
   echo "done with hash lookup"
