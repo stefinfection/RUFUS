@@ -1,5 +1,4 @@
 #!/bin/bash
-#check this dev branch thing
 
 echo "You are running the STAGING version of RUFUS: v0.3.0"
 
@@ -1110,8 +1109,8 @@ then
     echo "########### Skipping overlap step ###########"
 else
     echo "########### Starting RUFUS overlap ###########"
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
-     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
+    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq $MutantMinCov $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
+     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq $MutantMinCov $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
@@ -1133,7 +1132,7 @@ PREFINAL_VCF="$ProbandGenerator.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 
 grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-echo "ar_mosaic = $_arg_mosaic"
+echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"; 
@@ -1144,10 +1143,10 @@ else
 fi
 
 bgzip -f ./$PREFINAL_VCF
-tabix ./$PREFINAL_VCF".gz"
+tabix "./${PREFINAL_VCF}.gz"
 
 echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
-bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
+bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string
 
 echo "done with everything"
 exit 0
