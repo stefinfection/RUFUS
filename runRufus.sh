@@ -1,5 +1,4 @@
 #!/bin/bash
-#check this dev branch thing
 
 echo "You are running the STAGING version of RUFUS: v0.3.0"
 
