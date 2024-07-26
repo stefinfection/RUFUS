@@ -209,9 +209,12 @@ fi
 sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
 if [ -s ./$NameStub".overlap.hashcount.fastq" ]
 then
-    echo "skipping overlap hashcount fastq sort"
-else
+    echo "Sorting hashcount fastq file"
     cat ./$NameStub.overlap.hashcount.fastq | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > ./$sortedFastq
+else
+    echo $NameStub".overlap.hashcount.fastq does not exist, cannot sort"
+    echo "Exiting with failure"
+    exit 100
 fi
 
 if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]
