@@ -31,7 +31,7 @@ bcftools index -t $OUT_VCF
 for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     MADE_ALIGN_CONTROL=false
     
-    #check to see if the provided bam file is aligned
+    #check to see if the provided bam file is alignedq
     if [ "$(samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
         CONTROL_BAM=$CONTROL
     else
