@@ -14,7 +14,8 @@ SAMPLE_NAME=$3     # Sample name, used in vcf output file name
 ARG_LIST=("$@")
 CONTROL_BAM_LIST=("${ARG_LIST[@]:3}") # Remaining args, all control bams
 
-echo "Arguments to remove coinherited script: $ARG_LIST"
+echo "Arguments to remove coinherited script: $@"
+echo "Control bams supplied to remove inherited script: "${ARG_LIST[@]:3}"
 
 # static vars
 OUT_VCF="$SAMPLE_NAME.coinherited.vcf.gz"
