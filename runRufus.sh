@@ -1137,12 +1137,17 @@ if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"; 
 	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
+	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"; 
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
-bgzip -f ./$PREFINAL_VCF
+echo "about to head prefinal vcf prior to zipping"
+bcftools view -h "./$PREFINAL_VCF" | head -n 5
+
+bgzip -f "./$PREFINAL_VCF"
 tabix "./${PREFINAL_VCF}.gz"
 
 echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."

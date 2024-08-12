@@ -56,7 +56,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $OUT_VCF $CONTROL_VCF
         
     # save the new vcf as rufus final vcf
-	OUTFILE=$ISEC_OUT_DIR/0000.vcf.gz
+	  OUTFILE=$ISEC_OUT_DIR/0000.vcf.gz
     OUT_INDEX=$ISEC_OUT_DIR/0000.vcf.gz.tbi
 
     cp $OUTFILE $OUT_DIR/"$SAMPLE_NAME.FINAL.no_inherited.vcf.gz" 
