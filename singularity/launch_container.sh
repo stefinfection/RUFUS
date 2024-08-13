@@ -1,3 +1,5 @@
+# ONLY SUPPORTS GRCh38 CURRENTLY
+
 # FILL IN VARIABLES
 SLURM_ACCT="marth-rw"
 SLURM_PARTITION="marth-shared-rw"
@@ -7,12 +9,15 @@ JOB_NAME="RUFUS_TEST"
 TIME_LIMIT="3-00:00:00"
 SUBJECT_FILE=data/NA12878-NA18517-5percent-lib1-umi-liquid_tumor.sorted.bam
 CONTROL_FILE=data/NA12878.sorted.bam
-REFERENCE="GRCh38"
 KMER_CUTOFF=5
 CHUNK_SIZE=1000000 # set to 1 for single, complete run
-NUM_CHUNKS=$(bash utilities/get_num_chunks.sh $CHUNK_SIZE)
 NUM_NODES_PER_JOB=1
 JOB_LIMIT=900
+
+# LEFTOFF HERE
+# todo: put this directly in here - hard coded to GRCh38
+NUM_CHUNKS=$(bash utilities/get_num_chunks.sh $CHUNK_SIZE)
+
 
 cd $WORKING_DIR
 mkdir slurm_out
@@ -35,83 +40,17 @@ for line in "${header_lines[@]}"
 do
     echo -e "$line" >> $SLURM_SCRIPT
 done
-echo "" >> $SLURM_SCRIPT
-echo -e "bash \$RUFUS_ROOT/runRufus.sh -s $SUBJECT -c $CONTROL -r $REFERENCE -f ${RESOURCE_DIR}GRCh38_full_analysis_set_plus    _decoy_hla.25.Jhash -m $KMER_CUTOFF -k 25 -t 40 -L -vs -R chr${curr_chr}:${start_coord}-${end_coord}" -v $SLURM_ARRAY_TASK_ID >> $SLURM_SCRIPT
+echo "\n" >> $SLURM_SCRIPT
 
-sbatch $SLURM_SCRIPT 
+# todo: need to test getChunk.sh
+echo "REGION_ARG=$(bash getChunk.sh ${SLURM_ARRAY_TASK_ID})" >> $SLURM_SCRIPT
 
-CHUNK_SIZE=1000000
+# todo: need to edit this for singularity setup
+echo -e "bash \$RUFUS_ROOT/runRufus.sh -s $SUBJECT -c $CONTROL -r $REFERENCE \
+ -f ${RESOURCE_DIR}GRCh38_full_analysis_set_plus_decoy_hla.25.Jhash -m $KMER_CUTOFF \
+  -k 25 -t 40 -L -vs $REGION_ARG -v $SLURM_ARRAY_TASK_ID" >> $SLURM_SCRIPT
 
-CHRS=(
-"1"
-"2"
-"3"
-"4" 
-"5" 
-"6" 
-"7" 
-"8" 
-"9" 
-"10" 
-"11" 
-"12" 
-"13" 
-"14" 
-"15" 
-"16" 
-"17" 
-"18" 
-"19" 
-"20" 
-"21" 
-"22" 
-"X" 
-"Y" 
-)
-
-# GRCh38
-CHR_LENGTHS=( 
-248956422  
-242193529 
-198295559 
-190214555 
-181538259 
-170805979 
-159345973 
-145138636 
-138394717 
-133797422 
-135086622 
-133275309 
-114364328 
-107043718 
-101991189 
-90338345 
-83257441 
-80373285 
-58617616 
-64444167 
-46709983 
-50818468 
-156040895 
-57227415 
-)
-
-SLURM_SCRIPT="#!/bin/bash
-#SBATCH --time=1-00:00:00
-#SBATCH --nodes=1
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
-#SBATCH -o ${OUT_SLURM_DIR}%j/out.out
-#SBATCH -e ${OUT_SLURM_DIR}%j/error.err
-module load samtools/1.16
-module load bamtools/2.5.1
-module load bedtools/2.28.0
-module load htslib/1.16
-module load gcc/10.2.0
-module load RUFUS/stage"
-
-cd $OUT_DIR
+sbatch $SLURM_SCRIPT
 
 n=${#CHRS[@]}
 for (( i = 0; i < n; i++ ))
