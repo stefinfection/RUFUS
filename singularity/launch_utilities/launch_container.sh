@@ -18,14 +18,21 @@ CHUNK_SIZE=1000000 # set to 0 for whole genome
 GENOME_BUILD="GRCh38"
 ref_hash="GRCh38_full_analysis_set_plus_decoy_hla.25.Jhash"
 
+# todo: hard code for container
+RUFUS_PATH="/home/ubuntu/RUFUS/runRufus.sh"
+REFERENCE="/scratch/ucgd/lustre/work/marth/shared/references/human/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa"
+
+
 # FILL IN SAMPLE VARIABLES
 SUBJECT_FILE=data/NA12878-NA18517-5percent-lib1-umi-liquid_tumor.sorted.bam
 CONTROL_FILE=data/NA12878.sorted.bam
-RESOURCE_DIR="/resources"
+RESOURCE_DIR="/resources/"
 
 # Load resource functions and arguments
-#source rufus.args - TODO: this will need to change to singularity path
-. /Users/genetics/Documents/code/RUFUS/singularity/launch_utilities/chunk_utilities.sh
+#TODO: this will need to change to singularity path
+CHUNK_PATH=/Users/genetics/Documents/code/RUFUS/singularity/launch_utilities/chunk_utilities.sh
+
+. $CHUNK_PATH
 
 num_chunks=$(get_num_chunks "$CHUNK_SIZE" "$GENOME_BUILD")
 echo "num chunks is $num_chunks"
@@ -52,26 +59,29 @@ fi
 
 # Compose individual SLURM scripts
 SLURM_SCRIPT="run_rufus.slurm"
+rm $SLURM_SCRIPT
+
 for line in "${header_lines[@]}"
 do
     echo -e "$line" >> $SLURM_SCRIPT
 done
-echo "\n" >> $SLURM_SCRIPT
+echo "" >> $SLURM_SCRIPT
 
 # Add in region argument if there are multiple chunks
 if ((num_chunks > 1)); then
-    echo "source ./chunk_utilites.sh" >> $SLURM_SCRIPT
-    echo "region_arg=$(get_chunk_region "$SLURM_ARRAY_TASK_ID" "$CHUNK_SIZE" "$GENOME_BUILD")" >> $SLURM_SCRIPT
-    echo "REGION_ARG= -R ${region_arg}" >> $SLURM_SCRIPT
+    echo ". $CHUNK_PATH" >> $SLURM_SCRIPT
+    echo "" >> $SLURM_SCRIPT
+    echo "region_arg=\$(get_chunk_region "\$SLURM_ARRAY_TASK_ID" \"$CHUNK_SIZE\" \"$GENOME_BUILD\")" >> $SLURM_SCRIPT
+    echo "REGION_ARG=\"-R \$region_arg\"" >> $SLURM_SCRIPT
 else
-    echo "REGION_ARG=\"\" >> $SLURM_SCRIPT"
+    echo "\$REGION_ARG=\"\" >> $SLURM_SCRIPT"
 fi
 
 # Add in the rufus command
-echo -en "bash \$RUFUS_ROOT/runRufus.sh -s $SUBJECT_FILE -c $CONTROL_FILE -r $REFERENCE \
- -f ${RESOURCE_DIR}${ref_hash} -m $KMER_CUTOFF \
-  -k 25 -t 40 -L -vs $REGION_ARG" >> $SLURM_SCRIPT
-echo -e "-v $SLURM_ARRAY_TASK_ID" >> $SLURM_SCRIPT
+echo -en "bash $RUFUS_PATH -s $SUBJECT_FILE -c $CONTROL_FILE -r $REFERENCE\
+ -f ${RESOURCE_DIR}${ref_hash} -m $KMER_CUTOFF\
+ -k 25 -t 40 -L -vs \$REGION_ARG " >> $SLURM_SCRIPT
+echo -e "-v \$SLURM_ARRAY_TASK_ID" >> $SLURM_SCRIPT
 
 # Submit the SLURM script
 # todo: how do I submit a slurm array

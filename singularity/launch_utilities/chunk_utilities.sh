@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # TODO: this will need to change to singularity path
-. /Users/genetics/Documents/code/RUFUS/singularity/launch_utilities/genome_helpers.sh
+GENOME_HELPERS_PATH=/Users/genetics/Documents/code/RUFUS/singularity/launch_utilities/genome_helpers.sh
+
+. $GENOME_HELPERS_PATH
 
 # Returns string formatted chr:start-end for the given chunk number argument
 function get_chunk_region() {
@@ -9,8 +11,11 @@ function get_chunk_region() {
   local chunkSize=$2
   local build=$3
 
-  local -a lengths
-  get_lengths lengths "${build}"
+  local -a chrom_lengths
+  get_lengths "$build" chrom_lengths
+
+  local -a chrom_arr
+  get_chroms chrom_arr "$build"
 
   # Calculate chromosome and coordinates for the given chunk
   chunkStart=0
@@ -21,26 +26,32 @@ function get_chunk_region() {
 
   # Find the chromosome that the chunk is in
   idx=0
-  remainder=$((absCoord - lengths[idx]))
+  remainder=$((absCoord - chrom_lengths[idx]))
   while ((remainder > 0)); do
     idx=$((idx + 1))
-    remainder=$((remainder - lengths[idx]))
+    remainder=$((remainder - chrom_lengths[idx]))
   done
+  # Translate idx into chr
+  chr="chr${chrom_arr[idx]}"
 
   # Get remainder back to positive
-  remainder=$((remainder + lengths[idx]))
+  remainder=$((remainder + chrom_lengths[idx]))
 
   # Calculate the start and end of the chunk
   multiplier=$((remainder/chunkSize))
   chunkStart=$((multiplier * chunkSize))
-  chunkEnd=$((chunkStart + chunkSize))
-
-  # Adjust the end of the chunk if it exceeds the chromosome length
-  if ((chunkEnd > lengths[idx])); then
-    chunkEnd=$((lengths[idx]))
+  if [[ $chunkStart -eq 0 ]]; then
+    chunkStart=1
   fi
 
-  echo "chr${idx}:${chunkStart}-${chunkEnd}"
+  chunkEnd=$((chunkStart + chunkSize - 1))
+
+  # Adjust the end of the chunk if it exceeds the chromosome length
+  if ((chunkEnd > chrom_lengths[idx])); then
+    chunkEnd=$((chrom_lengths[idx]))
+  fi
+
+  echo "$chr:${chunkStart}-${chunkEnd}"
 }
 
 # Returns the number of chunks for the given genome build
