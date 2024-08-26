@@ -4,17 +4,12 @@ set -e
 
 # This is a rather minimal example Argbash potential
 # Example taken from http://argbash.readthedocs.io/en/stable/example.html
-
-
 # ARG_OPTIONAL_SINGLE([subject],[s],[generator file containing the subject of interest])
 # ARG_OPTIONAL_SINGLE([ref],[r],[file path to the desired reference file])
 # ARG_OPTIONAL_SINGLE([threads],[t],[number of threads to use])
 # ARG_OPTIONAL_SINGLE([kmersize],[k],[size of Khmer to use])
 # ARG_OPTIONAL_SINGLE([min],[m],[overwrites the minimum k-mer count to call variant])
 # ARG_POSITIONAL_INF([controls],[generator files containing the control subjects],[0])
-
-
-
 # ARG_HELP([The general script's help msg])
 # ARGBASH_GO()
 # needed because of Argbash --> m4_ignore([
@@ -22,6 +17,11 @@ set -e
 # Argbash is a bash code generator used to get arguments parsing right.
 # Argbash is FREE SOFTWARE, see https://argbash.io for more info
 # Generated online by https://argbash.io/generate
+
+date
+echo "RUFUS version C.0.1"
+echo "RUFUS command was: $0 $@"
+
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
 
@@ -150,10 +150,9 @@ parse_commandline ()
                 while [[ $2 != -* ]]; do
                         FileName=$(basename "$2")
                         Extension="${FileName##*.}"
-                        echo "ext4nsion = $Extension"
                         if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
                         then
-                                echo "fastq file identified"
+                                echo "Warning: fastq files not currently recommended"
                                 if [[ $Extension == 'gz' ]]
                                 then
                                         echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
@@ -381,29 +380,26 @@ assign_positional_args ()
 	done
 }
 
-which samtools || die "ERROR, samtools not installed, exiting"
-#which bamtools || die "ERROR, bamtools not installed, exiting"
-
 parse_commandline "$@"
 
 # [ <-- needed because of Argbash
 
 ##############################__Print out all parameters__#################################################
-echo "~~~~~~~~~~~~ printing out paramater values used in script ~~~~~~~~~~~~~~~~"
-echo "  _arg_exclude=:"
-	for each in "${_arg_exclude[@]}"                           
-	do                                                         
-	  	echo "		$each"
-	done           
-echo "  _arg_controls=:"
-    arg_control_string=""
-	for each in "${_arg_controls[@]}"                           #
-	do                                                          #
-		echo "		$each"
-        arg_control_string="$arg_control_string $each"                                              #
-	done           
+#echo "~~~~~~~~~~~~ printing out paramater values used in script ~~~~~~~~~~~~~~~~"
+#echo "  _arg_exclude=:"
+#	for each in "${_arg_exclude[@]}"                           
+#	do                                                         
+#	  	echo "		$each"
+#	done           
+#echo "  _arg_controls=:"
+#    arg_control_string=""
+#	for each in "${_arg_controls[@]}"                           #
+#	do                                                          #
+#		echo "		$each"
+#        arg_control_string="$arg_control_string $each"                                              #
+#	done           
 
-if (( _arg_dev_reporting == "TRUE" )); then
+if (( $_arg_dev_reporting == "TRUE" )); then
 	echo "  _arg_subject=$_arg_subject" 
 	echo "  _arg_ref=$_arg_ref" 
 	echo "  _arg_threads=$_arg_threads" 
@@ -579,10 +575,9 @@ else
 fi
 
 
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-echo "Final reference path being used is" "$_arg_ref"
-echo "Final bwa reference path being used is" "$_arg_ref_bwa"
-echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+#echo "Reference supplied: " "$_arg_ref"
+#echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
 
 
@@ -714,16 +709,13 @@ fi
 #################################################################################
 
 
-if [ -z "$_arg_refhash" ]
+if [ "$_arg_refhash" ]
 then
-    echo "Did not provide refHash"
-else
-    echo "provided refHash of: " "$_arg_refhash"
+    echo "Reference hash provided: " "$_arg_refhash"
 fi
 
-if ! [ -z "$_arg_min" ]
+if [ "$_arg_min" ]
 then
-      echo "\$_arg_min is NOT empty"
       MutantMinCov=$_arg_min
 fi
 ######################################
@@ -850,29 +842,42 @@ then
 	echo "exome not set, assuming data is whole genome, building model" #echo "min not provided, building model"
 	if [ -e "$ProbandGenerator.Jhash.histo.7.7.model" ]
 	then
-	 	echo "skipping model phase"
+	 	echo "Skipping model phase..."
 	else
-		echo "starting model phase"
+		echo "Starting model phase..."
 		"$RUFUSmodel" "$ProbandGenerator".Jhash.histo $K 150 $Threads > "$ProbandGenerator".Jhash.histo.7.7.out 
 		for parent in "${ParentGenerators[@]}"
 		do
 			"$RUFUSmodel" "$parent".Jhash.histo $K 150 $Threads > "$parent".Jhash.histo.7.7.out & 
 		done
-		echo "done with model phase"
+		echo "Model phase complete"
 	fi 
 
 	if [ -z "$_arg_min" ]
 	then
 		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
 		then
-			echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
+			if (( $_arg_dev_reporting == "TRUE" )); then
+				echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
+			fi
+
 			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
-			echo "INFO: mutant min coverage from generated model is $MutantMinCov"
-	 			
+			
+			if (( $_arg_dev_reporting == "TRUE" )); then
+				echo "INFO: mutant min coverage from generated model is $MutantMinCov"
+	 		fi
 			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
-			echo "INFO: mutant SC coverage from generated model is $MutantSC"
+
+			
+			if (( $_arg_dev_reporting == "TRUE" )); then
+				echo "INFO: mutant SC coverage from generated model is $MutantSC"
+			fi
+
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
-			echo "INFO: MaxHashDepth = $MaxHashDepth"
+
+			if (( $_arg_dev_reporting == "TRUE" )); then
+				echo "INFO: MaxHashDepth = $MaxHashDepth"
+			fi
 		else
 			echo "ERROR Model didnt run correctly, exiting"
 			return -1
@@ -918,11 +923,11 @@ then
 fi
 #################################__HASH_LIST_FILTER__#####################################
 
-echo "########### Running Mutant Hash Identification ##############"
+echo "Identifying unique subject kMers..."
 
 if [ -s "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList ]
 then 
-    echo "skipping $ProbandGenerator.HashList pull "
+    echo "$ProbandGenerator.HashList exists, skipping creation..."
 else
     if [ -e "$ProbandGenerator".temp ]
     then 
@@ -948,7 +953,7 @@ then
         exit 1;
 fi
 ######################__RUFUS_FILTER__##################################################
-echo "########### starting RUFUS filter ###########"
+echo "Filtering unique kMers..."
 
 if [ $_pairedEnd == "true" ]
 then 
@@ -967,7 +972,7 @@ then
 		    if [ -e "$ProbandGenerator".temp ]; then 
 			    rm "$ProbandGenerator".temp 
 	            fi
-		    echo "running this one " 
+		    #echo "running this one " 
 		    mkfifo "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq
 		    sleep 1
 		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
@@ -1029,7 +1034,7 @@ else
 		if [ -z $_arg_fastqA ]
 		then
 
-		    echo "running this one filer SE" 
+		    #echo "running this one filer SE" 
 	            sleep 1
 	            if [ -e "$ProbandGenerator".temp ]; then
 	                            rm  "$ProbandGenerator".temp
