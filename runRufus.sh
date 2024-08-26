@@ -66,6 +66,7 @@ _arg_filterK=1
 _arg_ParLowK=2
 _filterMinQ=15
 _arg_stop="nope"
+_arg_dev_reporting="FALSE"
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
@@ -82,9 +83,10 @@ print_help ()
 	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
 	printf "\t%s\n" "-L, --Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"
-	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
-	printf "\t%s\n" "-h,--help: HELP!!!!!!!!!!!!!!!"
-	printf "\t%s\n" "-d: Dev Help, more options that can be confusing"
+	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS"
+	printf "\t%s\n" "-o, --devOutput: Prints very verbose run information to stdout"
+	printf "\t%s\n" "-h,--help: Print help"
+	printf "\t%s\n" "-d: Print dev help"
 }
 
 print_devhelp ()
@@ -151,7 +153,7 @@ parse_commandline ()
                         echo "ext4nsion = $Extension"
                         if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
                         then
-                                echo "cool we found a fastq"
+                                echo "fastq file identified"
                                 if [[ $Extension == 'gz' ]]
                                 then
                                         echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
@@ -159,7 +161,6 @@ parse_commandline ()
                                         echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
                                 fi
                         else
-                                echo "even cooler, fond one thats not a fastq" 
                                 _arg_subject=("$2")
                         fi
                         shift
@@ -220,10 +221,9 @@ parse_commandline ()
 		while [[ $2 != -* ]]; do
 			FileName=$(basename "$2")
 		        Extension="${FileName##*.}"
-			echo "refext4nsion = $Extension"
 			if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
 			then 
-				echo "cool we found a fastq"
+				echo "fastq file identified"
 				if [[ $Extension == 'gz' ]]
 				then 
 					echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
@@ -231,7 +231,6 @@ parse_commandline ()
 					echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
 				fi
 			else
-				echo "even cooler, fond one thats not a fastq" 
 				_arg_controls+=("$2")
 			fi
 			shift
@@ -282,7 +281,7 @@ parse_commandline ()
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
 		_arg_region="$2"
 		if  [[ -z $_arg_region  ]] ; then
-			echo "arg region must not be empyt "
+			echo "arg region must not be empyty"
 			exit 100
 		fi
 		shift
@@ -319,7 +318,7 @@ parse_commandline ()
 		;;
 	-L|--Report_Low_Freq)
 		_arg_mosaic="TRUE"
-		echo "INFO: Reporting mosaic/low frequence variants"
+		echo "INFO: Reporting mosaic/low frequency variants"
 		;;
 	-h|--help)
 		print_help
@@ -339,17 +338,21 @@ parse_commandline ()
 		;;
 	-StH)
 		_arg_stop="hash"; 
-		echo "Stopping run after Hash compare steps";
+		echo "Stopping run after hash compare steps";
 		;;
 	
 	-StF)
 		_arg_stop="filter"
 		echo "Stopping run after filter steps"; 
 		;;
+	-o)
+		_arg_dev_reporting="TRUE"
+		echo "Minimizing reporting to stdout"
+		;;
 	-CLEAN)
-		echo "cleaning up intermeidate files";
+		echo "Cleaning up intermediate files";
 		rm *generator.Jhash *generator.Jhash.histo *generator.Jhash.histo.7.7.dist *generator.Jhash.histo.7.7.out *generator.Jhash.histo.7.7.prob *generator.k25_c4.HashList *generator.Mutations.Mate1.fastq *generator.Mutations.Mate2.fastq *.generator.temp *.generator.temp.mate1.fastq *.temp.mate2.fastq *.generator.V2.overlap.fastq *.generator.V2.overlap.fastqd *.generator.V2.overlap.hashcount.fastq *.generator.V2.overlap.hashcount.fastq.bam.vcf *.generator.V2.overlap.hashcount.fastq.bam.vcf.bed;  
-		echo "cleanup done";
+		echo "Cleanup done";
 		exit 1; 
 		;;
 	*)
@@ -400,23 +403,25 @@ echo "  _arg_controls=:"
         arg_control_string="$arg_control_string $each"                                              #
 	done           
 
-echo "  _arg_subject=$_arg_subject" 
-echo "  _arg_ref=$_arg_ref" 
-echo "  _arg_threads=$_arg_threads" 
-echo "  _arg_kmersize=$_arg_kmersize" 
-echo "  _arg_min=$_arg_min" 
-echo "  _arg_refhash=$_arg_refhash" 
-echo "  _arg_saliva=$_arg_saliva" 
-echo "  _arg_exome=$_arg_exome" 
-echo "  _MaxAlleleSize=$_MaxAlleleSize" 
-echo "  _arg_mosaic=$_arg_mosaic" 
-echo "  _assemblySpeed=$_assemblySpeed" 
-echo "  _parallel_jelly=$_parallel_jelly" 
-echo "  _pairedEnd=$_pairedEnd" 
-echo "  _arg_region=$_arg_region" 
-echo "  _arg_filterK=$_arg_filterK" 
-echo "  _arg_ParLowK=$_arg_ParLowK" 
-echo "  _filterMinQ=$_filterMinQ" 
+if (( _arg_dev_reporting == "TRUE" )); then
+	echo "  _arg_subject=$_arg_subject" 
+	echo "  _arg_ref=$_arg_ref" 
+	echo "  _arg_threads=$_arg_threads" 
+	echo "  _arg_kmersize=$_arg_kmersize" 
+	echo "  _arg_min=$_arg_min" 
+	echo "  _arg_refhash=$_arg_refhash" 
+	echo "  _arg_saliva=$_arg_saliva" 
+	echo "  _arg_exome=$_arg_exome" 
+	echo "  _MaxAlleleSize=$_MaxAlleleSize" 
+	echo "  _arg_mosaic=$_arg_mosaic" 
+	echo "  _assemblySpeed=$_assemblySpeed" 
+	echo "  _parallel_jelly=$_parallel_jelly" 
+	echo "  _pairedEnd=$_pairedEnd" 
+	echo "  _arg_region=$_arg_region" 
+	echo "  _arg_filterK=$_arg_filterK" 
+	echo "  _arg_ParLowK=$_arg_ParLowK" 
+	echo "  _filterMinQ=$_filterMinQ"
+fi
 
 ##############################__CHECK_FOR_MANDATORY_PARAMS__#################################################
 if [ -z $_arg_kmersize ]
@@ -442,7 +447,7 @@ fi
 
 if [ ${#_arg_exclude[@]} -eq "0" ] && [ ${#_arg_controls[@]} -eq "0" ]
 then
-    echo "You must provide RUFUS with atleast one control or exclude sample"
+    echo "You must provide RUFUS with at least one control or exclude sample"
     echo "Killing run with non-zero exit status"
     kill -9 $$
 fi
@@ -521,7 +526,7 @@ if [[ ! -e "$_arg_ref".pac ]] && [[ ! -e "$_arg_ref_cat".pac ]]
 then
     echo "Reference file not built for BWA"
     echo "this program requires the existence of the file" "$_arg_ref".pac
-    echo "Killing run with njon-zero status"
+    echo "Killing run with non-zero status"
     kill -9 $$
 fi
 
@@ -845,15 +850,15 @@ then
 	echo "exome not set, assuming data is whole genome, building model" #echo "min not provided, building model"
 	if [ -e "$ProbandGenerator.Jhash.histo.7.7.model" ]
 	then
-	 	echo "skipping model"
+	 	echo "skipping model phase"
 	else
-		echo "starting model"
+		echo "starting model phase"
 		"$RUFUSmodel" "$ProbandGenerator".Jhash.histo $K 150 $Threads > "$ProbandGenerator".Jhash.histo.7.7.out 
 		for parent in "${ParentGenerators[@]}"
 		do
 			"$RUFUSmodel" "$parent".Jhash.histo $K 150 $Threads > "$parent".Jhash.histo.7.7.out & 
 		done
-		echo "done with model"
+		echo "done with model phase"
 	fi 
 
 	if [ -z "$_arg_min" ]
@@ -1118,7 +1123,7 @@ PREFINAL_VCF="$ProbandGenerator.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 
 grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-echo "ar_mosaic = $_arg_mosaic"
+echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"; 
