@@ -346,7 +346,7 @@ parse_commandline ()
 		;;
 	-o)
 		_arg_dev_reporting="TRUE"
-		echo "Minimizing reporting to stdout"
+		echo "Verbose developer reporting to stdout"
 		;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
@@ -399,7 +399,7 @@ parse_commandline "$@"
 #        arg_control_string="$arg_control_string $each"                                              #
 #	done           
 
-if (( $_arg_dev_reporting == "TRUE" )); then
+if [ $_arg_dev_reporting == "TRUE" ]; then
 	echo "Verbose developer reporting on..."
 	echo "  _arg_subject=$_arg_subject" 
 	echo "  _arg_ref=$_arg_ref" 
@@ -858,25 +858,25 @@ then
 	then
 		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
 		then
-			if (( $_arg_dev_reporting == "TRUE" )); then
+			if [ $_arg_dev_reporting == "TRUE" ]; then
 				echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
 			fi
 
 			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 			
-			if (( $_arg_dev_reporting == "TRUE" )); then
+			if [ $_arg_dev_reporting == "TRUE" ]; then
 				echo "INFO: mutant min coverage from generated model is $MutantMinCov"
 	 		fi
 			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 
 			
-			if (( $_arg_dev_reporting == "TRUE" )); then
+			if [ $_arg_dev_reporting == "TRUE" ]; then
 				echo "INFO: mutant SC coverage from generated model is $MutantSC"
 			fi
 
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
 
-			if (( $_arg_dev_reporting == "TRUE" )); then
+			if [ $_arg_dev_reporting == "TRUE" ]; then
 				echo "INFO: MaxHashDepth = $MaxHashDepth"
 			fi
 		else
