@@ -883,7 +883,7 @@ else
 		echo "min coverage must be provided with an exome run"
 		return -1; 
 	else
-####TODO: check what im dond here
+####TODO: check what im done here
 		echo "3" > "$ProbandGenerator".Jhash.histo.7.7.model; 
 		echo "$_arg_min" >> "$ProbandGenerator".Jhash.histo.7.7.model;
 		echo "3.1392e+09" >> "$ProbandGenerator".Jhash.histo.7.7.model;

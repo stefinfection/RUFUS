@@ -126,9 +126,10 @@ else
 		#$OverlapSam <( samtools view  -F 3328 $File.bam | awk '$9 > 100 || $9 < -100 || $9==0' ) .95 20 1 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 		$OverlapSam <( samtools view  -F 3328 $File.bam ) .95 20 1 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	fi
-	
+
+	# todo: the problem here is that this is empty
 	#if [ $( wc -l ./TempOverlap/$NameStub.sam.fastqd | awk '{print $1}') -eq "0" ]; then
-        if [ $( head ./TempOverlap/$NameStub.sam.fastqd | wc -l | awk '{print $1}') -eq "0" ]; then
+  if [ $( head ./TempOverlap/$NameStub.sam.fastqd | wc -l | awk '{print $1}') -eq "0" ]; then
 		echo "ERROR Assembly produce output for ./TempOverlap/$NameStub.sam.fastqd"
 		exit 100
 	fi
