@@ -23,7 +23,7 @@ set -e
 # Argbash is FREE SOFTWARE, see https://argbash.io for more info
 # Generated online by https://argbash.io/generate
 MaxHashDepth=1200; #need to make this a passed option
-RDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+RDIR=/opt/RUFUS
 
 die()
 {
