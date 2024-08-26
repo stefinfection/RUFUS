@@ -400,6 +400,7 @@ parse_commandline "$@"
 #	done           
 
 if (( $_arg_dev_reporting == "TRUE" )); then
+	echo "Verbose developer reporting on..."
 	echo "  _arg_subject=$_arg_subject" 
 	echo "  _arg_ref=$_arg_ref" 
 	echo "  _arg_threads=$_arg_threads" 
