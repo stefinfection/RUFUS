@@ -1172,7 +1172,7 @@ if [ $_arg_dev_file_ouput == "FALSE" ]; then
 	do
 		for postfix in "${control_files[@]}"
 		do
-			if [ -e ${control}.${postfix} ];
+			if [ -e ${control}.${postfix} ]; then
 				echo "rm ${control}.${postfix}"
 				rm ${control}.${postfix}
 			fi
@@ -1202,7 +1202,7 @@ if [ $_arg_dev_file_ouput == "FALSE" ]; then
 	)
 	for postfix in "${subject_files[@]}"
 	do
-		if [ -e ${_arg_subject}.${postfix} ];
+		if [ -e ${_arg_subject}.${postfix} ]; then
 			echo "rm ${_arg_subject}.${postfix}"
 			rm ${_arg_subject}.${postfix}
 		fi
@@ -1220,7 +1220,7 @@ if [ $_arg_dev_file_ouput == "FALSE" ]; then
 	mkdir $SUPP_DIR
 	for postfix in "${supplemental_files[@]}"
 	do
-		if [ -e ${_arg_subject}.${postfix}]
+		if [ -e ${_arg_subject}.${postfix}]; then
 			mv ${_arg_subject}.${postfix} $SUPP_DIR
 		fi
 	done
