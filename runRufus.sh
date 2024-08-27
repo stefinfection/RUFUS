@@ -67,6 +67,7 @@ _arg_ParLowK=2
 _filterMinQ=15
 _arg_stop="nope"
 _arg_dev_reporting="FALSE"
+_arg_dev_file_output="FALSE"
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
@@ -209,7 +210,7 @@ parse_commandline ()
 		;;
 	-c|--controls)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-		echo "checking parent count $#"
+		#echo "checking parent count $#"
 		FileName=$(basename "$2")
 		Extension="${FileName##*.}"
 		genName=$FileName
@@ -347,6 +348,10 @@ parse_commandline ()
 	-o)
 		_arg_dev_reporting="TRUE"
 		echo "Verbose developer reporting to stdout"
+		;;
+	-z)
+		_arg_dev_file_output="TRUE"
+		echo "Retain all intermediate files created by RUFUS run"
 		;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
@@ -840,7 +845,7 @@ done
 #if [ $_arg_exome == "FALSE" ] #[	-z "$_arg_min" ]
 if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
 then
-	echo "exome not set, assuming data is whole genome, building model" #echo "min not provided, building model"
+	echo "No exome supplied, running whole genome mode" #echo "min not provided, building model"
 	if [ -e "$ProbandGenerator.Jhash.histo.7.7.model" ]
 	then
 	 	echo "Skipping model phase..."
@@ -1144,6 +1149,83 @@ tabix ./$PREFINAL_VCF.gz
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
+
+echo "Cleaning up extra files..."
+
+if [ $_arg_dev_file_ouput == "FALSE" ]; then
+	rm -r Intermediates/
+       	rm -r TempOverlap/
+	rm mer_counts_merged.jf
+	control_files=(
+		"bam.generator"
+		"bam.generator.Jelly.chr"
+		"bam.generator.Jhash"
+	        "bam.generator.Jhash.histo"
+		"bam.generator.Jhash.histo.7.7.dist"
+		"bam.generator.Jhash.histo.7.7.model"
+	        "bam.generator.Jhash.histo.7.7.out"
+		"bam.generator.Jhash.histo.7.7.prob" 	
+	)	
+
+	# remove control files
+	for control in "${_arg_controls[@]}"
+	do
+		for postfix in "${control_files[@]}"
+		do
+			if [ -e ${control}.${postfix} ];
+				echo "rm ${control}.${postfix}"
+				rm ${control}.${postfix}
+			fi
+		done
+	done
+	
+	# remove subject files
+	subject_files=(
+		"bam.generator"
+		"bam.generator.V2.overlap.fastqd"
+		"bam.generator.Jelly.chr"
+		"bam.generator.V2.overlap.hashcount.fastq"
+		"bam.generator.Jhash"
+		"bam.generator.Jhash.histo"
+		"bam.generator.Jhash.histo.7.7.dist"
+		"bam.generator.Jhash.histo.7.7.model"
+		"bam.generator.Jhash.histo.7.7.out"
+		"bam.generator.Jhash.histo.7.7.prob"
+		"bam.generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
+		"bam.generator.Mutations.Mate1.fastq"    
+		"bam.generator.filter.chr"
+		"bam.generator.Mutations.Mate2.fastq"    
+		"bam.generator.temp"
+		"bam.generator.temp.mate1.fastq"
+		"bam.generator.V2.overlap.fastq"        
+		"bam.generator.temp.mate2.fastq"
+	)
+	for postfix in "${subject_files[@]}"
+	do
+		if [ -e ${_arg_subject}.${postfix} ];
+			echo "rm ${_arg_subject}.${postfix}"
+			rm ${_arg_subject}.${postfix}
+		fi
+	done
+
+	supplemental_files=(
+			"bam.generator.V2.overlap.hashcount.fastq.bam"
+			"bam.generator.V2.overlap.hashcount.fastq.bam.bai"
+			"bam.generator.V2.overlap.hashcount.fastq.bam.vcf"
+			"bam.generator.k25_c4.HashList"
+			"bam.generator.Mutations.fastq.bam"      
+			"bam.generator.Mutations.fastq.bam.bai"
+	)
+	SUPP_DIR="rufus_supplementals"
+	mkdir $SUPP_DIR
+	for postfix in "${supplemental_files[@]}"
+	do
+		if [ -e ${_arg_subject}.${postfix}]
+			mv ${_arg_subject}.${postfix} $SUPP_DIR
+		fi
+	done
+# todo: else kind of organize the chaos
+fi
 
 echo "done with everything"
 exit 0
