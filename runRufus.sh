@@ -1152,7 +1152,7 @@ tabix ./$PREFINAL_VCF.gz
 
 echo "Cleaning up extra files..."
 
-if [ $_arg_dev_file_ouput = "FALSE" ]; then
+if [ "$_arg_dev_file_ouput" = "FALSE" ]; then
 	rm -r Intermediates/
        	rm -r TempOverlap/
 	rm mer_counts_merged.jf
