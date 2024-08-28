@@ -107,6 +107,7 @@ s-n>] ...\n' "$0"
         printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
         printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
         printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
+        printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
 	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
 
 	printf "\t%s\n" "################################################################################################"	
@@ -353,6 +354,11 @@ parse_commandline ()
 		_arg_dev_file_output="TRUE"
 		echo "Retain all intermediate files created by RUFUS run"
 		;;
+	-local)
+		# TODO: get rid of this before publication
+		RDIR=/home/ubuntu/RUFUS
+		echo "Hardcode to look for EC2 version of rufus for dependency compatibility"
+		;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
 		rm *generator.Jhash *generator.Jhash.histo *generator.Jhash.histo.7.7.dist *generator.Jhash.histo.7.7.out *generator.Jhash.histo.7.7.prob *generator.k25_c4.HashList *generator.Mutations.Mate1.fastq *generator.Mutations.Mate2.fastq *.generator.temp *.generator.temp.mate1.fastq *.temp.mate2.fastq *.generator.V2.overlap.fastq *.generator.V2.overlap.fastqd *.generator.V2.overlap.hashcount.fastq *.generator.V2.overlap.hashcount.fastq.bam.vcf *.generator.V2.overlap.hashcount.fastq.bam.vcf.bed;  
@@ -404,7 +410,7 @@ parse_commandline "$@"
 #        arg_control_string="$arg_control_string $each"                                              #
 #	done           
 
-if [ $_arg_dev_reporting == "TRUE" ]; then
+if [ $_arg_dev_reporting = "TRUE" ]; then
 	echo "Verbose developer reporting on..."
 	echo "  _arg_subject=$_arg_subject" 
 	echo "  _arg_ref=$_arg_ref" 
@@ -423,6 +429,7 @@ if [ $_arg_dev_reporting == "TRUE" ]; then
 	echo "  _arg_filterK=$_arg_filterK" 
 	echo "  _arg_ParLowK=$_arg_ParLowK" 
 	echo "  _filterMinQ=$_filterMinQ"
+	echo "  _arg_dev_file_output=$_arg_dev_file_output"
 fi
 
 ##############################__CHECK_FOR_MANDATORY_PARAMS__#################################################
@@ -748,7 +755,6 @@ done
 
 
 ##########################__SET_EXECUTABLE_PATHS__##############################
-# todo: make $RDIR optional argument for running on chpc
 RUFUSmodel=$RDIR/bin/ModelDist
 RUFUSfilter=$RDIR/bin/RUFUS.Filter
 RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
@@ -1149,82 +1155,86 @@ tabix ./$PREFINAL_VCF.gz
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
-
 echo "Cleaning up extra files..."
-
-if [ "$_arg_dev_file_ouput" = "FALSE" ]; then
+if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	rm -r Intermediates/
        	rm -r TempOverlap/
 	rm mer_counts_merged.jf
 	control_files=(
-		"bam.generator"
-		"bam.generator.Jelly.chr"
-		"bam.generator.Jhash"
-	        "bam.generator.Jhash.histo"
-		"bam.generator.Jhash.histo.7.7.dist"
-		"bam.generator.Jhash.histo.7.7.model"
-	        "bam.generator.Jhash.histo.7.7.out"
-		"bam.generator.Jhash.histo.7.7.prob" 	
+		"generator"
+		"generator.Jelly.chr"
+		"generator.Jhash"
+	        "generator.Jhash.histo"
+		"generator.Jhash.histo.7.7.dist"
+		"generator.Jhash.histo.7.7.model"
+	        "generator.Jhash.histo.7.7.out"
+		"generator.Jhash.histo.7.7.prob" 	
 	)	
 
 	# remove control files
-	for control in "${_arg_controls[@]}"
+	for control in "${_arg_controls[@]}";
 	do
+		ctrl_prefix=$(basename "$control")
+		echo "checking $ctrl_prefix"
 		for postfix in "${control_files[@]}"
 		do
-			if [ -e ${control}.${postfix} ]; then
-				echo "rm ${control}.${postfix}"
-				rm ${control}.${postfix}
+			echo "checking for ${ctrl_prefix}.${postfix}"
+			if [ -e ${ctrl_prefix}.${postfix} ]; then
+				echo "rm ${ctrl_prefix}.${postfix}"
+				rm ${ctrl_prefix}.${postfix}
 			fi
 		done
 	done
 	
 	# remove subject files
 	subject_files=(
-		"bam.generator"
-		"bam.generator.V2.overlap.fastqd"
-		"bam.generator.Jelly.chr"
-		"bam.generator.V2.overlap.hashcount.fastq"
-		"bam.generator.Jhash"
-		"bam.generator.Jhash.histo"
-		"bam.generator.Jhash.histo.7.7.dist"
-		"bam.generator.Jhash.histo.7.7.model"
-		"bam.generator.Jhash.histo.7.7.out"
-		"bam.generator.Jhash.histo.7.7.prob"
-		"bam.generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
-		"bam.generator.Mutations.Mate1.fastq"    
-		"bam.generator.filter.chr"
-		"bam.generator.Mutations.Mate2.fastq"    
-		"bam.generator.temp"
-		"bam.generator.temp.mate1.fastq"
-		"bam.generator.V2.overlap.fastq"        
-		"bam.generator.temp.mate2.fastq"
+		"generator"
+		"generator.V2.overlap.fastqd"
+		"generator.Jelly.chr"
+		"generator.V2.overlap.hashcount.fastq"
+		"generator.Jhash"
+		"generator.Jhash.histo"
+		"generator.Jhash.histo.7.7.dist"
+		"generator.Jhash.histo.7.7.model"
+		"generator.Jhash.histo.7.7.out"
+		"generator.Jhash.histo.7.7.prob"
+		"generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
+		"generator.Mutations.Mate1.fastq"    
+		"generator.filter.chr"
+		"generator.Mutations.Mate2.fastq"    
+		"generator.temp"
+		"generator.temp.mate1.fastq"
+		"generator.V2.overlap.fastq"        
+		"generator.temp.mate2.fastq"
 	)
-	for postfix in "${subject_files[@]}"
+	for postfix in "${subject_files[@]}";
 	do
-		if [ -e ${_arg_subject}.${postfix} ]; then
-			echo "rm ${_arg_subject}.${postfix}"
-			rm ${_arg_subject}.${postfix}
+		echo "checking for ${ProbandFileName}.${postfix}"
+		if [ -e "${ProbandFileName}.${postfix}" ]; then
+			echo "rm ${ProbandFileName}.${postfix}"
+			rm ${ProbandFileName}.${postfix}
 		fi
 	done
 
 	supplemental_files=(
-			"bam.generator.V2.overlap.hashcount.fastq.bam"
-			"bam.generator.V2.overlap.hashcount.fastq.bam.bai"
-			"bam.generator.V2.overlap.hashcount.fastq.bam.vcf"
-			"bam.generator.k25_c4.HashList"
-			"bam.generator.Mutations.fastq.bam"      
-			"bam.generator.Mutations.fastq.bam.bai"
+			"generator.V2.overlap.hashcount.fastq.bam"
+			"generator.V2.overlap.hashcount.fastq.bam.bai"
+			"generator.V2.overlap.hashcount.fastq.bam.vcf"
+			"generator.k25_c4.HashList" #todo: this needs to change to actual args
+			"generator.Mutations.fastq.bam"      
+			"generator.Mutations.fastq.bam.bai"
 	)
 	SUPP_DIR="rufus_supplementals"
-	mkdir $SUPP_DIR
-	for postfix in "${supplemental_files[@]}"
+	mkdir -p $SUPP_DIR
+	for postfix in "${supplemental_files[@]}";
 	do
-		if [ -e ${_arg_subject}.${postfix}]; then
-			mv ${_arg_subject}.${postfix} $SUPP_DIR
+		echo "checking subject file ${ProbandFileName}.${postfix}"
+		if [ -e ${ProbandFileName}.${postfix} ]; then
+			mv ${ProbandFileName}.${postfix} $SUPP_DIR
 		fi
 	done
-# todo: else kind of organize the chaos
+else
+	echo "not cleaning up files"
 fi
 
 echo "done with everything"
