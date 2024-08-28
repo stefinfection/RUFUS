@@ -18,9 +18,10 @@ set -e
 # Argbash is FREE SOFTWARE, see https://argbash.io for more info
 # Generated online by https://argbash.io/generate
 
-date
+start_time=$(date +"%s")
 echo "RUFUS version C.0.1"
 echo "RUFUS command was: $0 $@"
+date
 
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
@@ -357,7 +358,6 @@ parse_commandline ()
 	-local)
 		# TODO: get rid of this before publication
 		RDIR=/home/ubuntu/RUFUS
-		echo "Hardcode to look for EC2 version of rufus for dependency compatibility"
 		;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
@@ -1175,10 +1175,8 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	for control in "${_arg_controls[@]}";
 	do
 		ctrl_prefix=$(basename "$control")
-		echo "checking $ctrl_prefix"
 		for postfix in "${control_files[@]}"
 		do
-			echo "checking for ${ctrl_prefix}.${postfix}"
 			if [ -e ${ctrl_prefix}.${postfix} ]; then
 				echo "rm ${ctrl_prefix}.${postfix}"
 				rm ${ctrl_prefix}.${postfix}
@@ -1209,7 +1207,6 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	)
 	for postfix in "${subject_files[@]}";
 	do
-		echo "checking for ${ProbandFileName}.${postfix}"
 		if [ -e "${ProbandFileName}.${postfix}" ]; then
 			echo "rm ${ProbandFileName}.${postfix}"
 			rm ${ProbandFileName}.${postfix}
@@ -1228,7 +1225,6 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	mkdir -p $SUPP_DIR
 	for postfix in "${supplemental_files[@]}";
 	do
-		echo "checking subject file ${ProbandFileName}.${postfix}"
 		if [ -e ${ProbandFileName}.${postfix} ]; then
 			mv ${ProbandFileName}.${postfix} $SUPP_DIR
 		fi
@@ -1238,5 +1234,10 @@ else
 fi
 
 echo "done with everything"
+end_time=$(date +"%s")
+time_delta=$(( $end_time - $start_time ))
+time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
+
+echo "Full run took ${time_diff}"
 exit 0
 # ] <-- needed because of Argbash
