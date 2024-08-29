@@ -1157,6 +1157,10 @@ tabix ./$PREFINAL_VCF.gz
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
 echo "Cleaning up extra files..."
 if [ "$_arg_dev_file_output" = "FALSE" ]; then
+	SUPP_DIR="rufus_supplementals"
+        mkdir -p $SUPP_DIR
+	
+	mv Intermediates/"${ProbandFileName}.generator.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR
 	rm -r Intermediates/
        	rm -r TempOverlap/
 	rm mer_counts_merged.jf
