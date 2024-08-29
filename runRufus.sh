@@ -1182,7 +1182,6 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 		for postfix in "${control_files[@]}"
 		do
 			if [ -e ${ctrl_prefix}.${postfix} ]; then
-				echo "rm ${ctrl_prefix}.${postfix}"
 				rm ${ctrl_prefix}.${postfix}
 			fi
 		done
@@ -1212,7 +1211,6 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	for postfix in "${subject_files[@]}";
 	do
 		if [ -e "${ProbandFileName}.${postfix}" ]; then
-			echo "rm ${ProbandFileName}.${postfix}"
 			rm ${ProbandFileName}.${postfix}
 		fi
 	done
@@ -1237,11 +1235,10 @@ else
 	echo "not cleaning up files"
 fi
 
-echo "done with everything"
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
 time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
 
-echo "Full run took ${time_diff}"
+echo "RUFUS run successful: completed in ${time_diff}"
 exit 0
 # ] <-- needed because of Argbash
