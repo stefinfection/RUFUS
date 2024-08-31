@@ -1,3 +1,5 @@
-RUFUS_PATH=/home/ubuntu/RUFUS
-RUFUS_TEST_PATH="${RUFUS_PATH}/testRun"
-singularity exec /home/ubuntu/rufus.sif bash ${RUFUS_PATH}/runRufus.sh -s ${RUFUS_TEST_PATH}/Child.bam -c ${RUFUS_TEST_PATH}/Mother.bam -c ${RUFUS_TEST_PATH}/Father.bam -k 25 -t 40  -r ${RUFUS_PATH}/resources/references/small_test_human_reference_v37_decoys.fa
+DATA_PATH_HOST=/home/ubuntu/RUFUS/testRun
+
+#todo: this will be programmatically generated based on rufus.config
+
+singularity exec --bind $DATA_PATH_HOST:/mnt /home/ubuntu/rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/Child.bam -c /mnt/Mother.bam -c /mnt/Father.bam -k 25 -t 40  -r /opt/RUFUS/resources/references/small_test_human_reference_v37_decoys.fa
