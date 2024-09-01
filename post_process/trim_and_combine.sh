@@ -8,8 +8,11 @@
 # must be equal to those run for the piecemeal run.
 # Compresses and indexes the final file.
 
-module load bcftools
-module load htslib
+# this is running inside of container so these dependencies should be available
+#module load bcftools
+#module load htslib
+
+SAMPLE_STRING=$1
 
 # Files and dirs for runscript
 SOURCE_DIR=/scratch/ucgd/lustre-labs/marth/scratch/u0746015/HapMap/rufus_runs/yu/kmer_tests/whole_genome/k20_one_perc_test/
