@@ -1,60 +1,65 @@
-# ONLY SUPPORTS GRCh38 CURRENTLY
+#!/bin/bash
 
-# FILL IN SLURM VARIABLES
-SLURM_ACCT="marth-rw"
-SLURM_PARTITION="marth-shared-rw"
-EMAIL="u0746015@utah.edu"
-JOB_NAME="RUFUS_TEST"
-TIME_LIMIT="3-00:00:00"
-NUM_NODES_PER_JOB=1
-JOB_LIMIT=900
+PARSER=/opt/RUFUS/singularity/launch_utilities/arg_parser.sh
+. $PARSER "$@"
 
-# FILL IN RUFUS VARIABLES
-KMER_CUTOFF=5
-CHUNK_SIZE=1000000 # set to 1 for single, complete run
+GENOME_HELPERS=/opt/RUFUS/singularity/launch_utilities/genome_helpers.sh
+. $GENOME_HELPERS
 
-# FILL IN SAMPLE VARIABLES
-SUBJECT_FILE=data/NA12878-NA18517-5percent-lib1-umi-liquid_tumor.sorted.bam
-CONTROL_FILE=data/NA12878.sorted.bam
-
-# LEFTOFF HERE
-# todo: put this directly in here - hard coded to GRCh38
-NUM_CHUNKS=$(bash utilities/get_num_chunks.sh $CHUNK_SIZE)
+CHUNK_UTILITIES=/opt/RUFUS/singularity/launch_utilites/chunk_utilites.sh
+. $CHUNK_UTILITES
+NUM_CHUNKS=$(get_num_chunks.sh $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
 
 WORKING_DIR=$(pwd)
-cd "$WORKING_DIR" || exit
 mkdir slurm_out
-mkdir -p slurm_out/individual_jobs
 
-header_lines=("#!/bin/bash"
-"#SBATCH --job-name=${JOB_NAME}"
-"#SBATCH --time=${TIME_LIMIT}" 
-"#SBATCH --account=${SLURM_ACCT}" 
-"#SBATCH --partition=${SLURM_PARTITION}"
-"#SBATCH --nodes=${NUM_NODES_PER_JOB}"
+if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
+	mkdir -p slurm_out/individual_jobs
+fi
+
+# Compose run script
+RUFUS_SLURM_SCRIPT="run_rufus.slurm"
+HEADER_LINES=("#!/bin/bash"
+"#SBATCH --job-name=RUFUS"
+"#SBATCH --time=${SLURM_TIME_LIMIT_RUFUS_ARG}" 
+"#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
+"#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
+"#SBATCH --nodes=1"
 "#SBATCH -o ${WORKING_DIR}/slurm_out/%j.out"
 "#SBATCH -e ${WORKING_DIR}/slurm_err/%j.err"
 "#SBATCH --mail-type=ALL" 
-"#SBATCH --mail-user=${EMAIL}"
-"#SBATCH -a 0-${NUM_CHUNKS}%${JOB_LIMIT}"
+"#SBATCH --mail-user=${EMAIL_RUFUS_ARG}"
+"#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}"
 )
 
-SLURM_SCRIPT="run_rufus.slurm"
-for line in "${header_lines[@]}"
+# Don't overwrite a run if already exists
+if [ -f "$RUFUS_SLURM_SCRIPT" ]; then
+	echo "ERROR: run_rufus.slurm already exists - are you overwriting an existing output? Please delete run_rufus.slurm and retry"
+	exit 1
+fi
+
+for line in "${HEADER_LINES[@]}"
 do
-    echo -e "$line" >> $SLURM_SCRIPT
+    echo -e "$line" >> $RUFUS_SLURM_SCRIPT
 done
-echo "\n" >> $SLURM_SCRIPT
+echo "\n" >> $RUFUS_SLURM_SCRIPT
 
 # todo: need to test getChunk.sh
-echo "REGION_ARG=$(bash getChunk.sh "${SLURM_ARRAY_TASK_ID}")" >> $SLURM_SCRIPT
+echo "REGION_ARG=$(bash getChunk.sh "${SLURM_ARRAY_TASK_ID}")" >> $RUFUS_SLURM_SCRIPT
 
-# todo: need to edit this for singularity setup
-echo -e "bash \$RUFUS_ROOT/runRufus.sh -s $SUBJECT_FILE -c $CONTROL_FILE -r $REFERENCE \
- -f ${RESOURCE_DIR}GRCh38_full_analysis_set_plus_decoy_hla.25.Jhash -m $KMER_CUTOFF \
-  -k 25 -t 40 -L -vs $REGION_ARG -v $SLURM_ARRAY_TASK_ID" >> $SLURM_SCRIPT
+echo -en "singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+for control in "${CONTROLS_RUFUS_ARG[@]}"; do
+	echo -en "-c $control "
+done
 
-sbatch $SLURM_SCRIPT
+if [ -z "$REF_HASH_RUFUS_ARG" ]; then
+	echo -en "-f $REF_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+fi
+# todo: I won't have slurm_array_task_id here yet...
+echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREADS -L -vs $REGION_ARG -v $SLURM_ARRAY_TASK_ID" >> $RUFUS_SLURM_SCRIPT
+
+# EXECUTE BASH SCRIPT
+sbatch $RUFUS_SLURM_SCRIPT
 
 #todo: what args do I need to pass here?
-sbatch --depend=afterany:$SLURM_ARRAY_JOB_ID singularity exec bash postProcessChunkRun.sh 
+sbatch --depend=afterany:$SLURM_ARRAY_JOB_ID singularity exec bash postProcessRufus.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING_RUFUS_ARG -d $WORKING_DIR  

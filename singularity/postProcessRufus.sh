@@ -6,6 +6,8 @@ usage() {
 	echo " -w window_size	Required: The size of the window used in the RUFUS run"
 	echo " -r reference	Required: The reference used in the RUFUS run"
 	echo " -c controls	Required: The control bam files used in the RUFUS run"
+	echo " -s subject_string	Required: The name of the subject file"
+	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located"
 	echo " -h help	Print help message"
 	exit 1
 }
@@ -14,14 +16,18 @@ usage() {
 controls=()
 window_size=0
 reference=""
+subject_string=""
+source_dir=""
 
 # parse command line arguments
-while getopts ":w:r:c:h" option; do 
+while getopts ":w:r:c:s:h" option; do 
 	case $option in 
 		h) usage;;
 		w) window_size=$OPTARG;;
 		r) reference=$OPTARG;;
-		c) IFS=',' read -r -a controls <<< $"OPTARG";;
+		s) subject_string=$OPTARG;;
+		d) source_dir=$OPTARG;;
+		c) IFS=',' read -r -a controls <<< "$OPTARG";;
 		\?) echo "Invalid option: -$OPTARG" >&2
 		    usage;;	
 		*) echo "Option -$OPTARG requires an argument" >&2
@@ -41,20 +47,22 @@ if [[ -z "$reference" ]]; then
 	        usage
 fi
 
+if [[ -z "$source_dir" ]]; then
+	echo "Error: Missing required option -d (source directory for RUFUS vcf(s))" >&2
+	        usage
+fi
+
 if [ ${#controls[@]} -eq 0 ]; then
 	    echo "Error: Must supply at least one control bam" >&2
 	        usage
 fi
 
-
 # trim and combine runs
 # need chunk size, path to dirs, name of prefiltered vcf + final vcf
 # todo: include header starter file in container
-FINAL_VCF_NAME=
-PREFILTER_VCF_NAME=
 
 #todo: left off here - get this running locally
-bash trim_and_combine.sh FINAL_VCF_NAME PREFILTER_VCF_NAME
+bash trim_and_combine.sh $SUBJECT_STRING $
 
 # check for empty lines
 

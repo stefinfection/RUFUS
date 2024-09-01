@@ -1,8 +1,6 @@
 #!/bin/bash
 
-# TODO: this will need to change to singularity path
-GENOME_HELPERS_PATH=/Users/genetics/Documents/code/RUFUS/singularity/launch_utilities/genome_helpers.sh
-
+GENOME_HELPERS_PATH=/opt/RUFUS/singularity/launch_utilities/genome_helpers.sh
 . $GENOME_HELPERS_PATH
 
 # Returns string formatted chr:start-end for the given chunk number argument
