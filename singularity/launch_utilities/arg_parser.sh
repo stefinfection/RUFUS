@@ -18,6 +18,7 @@ usage() {
     echo "-l slurm_job_limit    The maximum amount of jobs able to be queued at once"
     echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days (DD-HH:MM:SS)"
     echo "-p path_to_rufus_container    If not provided, will look in current directory for rufus.sif"
+	echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 20"
 	echo "-h help	Print usage"
 	exit 1
 }
@@ -37,6 +38,7 @@ EMAIL_RUFUS_ARG=""
 SLURM_JOB_LIMIT_RUFUS_ARG="7-00:00:00"
 SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
+THREAD_LIMIT_RUFUS_ARG="20"
 REF_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
@@ -49,8 +51,6 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:h" opt; do
             SUBJECT_RUFUS_ARG=$OPTARG
             ;;
         c)
-			# todo: need to test this, don't know if I can do two ops on same OPTARG
-			CONTROL_STRING_RUFUS_ARG=$OPTARG
             IFS=',' read -r -a CONTROLS_RUFUS_ARG <<< "$OPTARG"
             ;;
         b)
@@ -83,6 +83,9 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:h" opt; do
         f)
             CONTAINER_PATH_RUFUS_ARG=$OPTARG
             ;;
+		z)
+			THREAD_LIMIT_RUFUS_ARG=$OPTARG
+			;;
         h)
             usage
             ;;
@@ -124,6 +127,12 @@ for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${control}" ]; then
 		echo "Error: provided control file $controls does not exist in the provided data directory or cannot be read." >&2
 		usage	
+	else
+		if [ -z $CONTROL_STRING_RUFUS_ARG ]; then
+			CONTROL_STRING_RUFUS_ARG="$control"
+		else
+			CONTROL_STRING_RUFUS_ARG="${CONTROL_STRING_RUFUS_ARG}, $control"
+		fi
 	fi
 done
 
@@ -142,7 +151,7 @@ fi
 export HOST_DATA_DIR_RUFUS_ARG
 export SUBJECT_RUFUS_ARG
 export CONTROL_STRING_RUFUS_ARG
-export CONTROLS_RUFUS_ARG #TODO: get rid of this - just check here and pass as string
+export CONTROLS_RUFUS_ARG
 export GENOME_BUILD_RUFUS_ARG
 export SLURM_ACCOUNT_RUFUS_ARG
 export SLURM_PARTITION_RUFUS_ARG
@@ -153,4 +162,5 @@ export EMAIL_RUFUS_ARG
 export SLURM_JOB_LIMIT_RUFUS_ARG
 export SLURM_TIME_LIMIT_RUFUS_ARG
 export CONTAINER_PATH_RUFUS_ARG
+export THREAD_LIMIT_RUFUS_ARG
 export REF_HASH_RUFUS_ARG

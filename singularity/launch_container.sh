@@ -1,13 +1,14 @@
 #!/bin/bash
+CONTAINER_PATH=$1
 
-PARSER=/opt/RUFUS/singularity/launch_utilities/arg_parser.sh
+PARSER=${CONTAINER_PATH}/opt/RUFUS/singularity/launch_utilities/arg_parser.sh
 . $PARSER "$@"
 
 GENOME_HELPERS=/opt/RUFUS/singularity/launch_utilities/genome_helpers.sh
 . $GENOME_HELPERS
 
 CHUNK_UTILITIES=/opt/RUFUS/singularity/launch_utilites/chunk_utilites.sh
-. $CHUNK_UTILITES
+. $CHUNK_UTILITIES
 NUM_CHUNKS=$(get_num_chunks.sh $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
 
 WORKING_DIR=$(pwd)
@@ -56,10 +57,16 @@ if [ -z "$REF_HASH_RUFUS_ARG" ]; then
 	echo -en "-f $REF_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
 fi
 # todo: I won't have slurm_array_task_id here yet...
-echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREADS -L -vs $REGION_ARG -v $SLURM_ARRAY_TASK_ID" >> $RUFUS_SLURM_SCRIPT
+echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs $REGION_ARG -v $SLURM_ARRAY_TASK_ID" >> $RUFUS_SLURM_SCRIPT
+
+echo "testing outs:"
+echo "$CONTROL_STRING_RUFUS_ARG"
+SUBJECT_STRING=$(basename $SUBJECT_RUFUS_ARG)
+echo "$SUBJECT_STRING"
 
 # EXECUTE BASH SCRIPT
-sbatch $RUFUS_SLURM_SCRIPT
+#sbatch $RUFUS_SLURM_SCRIPT
 
 #todo: what args do I need to pass here?
-sbatch --depend=afterany:$SLURM_ARRAY_JOB_ID singularity exec bash postProcessRufus.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING_RUFUS_ARG -d $WORKING_DIR  
+#SUBJECT_STRING=$(basename $SUBJECT_RUFUS_ARG)
+#sbatch --depend=afterany:$SLURM_ARRAY_JOB_ID singularity exec bash postProcessRufus.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING_RUFUS_ARG -s $SUBJECT_STRING -d $WORKING_DIR 
