@@ -1,20 +1,23 @@
 #!/bin/bash
-CONTAINER_PATH=$1
 
-PARSER=${CONTAINER_PATH}/opt/RUFUS/singularity/launch_utilities/arg_parser.sh
+# TODO: change this to /opt/RUFUS/singularity/launch_utilities/ before building container
+UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
+
+PARSER=${UTIL_PATH}arg_parser.sh
 . $PARSER "$@"
 
-GENOME_HELPERS=/opt/RUFUS/singularity/launch_utilities/genome_helpers.sh
+GENOME_HELPERS=${UTIL_PATH}genome_helpers.sh
 . $GENOME_HELPERS
 
-CHUNK_UTILITIES=/opt/RUFUS/singularity/launch_utilites/chunk_utilites.sh
+CHUNK_UTILITIES=${UTIL_PATH}chunk_utilities.sh
 . $CHUNK_UTILITIES
-NUM_CHUNKS=$(get_num_chunks.sh $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
+
+NUM_CHUNKS=$(get_num_chunks $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
 
 WORKING_DIR=$(pwd)
 mkdir slurm_out
 
-if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
+if [ ! "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	mkdir -p slurm_out/individual_jobs
 fi
 
@@ -28,9 +31,6 @@ HEADER_LINES=("#!/bin/bash"
 "#SBATCH --nodes=1"
 "#SBATCH -o ${WORKING_DIR}/slurm_out/%j.out"
 "#SBATCH -e ${WORKING_DIR}/slurm_err/%j.err"
-"#SBATCH --mail-type=ALL" 
-"#SBATCH --mail-user=${EMAIL_RUFUS_ARG}"
-"#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}"
 )
 
 # Don't overwrite a run if already exists
@@ -43,26 +43,31 @@ for line in "${HEADER_LINES[@]}"
 do
     echo -e "$line" >> $RUFUS_SLURM_SCRIPT
 done
-echo "\n" >> $RUFUS_SLURM_SCRIPT
 
-# todo: need to test getChunk.sh
-echo "REGION_ARG=$(bash getChunk.sh "${SLURM_ARRAY_TASK_ID}")" >> $RUFUS_SLURM_SCRIPT
+if [ ! -z $EMAIL_RUFUS_ARG ]; then
+	"#SBATCH --mail-type=ALL" >> $RUFUS_SLURM_SCRIPT
+	"#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
+fi
+
+if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
+	echo "" >> $RUFUS_SLURM_SCRIPT
+	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
+else
+	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
+	echo "" >> $RUFUS_SLURM_SCRIPT
+	echo -e "region_arg=\$(get_chunk_region \$SLURM_ARRAY_TASK_ID $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)" >> $RUFUS_SLURM_SCRIPT
+	echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
+fi
 
 echo -en "singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
 for control in "${CONTROLS_RUFUS_ARG[@]}"; do
-	echo -en "-c $control "
+	echo -en "-c $control " >> $RUFUS_SLURM_SCRIPT
 done
 
-if [ -z "$REF_HASH_RUFUS_ARG" ]; then
+if [ ! -z "$REF_HASH_RUFUS_ARG" ]; then
 	echo -en "-f $REF_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
 fi
-# todo: I won't have slurm_array_task_id here yet...
-echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs $REGION_ARG -v $SLURM_ARRAY_TASK_ID" >> $RUFUS_SLURM_SCRIPT
-
-echo "testing outs:"
-echo "$CONTROL_STRING_RUFUS_ARG"
-SUBJECT_STRING=$(basename $SUBJECT_RUFUS_ARG)
-echo "$SUBJECT_STRING"
+echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG -v \$SLURM_ARRAY_TASK_ID" >> $RUFUS_SLURM_SCRIPT
 
 # EXECUTE BASH SCRIPT
 #sbatch $RUFUS_SLURM_SCRIPT

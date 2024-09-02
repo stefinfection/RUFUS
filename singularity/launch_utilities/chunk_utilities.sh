@@ -1,6 +1,9 @@
 #!/bin/bash
+set -e
 
-GENOME_HELPERS_PATH=/opt/RUFUS/singularity/launch_utilities/genome_helpers.sh
+# TODO: change to /opt/... before build container
+UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
+GENOME_HELPERS_PATH=${UTIL_PATH}genome_helpers.sh
 . $GENOME_HELPERS_PATH
 
 # Returns string formatted chr:start-end for the given chunk number argument
@@ -56,6 +59,10 @@ function get_chunk_region() {
 # Takes in 1) the chunk size and 2) the genome build
 function get_num_chunks() {
   local chunk_size=$1
+  if [ "$chunk_size" = "0" ]; then
+	exit 0
+  fi
+  
   local build=$2
   local -a chrom_lengths
 
