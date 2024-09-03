@@ -26,6 +26,7 @@ date
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
 BOUND_DATA_DIR=/mnt
+cd $BOUND_DATA_DIR
 
 die()
 {
@@ -544,7 +545,6 @@ fi
 
 if [ "$BUILD_REFS" = "TRUE" ]; then
 	echo "Missing reference file indexes needed for BWA... Generating... "
-	cd ${BOUND_DATA_DIR}
 	fasta_idx=$(basename ${_arg_ref})
 	bwa index -a bwtsw $fasta_idx
 	samtools faidx $fasta_idx
