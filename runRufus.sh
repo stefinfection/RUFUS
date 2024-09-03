@@ -1161,7 +1161,7 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	mv Intermediates/"${ProbandFileName}.generator.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR
 	rm Intermediates/*${region_postfix}*
     rm TempOverlap/*${region_postfix}*
-	rm mer_counts_merged.jf
+	rm "${ProbandGenerator}${region_postfix}mer_counts_merged.jf"
 	control_files=(
 		"generator"
 		"generator.Jelly.chr"
