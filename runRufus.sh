@@ -395,19 +395,10 @@ assign_positional_args ()
 
 parse_commandline "$@"
 
-# todo: test
+region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
-	formatted_region=$(echo "${_arg_region}" | tr :- _)
-	_arg_subject="${_arg_subject}.region_${_arg_region}"
-	region_controls=()
-	for ctrl in "${_arg_controls[@]}"; do
-		region_ctrl="${ctrl}.region_${_arg_region}"	
-		region_controls+=($region_ctrl)
-	done
-	_arg_controls=region_controls
-	echo "updated names"
-	echo "${_arg_subject}"
-	echo "${_arg_controls[*]}"
+	formatted_region=$(echo "${_arg_region}" | tr : _ | tr - _)
+	region_postfix=".${formatted_region}"
 fi
 
 
@@ -617,12 +608,12 @@ then
 elif [[ "$ProbandExtension" == "bam" ]]
 then
 #   echo "you provided the proband cram file" "$_arg_subject"
-    ProbandGenerator="$ProbandFileName".generator
+    ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
     echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" == "cram" ]]
 then
 #   echo "you provided the proband cram file" "$_arg_subject"
-    ProbandGenerator="$ProbandFileName".generator
+	ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
     if [ "$_arg_cramref" == "" ]
     then
          echo "ERROR cram reference not provided for cram input";
@@ -632,7 +623,7 @@ then
 elif [[ "$ProbandExtension" = "generator" ]]
 then
 #   echo "you provided the proband bam file" "$_arg_subject"
-    ProbandGenerator="$ProbandFileName"
+    ProbandGenerator="${ProbandFileName}${region_postfix}"
 else 
     echo "unknown error during generator generation, killing run with non-zero exit status"
 fi
@@ -646,9 +637,7 @@ for parent in "${Parents[@]}"
 do 
     parentFileName=$(basename "$parent")
     ParentFileNames=$ParentFileNames$space$parent
-#    echo "parent file name is" "$parentFileName"
     parentExtension="${parentFileName##*.}"
-#    echo "parent file extension name is" "$parentExtension"
 
     if  [[ "$parentExtension" != "cram" ]] && [[ "$parentExtension" != "bam" ]]  && [[ "$parentExtension" != "generator" ]] 
     then
@@ -656,13 +645,13 @@ do
 	kill -9 $$
     elif [[ "$parentExtension" == "bam" ]]
     then
-	    parentGenerator="$parentFileName".generator
+	    parentGenerator="${parentFileName}${region_postfix}.generator"
 	    ParentGenerators+=("$parentGenerator")
 	    echo "samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
 #	    echo "You provided the control bam file" "$parent"
     elif [[ "$parentExtension" == "cram" ]] 
     then
-            parentGenerator="$parentFileName".generator
+	    	parentGenerator="${parentFileName}${region_postfix}.generator"
             ParentGenerators+=("$parentGenerator")
 	    if [ "$_arg_cramref" == "" ]
 	    then 
@@ -673,7 +662,7 @@ do
  #           echo "You provided the control cram file" "$parent"    
     elif [[ "$parentExtension" = "generator" ]]
     then
-	parentGenerator="$parentFileName"
+		parentGenerator="${parentFileName}${region_postfix}"
         ParentGenerators+=("$parentGenerator")
 #	echo "You provided the control bam file" "$parent"
     fi
