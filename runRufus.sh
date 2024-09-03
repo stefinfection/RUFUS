@@ -396,7 +396,7 @@ assign_positional_args ()
 parse_commandline "$@"
 
 # todo: test
-if [! -z "${_arg_region}" ]; then
+if [ ! -z "${_arg_region}" ]; then
 	formatted_region=$(echo "${_arg_region}" | tr :- _)
 	_arg_subject="${_arg_subject}.region_${_arg_region}"
 	region_controls=()
