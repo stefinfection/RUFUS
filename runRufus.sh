@@ -944,7 +944,7 @@ else
     	rm  "$ProbandGenerator".temp
     fi
     mkfifo "$ProbandGenerator".temp
-    $modifiedJelly merge "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "$ProbandGenerator".temp & 
+    $modifiedJelly merge -o "$ProbandGenerator$region_postfix.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "$ProbandGenerator".temp & 
     bash $PullSampleHashes $ProbandGenerator.Jhash "$ProbandGenerator".temp $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList 
     wait
     
@@ -1136,16 +1136,16 @@ echo "cleaning up VCF"
 
 PREFINAL_VCF="$ProbandGenerator.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 
-grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/${ProbandGenerator}${region_postfix}.V2.overlap.hashcount.fastq.bam.sorted.vcf
+grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/${ProbandGenerator}${region_postfix}.V2.overlap.hashcount.fastq.bam.sorted.vcf
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" = "TRUE" ]
 then
 	echo "including mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/${ProbandGenerator}${region_postfix}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 else
 	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}${region_postfix}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
 bgzip -f ./$PREFINAL_VCF
@@ -1156,20 +1156,20 @@ tabix ./$PREFINAL_VCF.gz
 echo "Cleaning up extra files..."
 if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	SUPP_DIR="rufus_supplementals"
-        mkdir -p $SUPP_DIR
+    mkdir -p $SUPP_DIR
 	
 	mv Intermediates/"${ProbandFileName}.generator.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR
-	rm -r Intermediates/
-       	rm -r TempOverlap/
+	rm Intermediates/*${region_postfix}*
+    rm TempOverlap/*${region_postfix}*
 	rm mer_counts_merged.jf
 	control_files=(
 		"generator"
 		"generator.Jelly.chr"
 		"generator.Jhash"
-	        "generator.Jhash.histo"
+	    "generator.Jhash.histo"
 		"generator.Jhash.histo.7.7.dist"
 		"generator.Jhash.histo.7.7.model"
-	        "generator.Jhash.histo.7.7.out"
+	    "generator.Jhash.histo.7.7.out"
 		"generator.Jhash.histo.7.7.prob" 	
 	)	
 
@@ -1179,8 +1179,8 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 		ctrl_prefix=$(basename "$control")
 		for postfix in "${control_files[@]}"
 		do
-			if [ -e ${ctrl_prefix}.${postfix} ]; then
-				rm ${ctrl_prefix}.${postfix}
+			if [ -e ${ctrl_prefix}${region_postfix}.${postfix} ]; then
+				rm ${ctrl_prefix}${region_postfix}.${postfix}
 			fi
 		done
 	done
@@ -1208,8 +1208,8 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	)
 	for postfix in "${subject_files[@]}";
 	do
-		if [ -e "${ProbandFileName}.${postfix}" ]; then
-			rm ${ProbandFileName}.${postfix}
+		if [ -e "${ProbandFileName}${region_postfix}.${postfix}" ]; then
+			rm ${ProbandFileName}${region_postfix}.${postfix}
 		fi
 	done
 
@@ -1225,8 +1225,8 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	mkdir -p $SUPP_DIR
 	for postfix in "${supplemental_files[@]}";
 	do
-		if [ -e ${ProbandFileName}.${postfix} ]; then
-			mv ${ProbandFileName}.${postfix} $SUPP_DIR
+		if [ -e "${ProbandFileName}${region_postfix}.${postfix}" ]; then
+			mv ${ProbandFileName}${region_postfix}.${postfix} $SUPP_DIR
 		fi
 	done
 else
