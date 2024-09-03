@@ -412,7 +412,7 @@ parse_commandline "$@"
 #        arg_control_string="$arg_control_string $each"                                              #
 #	done           
 
-if [ $_arg_dev_reporting = "TRUE" ]; then
+if [ "$_arg_dev_reporting" = "TRUE" ]; then
 	echo "Verbose developer reporting on..."
 	echo "  _arg_subject=$_arg_subject" 
 	echo "  _arg_ref=$_arg_ref" 
@@ -483,7 +483,7 @@ unset new_arary
 unset ExcludeTemp
 ########################Setting up Exome Run EXPERIMENTAL ##################################
 
-if [ $_arg_exome == "TRUE" ]; then 
+if [ "$_arg_exome" = "TRUE" ]; then 
 	echo "Exome run set.  Setting max kmer to 1M and saliva = true and making sure a lower cutoff was set "
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
@@ -864,25 +864,25 @@ then
 	then
 		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
 		then
-			if [ $_arg_dev_reporting == "TRUE" ]; then
+			if [ "$_arg_dev_reporting" = "TRUE" ]; then
 				echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
 			fi
 
 			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 			
-			if [ $_arg_dev_reporting == "TRUE" ]; then
+			if [ "$_arg_dev_reporting" = "TRUE" ]; then
 				echo "INFO: mutant min coverage from generated model is $MutantMinCov"
 	 		fi
 			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 
 			
-			if [ $_arg_dev_reporting == "TRUE" ]; then
+			if [ "$_arg_dev_reporting" = "TRUE" ]; then
 				echo "INFO: mutant SC coverage from generated model is $MutantSC"
 			fi
 
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
 
-			if [ $_arg_dev_reporting == "TRUE" ]; then
+			if [ "$_arg_dev_reporting" = "TRUE" ]; then
 				echo "INFO: MaxHashDepth = $MaxHashDepth"
 			fi
 		else
@@ -1078,7 +1078,7 @@ else
 fi 
 
 ########################################################################################
-if [ $_arg_saliva == "TRUE" ]
+if [ "$_arg_saliva" = "TRUE" ]
 then 
 	echo "saliva sample provided, only using aligned mutant contigs"
 	if [ -e  "$ProbandGenerator".Mutations.fastq.FULL.bam ]
@@ -1136,7 +1136,7 @@ PREFINAL_VCF="$ProbandGenerator.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 echo "arg_mosaic = $_arg_mosaic"
-if [ "$_arg_mosaic" == "TRUE" ]
+if [ "$_arg_mosaic" = "TRUE" ]
 then
 	echo "including mosaic"; 
 	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
