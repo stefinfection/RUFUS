@@ -395,6 +395,19 @@ assign_positional_args ()
 
 parse_commandline "$@"
 
+# todo: test
+if [! -z "${_arg_region}" ];
+	formatted_region=$(echo "${_arg_region}" | tr :- _)
+	_arg_subject="${_arg_subject}.region_${_arg_region}"
+	region_controls=()
+	for ctrl in "${_arg_controls[@]}"; do
+		region_ctrl="${ctrl}.region_${_arg_region}"	
+		region_controls+=($region_ctrl)
+	done
+	_arg_controls=region_controls
+fi
+
+
 # [ <-- needed because of Argbash
 
 ##############################__Print out all parameters__#################################################
