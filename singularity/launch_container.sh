@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
+#UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
 UTIL_PATH=/opt/RUFUS/singularity/launch_utilities/
 
 PARSER=${UTIL_PATH}arg_parser.sh
