@@ -396,7 +396,7 @@ assign_positional_args ()
 parse_commandline "$@"
 
 # todo: test
-if [! -z "${_arg_region}" ];
+if [! -z "${_arg_region}" ]; then
 	formatted_region=$(echo "${_arg_region}" | tr :- _)
 	_arg_subject="${_arg_subject}.region_${_arg_region}"
 	region_controls=()
@@ -405,6 +405,9 @@ if [! -z "${_arg_region}" ];
 		region_controls+=($region_ctrl)
 	done
 	_arg_controls=region_controls
+	echo "updated names"
+	echo "${_arg_subject}"
+	echo "${_arg_controls[*]}"
 fi
 
 
@@ -526,8 +529,6 @@ fi
 
 Parents=("${_arg_controls[@]}")
 _arg_ref_cat="${_arg_ref%.*}"
-
-
 
 ###############__CHECK_IF_ALL_REFERENCE_FILES_EXIST__#####################
 BUILD_REFS="FALSE"
