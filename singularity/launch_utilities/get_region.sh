@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#TODO: change this to /opt/RUFUS/singularity/launch_utilities/ before building container
-UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
+#LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
+UTIL_PATH=/opt/RUFUS/singularity/launch_utilities/
 CHUNK_UTILITIES=${UTIL_PATH}chunk_utilities.sh
 . $CHUNK_UTILITIES
 

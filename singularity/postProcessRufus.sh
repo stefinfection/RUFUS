@@ -1,4 +1,11 @@
 #!/bin/bash
+#SBATCH --job-name=combine_job     # Job name
+#SBATCH --output=combine_job.out   # Output file name
+#SBATCH --error=combine_job.err    # Error file name
+#SBATCH --time=00:05:00            # Maximum time
+#SBATCH --ntasks=1                 # Number of tasks
+#SBATCH --cpus-per-task=1          # Number of CPU cores per task
+#SBATCH --mem=1G                   # Memory per job
 
 usage() {
 	echo "Usage: $0 [-w window_size] [-r reference] -[c control1,control2,control3...] [-h]"
