@@ -15,8 +15,8 @@ usage() {
 	echo "-m kmer_depth_cutoff	The amount of kMers that must overlap the variant to be included in the final call set"
 	echo "-w window_size	The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided" 
     echo "-e email  The email address to notify with slurm updates"
-    echo "-l slurm_job_limit    The maximum amount of jobs able to be queued at once; defaults to 1000"
-    echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days (DD-HH:MM:SS)"
+    echo "-l slurm_job_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
+    echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)"
     echo "-p path_to_rufus_container    If not provided, will look in current directory for rufus.sif"
 	echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 20"
 	echo "-h help	Print usage"
@@ -36,13 +36,13 @@ KMER_DEPTH_CUTOFF_RUFUS_ARG="5"
 WINDOW_SIZE_RUFUS_ARG="0"
 EMAIL_RUFUS_ARG=""
 SLURM_JOB_LIMIT_RUFUS_ARG="1000"
-SLURM_TIME_LIMIT_RUFUS_ARG="7-00:00:00"
+SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
 REF_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
-while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:h" opt; do
+while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:z:h" opt; do
     case ${opt} in
 		d)	
 			HOST_DATA_DIR_RUFUS_ARG=$OPTARG
@@ -140,6 +140,21 @@ done
 if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${REFERENCE_RUFUS_ARG}" ]; then
 	echo "Error: provided reference file $REFERENCE_RUFUS_ARG does not exist in the provided data directory or cannot be read." >&2
 	usage	
+fi
+
+# Check that window size is in valid range
+# Check if time limit has been assigned, if not - use defaults for full mode or windowed mode
+if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
+	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
+		SLURM_TIME_LIMIT_RUFUS="7-00:00:00"
+	fi
+elif [ "$WINDOW_SIZE_RUFUS_ARG" -lt 500 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -gt 5000 ]; then
+	echo "Error: window size must be between 500 and 5000 (kilobases)"
+	usage
+else
+	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
+		SLURM_TIME_LIMIT_RUFUS_ARG="01:00:00"
+	fi
 fi
 
 # If build is GRCh38, include prebuilt hash

@@ -47,9 +47,9 @@ header_lines=("#!/bin/bash"
 "#SBATCH --time=${TIME_LIMIT}" 
 "#SBATCH --account=${SLURM_ACCT}" 
 "#SBATCH --partition=${SLURM_PARTITION}"
-"#SBATCH --nodes=${NUM_NODES_PER_JOB}"
 "#SBATCH -o ${WORKING_DIR}/slurm_out/%j.out"
 "#SBATCH -e ${WORKING_DIR}/slurm_err/%j.err"
+"#SBATCH --nodes=${NUM_NODES_PER_JOB}"
 "#SBATCH --mail-type=ALL" 
 "#SBATCH --mail-user=${EMAIL}"
 )
@@ -78,14 +78,16 @@ else
 fi
 
 # Add in the rufus command
-echo -en "bash $RUFUS_PATH -s $SUBJECT_FILE -c $CONTROL_FILE -r $REFERENCE\
+echo -e "bash $RUFUS_PATH -s $SUBJECT_FILE -c $CONTROL_FILE -r $REFERENCE\
  -f ${RESOURCE_DIR}${ref_hash} -m $KMER_CUTOFF\
  -k 25 -t 40 -L -vs \$REGION_ARG " >> $SLURM_SCRIPT
-echo -e "-v \$SLURM_ARRAY_TASK_ID" >> $SLURM_SCRIPT
+
+# I don't think I need this anymore
+#echo -e "-v \$SLURM_ARRAY_TASK_ID" >> $SLURM_SCRIPT
 
 # Submit the SLURM script
 # todo: how do I submit a slurm array
-#sbatch $SLURM_SCRIPT
+#ARRAY_JOB_ID=$(sbatch --parsable $SLURM_SCRIPT)
 
 # Wait here until all scripts done
 #todo: what args do I need to pass here?

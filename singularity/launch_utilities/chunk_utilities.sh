@@ -12,6 +12,8 @@ function get_chunk_region() {
   local chunkSize=$2
   local build=$3
 
+  local adjusted_size=$((chunkSize * 1000))
+
   local -a chrom_lengths
   get_lengths "$build" chrom_lengths
 
@@ -23,7 +25,7 @@ function get_chunk_region() {
   chunkEnd=0
 
   # Calculate the absolute coordinate of the chunk
-  absCoord=$((chunkNum * chunkSize))
+  absCoord=$((chunkNum * adjusted_size))
 
   # Find the chromosome that the chunk is in
   idx=0
@@ -39,13 +41,15 @@ function get_chunk_region() {
   remainder=$((remainder + chrom_lengths[idx]))
 
   # Calculate the start and end of the chunk
-  multiplier=$((remainder/chunkSize))
-  chunkStart=$((multiplier * chunkSize))
+  multiplier=$((remainder/adjusted_size))
+  chunkStart=$((multiplier * adjusted_size))
   if [[ $chunkStart -eq 0 ]]; then
     chunkStart=1
+  else
+	chunkStart=$((chunkStart + 1))
   fi
 
-  chunkEnd=$((chunkStart + chunkSize - 1))
+  chunkEnd=$((chunkStart + adjusted_size -1))
 
   # Adjust the end of the chunk if it exceeds the chromosome length
   if ((chunkEnd > chrom_lengths[idx])); then
@@ -62,7 +66,8 @@ function get_num_chunks() {
   if [ "$chunk_size" = "0" ]; then
 	exit 0
   fi
-  
+ 
+  local adjusted_size=$((chunk_size * 1000))
   local build=$2
   local -a chrom_lengths
 
@@ -72,10 +77,10 @@ function get_num_chunks() {
   for ((i=0; i<${#chrom_lengths[@]}; i++)); do
 
     len=${chrom_lengths[i]}
-    curr_chunks=$(($len / $chunk_size))
+    curr_chunks=$(($len / $adjusted_size))
 
     # Add on last chunk if there is a remainder
-    remainder=$(($len % $chunk_size))
+    remainder=$(($len % $adjusted_size))
     if ((remainder > 0)); then
       curr_chunks=$(($curr_chunks + 1))
     fi
