@@ -25,6 +25,7 @@ date
 
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
+BOUND_DATA_DIR=/mnt
 
 die()
 {
@@ -515,44 +516,38 @@ _arg_ref_cat="${_arg_ref%.*}"
 
 
 ###############__CHECK_IF_ALL_REFERENCE_FILES_EXIST__#####################
+BUILD_REFS="FALSE"
 if [[ ! -e "$_arg_ref".sa ]] && [[ ! -e "$_arg_ref_cat".sa ]]
 then
-    echo "Reference file not built for BWA" 
-    echo "this program requires the existence of the file" "$_arg_ref".sa
-    echo "Killing run with non-zero status"
-    kill -9 $$
+	BUILD_REFS="TRUE"
 fi
 
 if [[ ! -e "$_arg_ref".bwt ]] && [[ ! -e "$_arg_ref_cat".bwt ]]
 then
-    echo "Reference file not built for BWA"
-    echo "this program requires the existence of the file" "$_arg_ref".bwt
-    echo "Killing run with non-zero status"
-    kill -9 $$
+	BUILD_REFS="TRUE"
 fi
 
 if [[ ! -e "$_arg_ref".pac ]] && [[ ! -e "$_arg_ref_cat".pac ]]
 then
-    echo "Reference file not built for BWA"
-    echo "this program requires the existence of the file" "$_arg_ref".pac
-    echo "Killing run with non-zero status"
-    kill -9 $$
+	BUILD_REFS="TRUE"
 fi
 
 if [[ ! -e "$_arg_ref".amb ]] && [[ ! -e "$_arg_ref_cat".amb ]]
 then
-    echo "Reference file not built for BWA"
-    echo "this program requires the existence of the file" "$_arg_ref".amb
-    echo "Killing run with non-zero status"
-    kill -9 $$
+	BUILD_REFS="TRUE"
 fi
 
 if [[ ! -e "$_arg_ref".ann ]] && [[ ! -e "$_arg_ref_cat".ann ]]
 then
-    echo "Reference file not built for BWA"
-    echo "this program requires the existence of the file" "$_arg_ref".ann
-    echo "Killing run with non-zero status"
-    kill -9 $$
+	BUILD_REFS="TRUE"
+fi
+
+if [ "$BUILD_REFS" = "TRUE" ]; then
+	echo "Missing reference file indexes needed for BWA... Generating... "
+	cd ${BOUND_DATA_DIR}
+	fasta_idx=$(basename ${_arg_ref})
+	bwa index -a bwtsw $fasta_idx
+	samtools faidx $fasta_idx
 fi
 
 
@@ -1219,7 +1214,7 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 			"generator.V2.overlap.hashcount.fastq.bam"
 			"generator.V2.overlap.hashcount.fastq.bam.bai"
 			"generator.V2.overlap.hashcount.fastq.bam.vcf"
-			"generator.k25_c4.HashList" #todo: this needs to change to actual args
+			"generator.k${K}_c${MutantMinCov}.HashList"
 			"generator.Mutations.fastq.bam"      
 			"generator.Mutations.fastq.bam.bai"
 	)
