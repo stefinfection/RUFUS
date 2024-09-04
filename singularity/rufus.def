@@ -6,8 +6,9 @@ From: ubuntu:22.04
     Version v0.0.1
 
 %post
+	export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev bc libncurses5-dev autoconf automake make liblzma-dev libcurl4-gnutls-dev libssl-dev samtools bamtools bedtools bcftools
+    apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev bc libncurses5-dev autoconf automake make liblzma-dev libcurl4-gnutls-dev libssl-dev samtools bamtools bedtools bcftools vt
     add-apt-repository ppa:ubuntu-toolchain-r/test
 
     # install htslib
@@ -29,14 +30,8 @@ From: ubuntu:22.04
     cmake ../
     make
 
-	# install vt
-	cd /opt
-	git clone https://github.com/atks/vt.git
-	cd vt
-	git submodule update --init --recursive
-	make
-	
     apt-get purge -y --auto-remove git wget
+	unset DEBIAN_FRONTEND
 
 %environment
     export PATH=$PATH:/opt/RUFUS/bin
