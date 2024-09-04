@@ -1,10 +1,3 @@
-#!/bin/bash
-#SBATCH --job-name=combine_job     # Job name
-#SBATCH --output=combine_job.out   # Output file name
-#SBATCH --error=combine_job.err    # Error file name
-#SBATCH --time=2-00:00:00          # Maximum time
-#SBATCH --nodes=1                 # Number of tasks
-
 usage() {
 	echo "Usage: $0 [-w window_size] [-r reference] -[c control1,control2,control3...] [-h]"
 	echo "Options:"
@@ -62,23 +55,60 @@ if [ ${#controls[@]} -eq 0 ]; then
 	        usage
 fi
 
+echo "RUFUS post-process version C.0.1"
+echo "RUFUS post-process command was: postProcess.sh $@"
+date
+echo "RUFUS_$0 $@" >> .rufus.cmd
+
 cd $source_dir
 
 subject_string=$(basename $subject_file)
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
-COMBINED_VCF=""
-if [ "$window_size" = "0" ]; then
-	COMBINED_VCF="RUFUS.Final.${subject_file}.combined.vcf.gz"
-else
+
+TEMP_FINAL_VCF="temp.RUFUS.Final.${subject_string}.combined.vcf.gz"
+TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${subject_string}.combined.vcf.gz"
+
+if [ "$window_size" != "0" ]; then
+	echo "Windowed run performed, trimming and combining region vcfs..."
 	IFS=$'\t'
 	control_string="${controls[*]}"
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $subject_string $control_string $source_dir $window_size
-	PREFILTERED_VCF="RUFUS.Prefiltered.${subject_string}.combined.vcf.gz"
 	mv $PREFILTERED_VCF rufus_supplementals/
 fi
 
-# check for empty lines
-# sort
-# need final vcf and control bams
-# remove inheriteds
-# separate SVs and SNV/indels
+# Check for empty lines
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF
+
+# Sort
+bcftools sort $TEMP_FINAL_VCF > "sorted.${TEMP_FINAL_VCF}"
+bcftools sort $TEMP_PREFILTERED_VCF > "sorted.${TEMP_PREFILTERED_VCF}"
+
+# Remove coinheriteds
+# TODO: left off here - we are already inside of a batch script, don't need to make another one - call just a .sh here instead
+
+
+# Separate SVs and SNV/Indels
+
+
+FINAL_VCF="RUFUS.Final.${subject_string}.combined.vcf.gz"
+PREFILTERED_VCF="RUFUS.Prefiltered.${subject_string}.combined.vcf.gz"
+
+# Inject RUFUS command into header
+bcftools view -h $TEMP_FINAL_VCF | head -n -1 > $FINAL_VCF
+cat .rufus.cmd >> $FINAL_VCF
+bcftools view -h $TEMP_FINAL_VCF | tail -n 1 >> $FINAL_VCF
+bcftools view -H $TEMP_FINAL_VCF >> $FINAL_VCF
+
+bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
+cat .rufus.cmd >> $PREFILTERED_VCF
+bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
+bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
+
+# Cleanup
+mv $PREFILTERED_VCF rufus_supplementals/
+rm $TEMP_PREFILTERED_VCF
+rm $TEMP_FINAL_VCF
+rm "sorted.$TEMP_PREFILTERED_VCF"
+rm "sorted.$TEMP_FINAL_VCF"
+

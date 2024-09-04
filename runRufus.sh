@@ -23,6 +23,8 @@ echo "RUFUS version C.0.1"
 echo "RUFUS command was: $0 $@"
 date
 
+echo "$0 $@" > .rufus.cmd
+
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
 BOUND_DATA_DIR=/mnt
@@ -1148,21 +1150,21 @@ else
 fi
 
 # Rename final vcf and zip/index
-FINAL_VCF="RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
+FINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
 mv $PREFINAL_VCF $FINAL_VCF
 bgzip -f ./$FINAL_VCF
 tabix ./$FINAL_VCF.gz
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
-echo "Cleaning up extra files..."
+echo "Cleaning up intermediary files..."
 if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	SUPP_DIR="rufus_supplementals"
     mkdir -p $SUPP_DIR
 	
-	mv Intermediates/"${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR/"RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bgzip $SUPP_DIR/"RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bcftools index $SUPP_DIR/"RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
+	mv Intermediates/"${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	bgzip $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	bcftools index $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
 
 	rm Intermediates/*${region_postfix}*
     rm TempOverlap/*${region_postfix}*

@@ -17,8 +17,8 @@ CONTROL_STRING=$2
 SOURCE_DIR=$3
 CHUNK_SIZE=$4
 
-COMBINED_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
-COMBINED_PRE_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
+COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 COMBINED_SAMPLE_STRING="${SUBJECT_STRING}\t${CONTROL_STRING}"
 
 SUPP_DIR="${SOURCE_DIR}rufus_supplemental/"
@@ -130,8 +130,9 @@ do
             bcftools view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
             bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
 
-			rm $CURR_VCF
-			rm $CURR_PRE_VCF
+			# Remove vcf and indexes
+			rm $CURR_VCF*
+			rm $CURR_PRE_VCF*
         fi
     
         # Advance start coordinate
