@@ -7,4 +7,10 @@ SAMPLE_NAME="NA12878-NA18517-1percent-lib1-umi-liquid_tumor"
 CONTROL_BAM=/scratch/ucgd/lustre-work/marth/u0880188/smaht/uw/hapmap_data/NA12878.sorted.bam
 INHERITED_SLURM=/scratch/ucgd/lustre-labs/marth/scratch/u0746015/COLO829/helper_scripts/remove_inheriteds_SG.slurm
 
+OUT_DIR=$1
+REF=$2
+RUFUS_VCF=$3
+OUT_FILE_NAME=$4
+CONTROL_BAM
+
 sbatch $INHERITED_SLURM $REF $RUFUS_VCF $SAMPLE_NAME $OUT_DIR $CONTROL_BAM

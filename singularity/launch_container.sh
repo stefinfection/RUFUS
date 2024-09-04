@@ -24,10 +24,10 @@ fi
 
 # TODO: if ARRAY_SIZE_LIMIT < NUM_CHUNKS need to split these into multiple batch scripts
 
-# Compose run script
-RUFUS_SLURM_SCRIPT="run_rufus.slurm"
+# Compose run script(s)
+RUFUS_SLURM_SCRIPT="rufus_call.slurm"
 HEADER_LINES=("#!/bin/bash"
-"#SBATCH --job-name=rufus_run"
+"#SBATCH --job-name=rufus_call"
 "#SBATCH --time=${SLURM_TIME_LIMIT_RUFUS_ARG}" 
 "#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
 "#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
@@ -57,8 +57,6 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
 	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
-	echo -e "#SBATCH --nodes=1-${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
-	echo -e "#SBATCH --mem=64G" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
@@ -74,10 +72,6 @@ if [ ! -z "$REF_HASH_RUFUS_ARG" ]; then
 fi
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
 
-# EXECUTE BASH SCRIPT
-# TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
-#ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
-
 # Compose post-process slurm script
 PP_SLURM_SCRIPT="postProcessRufus.slurm"
 PP_HEADER_LINES=("#!/bin/bash"
@@ -85,6 +79,16 @@ PP_HEADER_LINES=("#!/bin/bash"
 "#SBATCH --output=rufus_post_process_%j.out"   
 "#SBATCH --error=rufus_post_process_%j.err" 
 "#SBATCH --nodes=1"
+)
+
+IFS=$'\t'
+TAB_CONTROLS="${CONTROLS_RUFUS_ARG[*]}"
+
+PP_VAR_LINES=(""
+"SUBJECT_FILE=$SUBJECT_RUFUS_ARG"
+"WINDOW_SIZE=$WINDOW_SIZE_RUFUS_ARG"
+"CONTROL_STRING=$TAB_CONTROLS"
+"REFERENCE=$REFERENCE_RUFUS_ARG"
 )
 
 for line in "${PP_HEADER_LINES[@]}"
@@ -97,7 +101,11 @@ if [ ! -z $EMAIL_RUFUS_ARG ]; then
     echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $PP_SLURM_SCRIPT
 fi
 
-cat "${FILE_STUB_DIR}postProcess.start" >> $PP_SLURM_SCRIPT
+cat "${FILE_STUB_DIR}postProcess.body" >> $PP_SLURM_SCRIPT
 
-#SUBJECT_STRING=$(basename $SUBJECT_RUFUS_ARG)
-#sbatch --depend=afterany:$ARRAY_JOB_ID singularity exec bash ${PP_SLURM_SCRIPT} -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING_RUFUS_ARG -s $SUBJECT_STRING -d $WORKING_DIR 
+# Get rufus run(s) going
+# TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
+#ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
+
+#sbatch --depend=afterany:$ARRAY_JOB_ID singularity exec bash ${PP_SLURM_SCRIPT}
+echo "All RUFUS runs completed. Beginning post-processing..."

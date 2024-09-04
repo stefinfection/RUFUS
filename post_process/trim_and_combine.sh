@@ -14,14 +14,13 @@
 
 SUBJECT_STRING=$1
 CONTROL_STRING=$2
-SOURCE_DIR=$3
-CHUNK_SIZE=$4
+CHUNK_SIZE=$3
 
 COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
 COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 COMBINED_SAMPLE_STRING="${SUBJECT_STRING}\t${CONTROL_STRING}"
 
-SUPP_DIR="${SOURCE_DIR}rufus_supplemental/"
+SUPP_DIR="rufus_supplemental/"
 
 # Headers that get written to vcf
 COMBINED_HEADER="combined.header"
@@ -90,8 +89,6 @@ CHR_LENGTHS=(
 156040895 
 57227415 
 )
-
-cd $SOURCE_DIR
 
 # Initialize combined headers
 cat "$HEADER_START" > $COMBINED_HEADER
