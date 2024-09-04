@@ -102,6 +102,7 @@ if [ ! -z $EMAIL_RUFUS_ARG ]; then
 fi
 
 # TODO: change this file postfix after testing (to remove vim hightlighting but clarify purpose)
+FILE_STUB_DIR=/opt/RUFUS/post_process/file_stubs/
 cat "${FILE_STUB_DIR}postProcess.sh" >> $PP_SLURM_SCRIPT
 
 # Get rufus run(s) going
