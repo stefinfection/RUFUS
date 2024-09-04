@@ -101,7 +101,8 @@ if [ ! -z $EMAIL_RUFUS_ARG ]; then
     echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $PP_SLURM_SCRIPT
 fi
 
-cat "${FILE_STUB_DIR}postProcess.body" >> $PP_SLURM_SCRIPT
+# TODO: change this file postfix after testing (to remove vim hightlighting but clarify purpose)
+cat "${FILE_STUB_DIR}postProcess.sh" >> $PP_SLURM_SCRIPT
 
 # Get rufus run(s) going
 # TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
