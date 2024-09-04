@@ -84,6 +84,12 @@ PP_HEADER_LINES=("#!/bin/bash"
 IFS=$'\t'
 TAB_CONTROLS="${CONTROLS_RUFUS_ARG[*]}"
 
+
+# TODO: left off here - need to make postProcess.sh script in container, not at point of call dir
+# TODO: then need to make simple sbatch script wrapper around that
+# TODO: then sbatch image script
+# TODO: think I want to bring back the arg checks
+
 PP_VAR_LINES=(""
 "SUBJECT_FILE=$SUBJECT_RUFUS_ARG"
 "WINDOW_SIZE=$WINDOW_SIZE_RUFUS_ARG"
