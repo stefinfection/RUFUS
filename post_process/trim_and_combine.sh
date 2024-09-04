@@ -129,6 +129,9 @@ do
             bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}.gz" > $TEMP_TRIMMED
             bcftools view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
             bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
+
+			rm $CURR_VCF
+			rm $CURR_PRE_VCF
         fi
     
         # Advance start coordinate
