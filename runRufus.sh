@@ -1147,8 +1147,11 @@ else
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
-bgzip -f ./$PREFINAL_VCF
-tabix ./$PREFINAL_VCF.gz
+# Rename final vcf and zip/index
+FINAL_VCF="RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
+mv $PREFINAL_VCF $FINAL_VCF
+bgzip -f ./$FINAL_VCF
+tabix ./$FINAL_VCF.gz
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
@@ -1157,7 +1160,10 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	SUPP_DIR="rufus_supplementals"
     mkdir -p $SUPP_DIR
 	
-	mv Intermediates/"${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR
+	mv Intermediates/"${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR/"RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	bgzip $SUPP_DIR/"RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	bcftools index $SUPP_DIR/"RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
+
 	rm Intermediates/*${region_postfix}*
     rm TempOverlap/*${region_postfix}*
 	rm "${ProbandGenerator}mer_counts_merged.jf"

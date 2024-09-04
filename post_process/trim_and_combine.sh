@@ -12,38 +12,30 @@
 #module load bcftools
 #module load htslib
 
-SAMPLE_STRING=$1
+SUBJECT_STRING=$1
+CONTROL_STRING=$2
+SOURCE_DIR=$3
+CHUNK_SIZE=$4
 
-# Files and dirs for runscript
-SOURCE_DIR=/scratch/ucgd/lustre-labs/marth/scratch/u0746015/HapMap/rufus_runs/yu/kmer_tests/whole_genome/k20_one_perc_test/
+COMBINED_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+COMBINED_PRE_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
+COMBINED_SAMPLE_STRING="${SUBJECT_STRING}\t${CONTROL_STRING}"
 
-RUFUS_VCF=NA12878-NA18517-1percent-lib1-umi-liquid_tumor.sorted.bam.generator.V2.overlap.hashcount.fastq.bam.coinherited.vcf.gz
-TRIMMED_VCF=trimmed.final.vcf
-INHERITED_VCF=NA12878-NA18517-1percent-lib1-umi-liquid_tumor.sorted.bam.generator.FINAL.normalized.vcf.gz
-
-RUFUS_PRE_VCF=Intermediates/NA12878-NA18517-1percent-lib1-umi-liquid_tumor.sorted.bam.generator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-TRIMMED_PRE_VCF=Intermediates/trimmed.prefiltered.vcf
-
-RUFUS_SAMPLE_STRING="NA12878-NA18517-1percent-lib1-umi-liquid_tumor\tNA12878"
-
-COMBINED_VCF="test.combined.final.vcf"
-COMBINED_PRE_VCF="test.combined.prefiltered.vcf"
+SUPP_DIR="${SOURCE_DIR}rufus_supplemental/"
 
 # Headers that get written to vcf
 COMBINED_HEADER="combined.header"
 COMBINED_PRE_HEADER="combined.preheader"
 
 # Start of headers
-HEADER_START="/scratch/ucgd/lustre-labs/marth/scratch/u0746015/HapMap/resources/combined.header.start"
-PRE_HEADER_START="/scratch/ucgd/lustre-labs/marth/scratch/u0746015/HapMap/resources/combined.preheader.start"
+HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.header.start"
+PRE_HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.preheader.start"
 
 # Records that get written to vcf (non-header)
 COMBINED_RECORDS="combined.records"
 COMBINED_PRE_RECORDS="combined.prerecords"
 
 NUM_CHRS=24
-CHUNK_SIZE=1000000
-
 CHRS=(
 "1"  
 "2" 
@@ -106,6 +98,8 @@ cat "$HEADER_START" > $COMBINED_HEADER
 cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
 TEMP_TRIMMED="temp.trimmed"
 
+# TODO: need to add rufus command line here too to header
+
 n=${#CHRS[@]}
 for (( i = 0; i < n; i++ ))
 do
@@ -122,22 +116,17 @@ do
             end_coord=$curr_len
         fi
 	
-	    # Get region dir
-        TARGET_DIR="chr${curr_chr}/chr${curr_chr}_${start_coord}_${end_coord}/"
-
-        if [[ -f "$TARGET_DIR${RUFUS_VCF}" ]]; then
+		CURR_VCF="RUFUS.Final.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		CURR_PRE_VCF="${SUPP_DIR}RUFUS.Prefiltered.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+        if [[ -f "${CURR_VCF}" ]]; then
        
             # Write out trimmed region to final vcf
-            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${TARGET_DIR}${RUFUS_VCF}" > $TEMP_TRIMMED
+            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
             bcftools view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
             bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_HEADER 
-            
-            # Write out trimmed region to prefiltered vcf
-            if [[ -f "${TARGET_DIR}${RUFUS_PRE_VCF}" ]]; then
-                bgzip "${TARGET_DIR}${RUFUS_PRE_VCF}"
-                bcftools index -t "${TARGET_DIR}${RUFUS_PRE_VCF}.gz"
-            fi
-            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${TARGET_DIR}${RUFUS_PRE_VCF}.gz" > $TEMP_TRIMMED
+           
+			# Write out trimmed region to prefiltered vcf 
+            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}.gz" > $TEMP_TRIMMED
             bcftools view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
             bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
         fi
@@ -145,15 +134,17 @@ do
         # Advance start coordinate
         ((start_coord=end_coord+1))
     done
-    echo "Done with chr${curr_chr}"
+    echo "Done combining chr${curr_chr}"
 done
 
 cat $COMBINED_HEADER | uniq > $COMBINED_VCF
-echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$RUFUS_SAMPLE_STRING" >> $COMBINED_VCF
+cat ".rufus.command" >> $COMBINED_VCF
+echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_VCF
 cat $COMBINED_RECORDS >> $COMBINED_VCF
 
 cat $COMBINED_PRE_HEADER | uniq > $COMBINED_PRE_VCF
-echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$RUFUS_SAMPLE_STRING" >> $COMBINED_PRE_VCF
+cat ".rufus.command" >> $COMBINED_VCF
+echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
 cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
 bgzip $COMBINED_VCF
