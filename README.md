@@ -1,32 +1,18 @@
-<<<<<<< HEAD
-RUFUS
+RUFUS Singularity Container
 =====
 
 K-mer based variant detection. 
 
-Andrew Farrell PhD               
-Research Associate          
-Department of Human Genetics              
-USTAR Center for Genetic Discovery   
-Eccles Institute of Human Genetics   
-University of Utah School of Medicine​
-15 North 2030 East, Room 7140         
-Salt Lake City, UT 84112-5330        
-Email: JAndrewRFarrell@gmail.com         
-http://marthlab.org/
-
-If you get errors during the installation contact me at at JAndrewRFarrell@gmail.com or submit an issue. 
-
-This project is still under development and not fully stable but free to use and any feedback is welcome.
-
+Under development by Stephanie Georges, MS
+Based on the thesis project of Andrew Farrell, PhD               
 
 __Note:__ RUFUS is only supported on linux environments.
 
-## Installing RUFUS
+## Obtaining the RUFUS Singularity image
 
  **1) Download**
 ```
-git clone https://github.com/jandrewrfarrell/RUFUS.git
+git clone https://github.com/marthlab/RUFUS
 cd RUFUS
 ```
 
