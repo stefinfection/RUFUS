@@ -41,7 +41,9 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     fi
     
     #run pileup and call variants
-    bcftools mpileup -d50 -T $NORMED_VCF -f $REFERENCE_FILE $CONTROL_BAM | bcftools call -cv -Oz -o $CONTROL_VCF 
+	NORMED_BED="normed.bed"
+	bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
+    bcftools mpileup -d500 -T $NORMED_BED -f $REFERENCE_FILE $CONTROL_BAM | bcftools call -cv -Oz -o $CONTROL_VCF 
     bcftools index -t $CONTROL_VCF
     	
     #intersect the control vcf with formatted rufus vcf
@@ -61,4 +63,5 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 
 	#TODO: delete this after testing instead of moving
 	mv $ISEC_OUT_DIR rufus_supplementals/
+	rm $NORMED_BED
 done
