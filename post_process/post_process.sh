@@ -74,6 +74,8 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 	mv $TEMP_PREFILTERED_VCF rufus_supplementals/
 fi
 
+echo "Made it past trim and combine" >&2
+
 # Check for empty lines
 echo "Checking vcf formatting..."
 bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf.gz"
@@ -84,6 +86,7 @@ mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
 mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 
 # Sort
+echo "Made it past empty check" >&2
 echo "Sorting..."
 bcftools sort $TEMP_FINAL_VCF > "sorted.${TEMP_FINAL_VCF}"
 bcftools sort $TEMP_PREFILTERED_VCF > "sorted.${TEMP_PREFILTERED_VCF}"
