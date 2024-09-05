@@ -16,7 +16,7 @@ cd /mnt
 
 SUBJECT_FILE=$1
 CONTROL_STRING=$2
-CHUNK_SIZE=$3
+WINDOW_SIZE=$3
 
 COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
 COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
@@ -97,7 +97,8 @@ cat "$HEADER_START" > $COMBINED_HEADER
 cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
 TEMP_TRIMMED="temp.trimmed"
 
-# TODO: need to add rufus command line here too to header
+# Adjust chunk size to bp
+CHUNK_SIZE=$((WINDOW_SIZE * 1000))
 
 n=${#CHRS[@]}
 for (( i = 0; i < n; i++ ))
@@ -117,6 +118,8 @@ do
 	
 		CURR_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
 		CURR_PRE_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		echo "looking for $CURR_VCF"
+		echo "also looking for $CURR_PRE_VCF"
         if [[ -f "${CURR_VCF}" ]]; then
        
             # Write out trimmed region to final vcf
