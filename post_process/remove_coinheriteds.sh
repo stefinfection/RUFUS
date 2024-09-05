@@ -43,7 +43,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     #run pileup and call variants
 	NORMED_BED="normed.bed"
 	bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
-    bcftools mpileup -d500 -T $NORMED_BED -f $REFERENCE_FILE $CONTROL_BAM | bcftools call -cv -Oz -o $CONTROL_VCF 
+    bcftools mpileup -d100 -T $NORMED_BED -f $REFERENCE_FILE $CONTROL_BAM | bcftools call -cv -Oz -o $CONTROL_VCF 
     bcftools index -t $CONTROL_VCF
     	
     #intersect the control vcf with formatted rufus vcf
