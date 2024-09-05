@@ -100,5 +100,9 @@ echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINE
 # TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
 #ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
 
+# Remove now empty dirs
+rm -r /mnt/Intermediates
+rm -r /mnt/TempOverlap
+
 #sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT
 echo "All RUFUS runs completed. Beginning post-processing..."
