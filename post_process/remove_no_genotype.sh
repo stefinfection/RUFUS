@@ -5,8 +5,6 @@
 input_file=$1
 output_file=$2
 
-module load htslib
-
 # Process the gzipped VCF file
 zcat "$input_file" | awk -F'\t' '
 BEGIN {
