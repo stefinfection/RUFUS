@@ -72,29 +72,13 @@ if [ ! -z "$REF_HASH_RUFUS_ARG" ]; then
 fi
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
 
-# Compose post-process slurm script
-PP_SLURM_SCRIPT="postProcessRufus.slurm"
+# Compose post-process slurm wrapper
+PP_SLURM_SCRIPT="postProcess.slurm" # Slurm wrapper for post process script
 PP_HEADER_LINES=("#!/bin/bash"
 "#SBATCH --job-name=rufus_post_process"   
 "#SBATCH --output=rufus_post_process_%j.out"   
 "#SBATCH --error=rufus_post_process_%j.err" 
 "#SBATCH --nodes=1"
-)
-
-IFS=$'\t'
-TAB_CONTROLS="${CONTROLS_RUFUS_ARG[*]}"
-
-
-# TODO: left off here - need to make postProcess.sh script in container, not at point of call dir
-# TODO: then need to make simple sbatch script wrapper around that
-# TODO: then sbatch image script
-# TODO: think I want to bring back the arg checks
-
-PP_VAR_LINES=(""
-"SUBJECT_FILE=$SUBJECT_RUFUS_ARG"
-"WINDOW_SIZE=$WINDOW_SIZE_RUFUS_ARG"
-"CONTROL_STRING=$TAB_CONTROLS"
-"REFERENCE=$REFERENCE_RUFUS_ARG"
 )
 
 for line in "${PP_HEADER_LINES[@]}"
@@ -106,14 +90,16 @@ if [ ! -z $EMAIL_RUFUS_ARG ]; then
     echo -e "#SBATCH --mail-type=ALL" >> $PP_SLURM_SCRIPT
     echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $PP_SLURM_SCRIPT
 fi
+echo "" >> $PP_SLURM_SCRIPT
 
-# TODO: change this file postfix after testing (to remove vim hightlighting but clarify purpose)
-FILE_STUB_DIR=/opt/RUFUS/post_process/file_stubs/
-cat "${FILE_STUB_DIR}postProcess.sh" >> $PP_SLURM_SCRIPT
+IFS=$','
+CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
+
+echo -e "srun singularity exec ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d /mnt/" >> $PP_SLURM_SCRIPT
 
 # Get rufus run(s) going
 # TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
 #ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
 
-#sbatch --depend=afterany:$ARRAY_JOB_ID singularity exec bash ${PP_SLURM_SCRIPT}
+#sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT
 echo "All RUFUS runs completed. Beginning post-processing..."
