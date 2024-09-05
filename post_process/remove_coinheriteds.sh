@@ -18,10 +18,11 @@ CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
 NORMED_VCF="normed.${RUFUS_VCF}"
 BWA=/opt/RUFUS/bin/externals/bwa/src/bwa_project/bwa
+PILEUP_SCRIPT="/opt/RUFUS/post_processing/single_pileup.sh"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
-mkdir i-p "${ISEC_OUT_DIR}"
+mkdir -p "${ISEC_OUT_DIR}"
 
 #format final rufus vcf for intersections
 vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $NORMED_VCF
@@ -41,26 +42,39 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     fi
     
     #run pileup and call variants
-	NORMED_BED="normed.bed"
 	bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
-	PILEUP_VCF="pileup.vcf"
-    bcftools mpileup -d 50 -T $NORMED_BED -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
-	echo "Finished pileup, starting call" >&2
-	bcftools call -cv -Oz -o $CONTROL_VCF $PILEUP_VCF
+	#PILEUP_VCF="pileup.vcf"
+	bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
+	cat regions.out | parallel -j +0 $PILEUP_SCRIPT {} $CONTROL_BAM $REFERENCE
+	
+	# combine pileups	
+	MERGED_PILEUP="merged_pileup.vcf.gz"
+	bcftools concat -o $MERGED_PILEUP -Oz mpileup_*.vcf
+
+    #bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
+	echo "Finished pileups, starting call" >&2
+	
+	# call variants from merged pileup vcf
+	bcftools call -cv -Oz -o $CONTROL_VCF $MERGED_PILEUP
 	echo "Finished call, starting to index $CONTROL_VCF" >&2
- 
+
+	if [ -z "$CONTROL_VCF" ]; then
+		"Could not find $CONTROL_VCF; exiting..." >&2
+		exit
+	fi
     bcftools index -t $CONTROL_VCF
     	
     #intersect the control vcf with formatted rufus vcf
 	echo "Starting intersection..." >&2
-    bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF
-        
+    bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
+ 
     # save the new vcf as rufus final vcf
-    OUTFILE=$ISEC_OUT_DIR/0000.vcf.gz
-    OUT_INDEX=$ISEC_OUT_DIR/0000.vcf.gz.tbi
+    OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
+	bcftools index -t $OUTFILE
+    OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.tbi"
 
-    cp $OUTFILE "${OUT_VCF}" 
-    cp $OUT_INDEX "${OUT_VCF}.tbi" 
+    cp "$OUTFILE" "${OUT_VCF}" 
+    cp "$OUT_INDEX" "${OUT_VCF}.tbi" 
 
     # clean up aligned control file, if it exists
 	if [ "$MADE_CONTROL_BAM" = true ]; then
