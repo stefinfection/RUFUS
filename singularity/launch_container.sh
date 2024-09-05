@@ -18,10 +18,6 @@ NUM_CHUNKS=$(get_num_chunks $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
 WORKING_DIR=$(pwd)
 mkdir -p slurm_out
 
-if [ ! "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
-	mkdir -p slurm_out/individual_jobs
-fi
-
 # TODO: if ARRAY_SIZE_LIMIT < NUM_CHUNKS need to split these into multiple batch scripts
 
 # Compose run script(s)
@@ -78,8 +74,8 @@ PP_HEADER_LINES=("#!/bin/bash"
 "#SBATCH --job-name=rufus_post_process"   
 "#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
 "#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
-"#SBATCH --output=rufus_post_process_%j.out"   
-"#SBATCH --error=rufus_post_process_%j.err" 
+"#SBATCH --output=${WORKING_DIR}/slurm_out/rufus_post_process_%j.out"   
+"#SBATCH --error=${WORKING_DIR}/slurm_err/rufus_post_process_%j.err" 
 "#SBATCH --nodes=1"
 )
 
