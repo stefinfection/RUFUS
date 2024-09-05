@@ -45,17 +45,22 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	
 	#bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
 	#PILEUP_VCF="pileup.vcf"
-	echo "Starting parallel mpileup..." >&2
-	bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
-	cat regions.out | parallel -j +0 bash $PILEUP_SCRIPT {} $CONTROL_BAM $REFERENCE_FILE
-	
-	# combine pileups	
 	MERGED_PILEUP="merged_pileup.vcf.gz"
-	bcftools concat -o $MERGED_PILEUP -Oz mpileup_*.vcf
-
-    #bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
-	echo "Finished pileups, starting call" >&2
+	# for testing purposes TODO
+	if [ -s "$MERGED_PILEUP" ]; then
+		echo "Starting parallel mpileup..." >&2
+		# TODO: put back in after debugging
+		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
+		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq > regions.out
+		cat regions.out | parallel -j +0 bash $PILEUP_SCRIPT {} $CONTROL_BAM $REFERENCE_FILE
 	
+		# combine pileups	
+		bcftools concat -o $MERGED_PILEUP -Oz mpileup_*.vcf
+		rm mpileup_*.vcf
+
+    	#bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
+		echo "Finished pileups, starting call" >&2
+	fi	
 	# call variants from merged pileup vcf
 	bcftools call -cv -Oz -o $CONTROL_VCF $MERGED_PILEUP
 	echo "Finished call, starting to index $CONTROL_VCF" >&2
