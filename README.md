@@ -3,122 +3,42 @@ RUFUS Singularity Container
 
 K-mer based variant detection. 
 
-Under development by Stephanie Georges, MS
+Developed by Stephanie Georges, MS
 Based on the thesis project of Andrew Farrell, PhD               
 
-__Note:__ RUFUS is only supported on linux environments.
+## Tool Overview
+
+RUFUS is intended to run on a high performance computing cluster to take advantage of parallelism. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the built-in helper functions to create your SBATCH scripts. 
+
+RUFUS has two stages: a variant calling stage, and a post-processing stage. Separation of the stages is necessary because the calling stage may be run in a windowed fashion, requiring multiple parallel RUFUS jobs over all of the windows. The combination stage must wait to proceed until all calling jobs are complete.
+
 
 ## Obtaining the RUFUS Singularity image
 
- **1) Download**
+#TODO
+ **1) Download container**
 ```
 git clone https://github.com/marthlab/RUFUS
-cd RUFUS
 ```
 
-**2) Build**
+**2) Set up resource management script**
+The RUFUS container has two execution stages:
+1) The calling stage, invoked by the following
 ```
-mkdir bin
-cd bin
-cmake ../ 
-make
+singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/runRufus.sh [OPTIONS]
+```
+With the following usage:
+
+```
+d
 ```
 
+2) The post-processing stage, invoked by the following
+```
+singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh [OPTIONS]
+```
 
 ## RUFUS Requirements
-
-** DEPENDENCE ON THE 4.9.2 COMPILER HAS BEEN REMOVED.**  
-
-**RUFUS requires Samtools and bamtools.** Please make sure that they are globally installed in your environment.
-
-
-## Testing RUFUS
-
-To make sure that RUFUS was successfully built, we provide users with a test run script to run RUFUS on a small test set of data with a small test reference, and default parameters.  To test RUFUS, simply run
-```
-cd testRun
-bash runTest.sh
-```
-
-__NOTE:__ Make sure that runTest.sh is called directly from the testRun directory, or the testRun script will not be able to find the appropriate resources.
-
-All data for this run is contained in the resources dir, and nothing needs to be provided by the user to test RUFUS.
-
-At the end of a successfull test run, you should see a file named
-
-```
-testRun/Child.bam.generator.V2.overlap.hashcount.fastq.bam.vcf
-```
-
-This file should contain a single varient call.  The call should look exactly as follows: 
-
-```
-#CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO    FORMAT  ./Child.bam     Mother.bam      Father.bam
-5:177630000     12896   X-DeNovo        T       G       25      PASS    RN=NODE_Child.bam.generator.V2_0_L273_D22:10:12::MH0;MQ=60;cigar=273M;SB=0.454545;CVT=X;HD=-1_-1_-1_-1_-1_19_-1_19_19_-1_-1_-1_-1_-1_20_20_19_-1_-1_18_-1_18_-1_-1_18_-1_-1_;AO=19;VT=X GT:DP:RO:AO     0/1:39:20:19    0/0:23:23:0     0/0:23:23:0
-```
-
-If you were unable to reproduce this call, something went wront with the RUFUS install, and you should get the test run to work before proceeding further.  If you are unable to reproduce a successfull test run, please contact me at JAndrewRFarrell@gmail.com 
-
-## Running 
-
-RUFUS is primarily used to find mutations unique to a  proband sample, that are not found in the control samples
-
-Usage: 
-```
-./runRufus.sh [-s|--subject <arg>] [-c|--controls][<controls-1>] ... [<controls-n>]  [-t|--threads <arg>] [-k|--kmersize <arg>] [-r|--ref <arg>] [-m|--min <arg>] 
-  [-h|--help]
- ```
-
- 
- ```
--s,--subject: bam file containing the subject of interest (REQUIRED)
-
--c, --controls: bam files containing the control subjects (REQUIRED)
-
--t,--threads: number of threads to use (REQUIRED) (min 3)
-
--k,--kmersize: size of Kmer to use (REQUIRED)
-
--r,--ref: file path to the desired reference file to create VCF (REQUIRED)
-
--m,--min: overwrites the minimum k-mer count to call variant (OPTIONAL, Do not provide a min unless you are sure what you want)
-
--h,--help: HELP!!!!!!!!!!!!!!!
-```
-
-
-The command line should look something like this:
-
-```
-bash runRufus.sh --subject Child.bam --controls Mother.bam  --controls Father.bam  --kmersize 25 --threads 40 --ref human_reference_v37_decoys.fa
-```
-
-or 
-
-```
-bash runRufus.sh -s Child.bam -c Mother.bam -c Father.bam -k 25 -t 40 -r human_reference_v37_decoys.fa
-```
-
-The flags can be provided any any order.
-
-RUFUS can take any number control files (Must provide atleast one). 
-
-Each control Bam file requires a [-c|--controls] flag infront of the control file
-
-
-For Example:
-
-```
-bash runRufus.sh -s tumorT1.bam -c tumorT0.bam -k 25 -t 40 -r human_reference_v37_decoys.fa
-```
-
-or
-
-```
-bash runRufus.sh -s Proband.bam -c Mother.bam -c Father.bam -c Sibling1.bam -c Sibling2.bam -k 25 -t 40 -r human_reference_v37_decoys.fa
-```
-
-We recommend a kmer size of 25, 40 threads, and to NOT provide RUFUS with the optional --min parameter
 
 ## Providing a reference file.
 
