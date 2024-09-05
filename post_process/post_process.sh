@@ -74,26 +74,32 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 	mv $PREFILTERED_VCF rufus_supplementals/ # todo: am I doing this in trim and combine also?
 fi
 
-exit
-
 # Check for empty lines
 echo "Checking vcf formatting..."
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf.gz"
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf.gz"
+rm $TEMP_FINAL_VCF
+rm $TEMP_PREFILTERED_VCF
+mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
+mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 
 # Sort
 echo "Sorting..."
 bcftools sort $TEMP_FINAL_VCF > "sorted.${TEMP_FINAL_VCF}"
 bcftools sort $TEMP_PREFILTERED_VCF > "sorted.${TEMP_PREFILTERED_VCF}"
 
-FINAL_VCF="RUFUS.Final.${subject_string}.combined.vcf.gz"
-PREFILTERED_VCF="RUFUS.Prefiltered.${subject_string}.combined.vcf.gz"
+exit
 
 # Remove coinheriteds
 echo "Removing coinheriteds..."
 IFS=$','
 CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
-bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$FINAL_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
+bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+
+# Compose final vcfs
+FINAL_VCF="RUFUS.Final.${subject_string}.combined.vcf.gz"
+PREFILTERED_VCF="RUFUS.Prefiltered.${subject_string}.combined.vcf.gz"
 
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
@@ -118,6 +124,7 @@ rm $TEMP_PREFILTERED_VCF
 rm $TEMP_FINAL_VCF
 rm "sorted.$TEMP_PREFILTERED_VCF"
 rm "sorted.$TEMP_FINAL_VCF"
+rm $COINHERITED_REMOVED_VCF
 
 echo "Post-processing complete."
 
