@@ -1,7 +1,9 @@
 #!/bin/bash
 
-region=$1
-bam=$2
-ref=$3
+chr=$1
+start_coord=$2
+end_coord=$3
+bam=$4
+ref=$5
 
-bcftools mpileup -Ov -d 100 -f $ref -r $region $bam > mpileup_${region}.vcf
+bcftools mpileup -Ov -d 100 -f $ref -r "$chr:$start_coord-$end_coord" $bam > mpileup_${region}.vcf
