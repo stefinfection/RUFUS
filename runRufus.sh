@@ -1161,9 +1161,9 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	SUPP_DIR="rufus_supplementals"
         mkdir -p $SUPP_DIR
 	
-	mv Intermediates/"${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bgzip $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bcftools index $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
+	mv "Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
 
 	rm Intermediates/*${region_postfix}*
     rm TempOverlap/*${region_postfix}*
@@ -1228,7 +1228,7 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 			"generator.Mutations.fastq.bam"      
 			"generator.Mutations.fastq.bam.bai"
 	)
-	SUPP_DIR="rufus_supplementals"
+	SUPP_DIR="rufus_supplementals/"
 	mkdir -p $SUPP_DIR
 	for postfix in "${supplemental_files[@]}";
 	do
