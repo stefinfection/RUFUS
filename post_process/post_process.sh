@@ -91,9 +91,6 @@ bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
 # TODO: when fix formatting on prefiltered vcf, comment two lines below back in
 #bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
 
-# Done with pre-filtered now
-#mv "sorted.$TEMP_PREFILTERED_VCF" rufus_supplementals/
-mv $TEMP_PREFILTERED_VCF rufus_supplementals/
 rm $TEMP_FINAL_VCF
 #rm $TEMP_PREFILTERED_VCF
 bcftools index "sorted.$TEMP_FINAL_VCF"
@@ -117,10 +114,13 @@ cat rufus.cmd >> $FINAL_VCF
 bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 >> $FINAL_VCF
 bcftools view -H $COINHERITED_REMOVED_VCF >> $FINAL_VCF
 
-bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-cat rufus.cmd >> $PREFILTERED_VCF
-bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
-bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
+#TODO: Comment back in after prefiltered vcf cleaned up
+#bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
+#cat rufus.cmd >> $PREFILTERED_VCF
+#bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
+#bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
+mv $TEMP_PREFILTERED_VCF rufus_supplementals/
+#mv $PREFILTERED_VCF rufus_supplementals/
 
 # TODO: Separate SVs and SNV/Indels
 #echo "Separating snvs/indels and SVs..."
@@ -134,6 +134,7 @@ rm $TEMP_FINAL_VCF
 rm "sorted.$TEMP_PREFILTERED_VCF"
 rm "sorted.$TEMP_FINAL_VCF"
 rm $COINHERITED_REMOVED_VCF
+rm rufus.cmd
 
 echo "Post-processing complete."
 
