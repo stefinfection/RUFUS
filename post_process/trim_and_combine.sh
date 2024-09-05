@@ -12,6 +12,8 @@
 #module load bcftools
 #module load htslib
 
+cd /mnt
+
 SUBJECT_STRING=$1
 CONTROL_STRING=$2
 CHUNK_SIZE=$3
