@@ -13,8 +13,6 @@
 #module load htslib
 
 cd /mnt
-curr_dir=$(PWD)
-echo "testing $curr_dir"
 
 SUBJECT_STRING=$1
 CONTROL_STRING=$2
