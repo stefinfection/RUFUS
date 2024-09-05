@@ -18,7 +18,7 @@ CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
 NORMED_VCF="normed.${RUFUS_VCF}"
 BWA=/opt/RUFUS/bin/externals/bwa/src/bwa_project/bwa
-PILEUP_SCRIPT="/opt/RUFUS/post_processing/single_pileup.sh"
+PILEUP_SCRIPT="/opt/RUFUS/post_process/single_pileup.sh"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
