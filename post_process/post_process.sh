@@ -101,7 +101,8 @@ bcftools index "sorted.$TEMP_FINAL_VCF"
 # Remove coinheriteds
 echo "Removing coinheriteds..."
 IFS=$','
-CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
+CONTROL_STRING="${CONTROLS[*]}"
+echo "Passing $CONTROL_STRING to coinherited script" >&2
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
 
