@@ -1167,16 +1167,16 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	bcftools index $SUPP_DIR/"temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
 
 	rm Intermediates/*${region_postfix}*
-        rm TempOverlap/*${region_postfix}*
+    rm TempOverlap/*${region_postfix}*
 	rm "${ProbandGenerator}.mer_counts_merged.jf"
 	control_files=(
 		"generator"
 		"generator.Jelly.chr"
 		"generator.Jhash"
-	        "generator.Jhash.histo"
+	    "generator.Jhash.histo"
 		"generator.Jhash.histo.7.7.dist"
 		"generator.Jhash.histo.7.7.model"
-	        "generator.Jhash.histo.7.7.out"
+	    "generator.Jhash.histo.7.7.out"
 		"generator.Jhash.histo.7.7.prob" 	
 	)	
 
@@ -1186,7 +1186,8 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 		ctrl_prefix=$(basename "$control")
 		for postfix in "${control_files[@]}"
 		do
-			if [ -e ${ctrl_prefix}${region_postfix}.${postfix} ]; then
+			echo "looking to remove ${ctrl_prefix}${region_postfix}.${postfix}"
+			if [ -e "${ctrl_prefix}${region_postfix}.${postfix}" ]; then
 				rm ${ctrl_prefix}${region_postfix}.${postfix}
 			fi
 		done
