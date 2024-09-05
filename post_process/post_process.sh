@@ -88,11 +88,14 @@ mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 echo "Made it past empty check" >&2
 echo "Sorting..."
 bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
-bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
+# TODO: when fix formatting on prefiltered vcf, comment two lines below back in
+#bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
 
 # Done with pre-filtered now
+#mv "sorted.$TEMP_PREFILTERED_VCF" rufus_supplementals/
 mv $TEMP_PREFILTERED_VCF rufus_supplementals/
-exit
+rm $TEMP_FINAL_VCF
+rm $TEMP_PREFILTERED_VCF
 
 # Remove coinheriteds
 echo "Removing coinheriteds..."
