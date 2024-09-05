@@ -22,7 +22,7 @@ COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
 COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
 COMBINED_SAMPLE_STRING="${SUBJECT_FILE}\t${CONTROL_STRING}"
 
-SUPP_DIR="rufus_supplemental/"
+SUPP_DIR="rufus_supplementals/"
 
 # Headers that get written to vcf
 COMBINED_HEADER="combined.header"
