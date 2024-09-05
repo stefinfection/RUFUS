@@ -16,23 +16,23 @@ SUBJECT_STRING=$1
 CONTROL_STRING=$2
 CHUNK_SIZE=$3
 
-COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
-COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
+COMBINED_VCF="/mnt/temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+COMBINED_PRE_VCF="/mnt/temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 COMBINED_SAMPLE_STRING="${SUBJECT_STRING}\t${CONTROL_STRING}"
 
 SUPP_DIR="rufus_supplemental/"
 
 # Headers that get written to vcf
-COMBINED_HEADER="combined.header"
-COMBINED_PRE_HEADER="combined.preheader"
+COMBINED_HEADER="/mnt/combined.header"
+COMBINED_PRE_HEADER="/mnt/combined.preheader"
 
 # Start of headers
 HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.header.start"
 PRE_HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.preheader.start"
 
 # Records that get written to vcf (non-header)
-COMBINED_RECORDS="combined.records"
-COMBINED_PRE_RECORDS="combined.prerecords"
+COMBINED_RECORDS="/mnt/combined.records"
+COMBINED_PRE_RECORDS="/mnt/combined.prerecords"
 
 NUM_CHRS=24
 CHRS=(
@@ -93,7 +93,7 @@ CHR_LENGTHS=(
 # Initialize combined headers
 cat "$HEADER_START" > $COMBINED_HEADER
 cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
-TEMP_TRIMMED="temp.trimmed"
+TEMP_TRIMMED="/mnt/temp.trimmed"
 
 # TODO: need to add rufus command line here too to header
 
@@ -139,7 +139,7 @@ do
 done
 
 cat $COMBINED_HEADER | uniq > $COMBINED_VCF
-cat ".rufus.command" >> $COMBINED_VCF
+cat "rufus.command" >> $COMBINED_VCF
 echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_VCF
 cat $COMBINED_RECORDS >> $COMBINED_VCF
 

@@ -73,9 +73,11 @@ fi
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
 
 # Compose post-process slurm wrapper
-PP_SLURM_SCRIPT="postProcess.slurm" # Slurm wrapper for post process script
+PP_SLURM_SCRIPT="post_process.slurm" # Slurm wrapper for post process script
 PP_HEADER_LINES=("#!/bin/bash"
 "#SBATCH --job-name=rufus_post_process"   
+"#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
+"#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
 "#SBATCH --output=rufus_post_process_%j.out"   
 "#SBATCH --error=rufus_post_process_%j.err" 
 "#SBATCH --nodes=1"
