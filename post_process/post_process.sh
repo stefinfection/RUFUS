@@ -104,8 +104,9 @@ COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
 
 # Compose final vcfs
-FINAL_VCF="RUFUS.Final.${subject_string}.combined.vcf.gz"
-PREFILTERED_VCF="RUFUS.Prefiltered.${subject_string}.combined.vcf.gz"
+SUBJECT_STRING=$(basename $SUBJECT_FILE)
+FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
@@ -113,27 +114,30 @@ bcftools view -h $COINHERITED_REMOVED_VCF | head -n -1 > $FINAL_VCF
 cat rufus.cmd >> $FINAL_VCF
 bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 >> $FINAL_VCF
 bcftools view -H $COINHERITED_REMOVED_VCF >> $FINAL_VCF
+bgzip $FINAL_VCF
+bcftools index "$FINAL_VCF.gz"
 
 #TODO: Comment back in after prefiltered vcf cleaned up
 #bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
 #cat rufus.cmd >> $PREFILTERED_VCF
 #bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
 #bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
-mv $TEMP_PREFILTERED_VCF rufus_supplementals/
-#mv $PREFILTERED_VCF rufus_supplementals/
+#bgzip $PREFILTERED_VCF
+#bcftools index "$PREFILTERED_VCF.gz"
+#mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
+mv $TEMP_PREFILTERED_VCF* rufus_supplementals/
 
 # TODO: Separate SVs and SNV/Indels
 #echo "Separating snvs/indels and SVs..."
 
 # Cleanup
 echo "Cleaning up intermediate post-processing files..."
-#TODO: cleanup combined vcf
-mv $PREFILTERED_VCF rufus_supplementals/
-rm $TEMP_PREFILTERED_VCF
-rm $TEMP_FINAL_VCF
-rm "sorted.$TEMP_PREFILTERED_VCF"
-rm "sorted.$TEMP_FINAL_VCF"
-rm $COINHERITED_REMOVED_VCF
+#rm $TEMP_PREFILTERED_VCF*
+rm $TEMP_FINAL_VCF*
+#rm "sorted.$TEMP_PREFILTERED_VCF"*
+rm "sorted.$TEMP_FINAL_VCF"*
+rm $COINHERITED_REMOVED_VCF*
+rm "normed.sorted.$TEMP_FINAL_VCF"*
 rm rufus.cmd
 
 echo "Post-processing complete."
