@@ -13,28 +13,30 @@
 #module load htslib
 
 cd /mnt
+curr_dir=$(PWD)
+echo "testing $curr_dir"
 
 SUBJECT_STRING=$1
 CONTROL_STRING=$2
 CHUNK_SIZE=$3
 
-COMBINED_VCF="/mnt/temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
-COMBINED_PRE_VCF="/mnt/temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
+COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 COMBINED_SAMPLE_STRING="${SUBJECT_STRING}\t${CONTROL_STRING}"
 
 SUPP_DIR="rufus_supplemental/"
 
 # Headers that get written to vcf
-COMBINED_HEADER="/mnt/combined.header"
-COMBINED_PRE_HEADER="/mnt/combined.preheader"
+COMBINED_HEADER="combined.header"
+COMBINED_PRE_HEADER="combined.preheader"
 
 # Start of headers
 HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.header.start"
 PRE_HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.preheader.start"
 
 # Records that get written to vcf (non-header)
-COMBINED_RECORDS="/mnt/combined.records"
-COMBINED_PRE_RECORDS="/mnt/combined.prerecords"
+COMBINED_RECORDS="combined.records"
+COMBINED_PRE_RECORDS="combined.prerecords"
 
 NUM_CHRS=24
 CHRS=(

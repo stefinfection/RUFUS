@@ -17,7 +17,7 @@ CONTROLS=()
 WINDOW_SIZE=0
 REFERENCE=""
 SUBJECT_FILE=""
-SOURCE_DIR=""
+SOURCE_DIR="/mnt"
 
 # parse command line arguments
 while getopts ":w:r:c:s:d:h" option; do 
@@ -60,7 +60,7 @@ fi
 cd $SOURCE_DIR
 echo "RUFUS post-process version C.0.1"
 date
-echo "RUFUS_$0 $@" >> .rufus.cmd
+echo "RUFUS_$0 $@" >> rufus.cmd
 
 SUBJECT_STRING=$(basename $SUBJECT_FILE)
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
@@ -98,12 +98,12 @@ bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
 bcftools view -h $COINHERITED_REMOVED_VCF | head -n -1 > $FINAL_VCF
-cat .rufus.cmd >> $FINAL_VCF
+cat rufus.cmd >> $FINAL_VCF
 bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 >> $FINAL_VCF
 bcftools view -H $COINHERITED_REMOVED_VCF >> $FINAL_VCF
 
 bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-cat .rufus.cmd >> $PREFILTERED_VCF
+cat rufus.cmd >> $PREFILTERED_VCF
 bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
 bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
 
