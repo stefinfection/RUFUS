@@ -62,17 +62,16 @@ echo "RUFUS post-process version C.0.1"
 date
 echo "RUFUS_$0 $@" >> rufus.cmd
 
-SUBJECT_STRING=$(basename $SUBJECT_FILE)
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
 
-TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf.gz"
-TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf.gz"
+TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
+TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
 
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
 	TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
 	echo "Windowed run performed, trimming and combining region vcfs..."
-	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_STRING $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
+	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 	mv $PREFILTERED_VCF rufus_supplementals/ # todo: am I doing this in trim and combine also?
 fi
 

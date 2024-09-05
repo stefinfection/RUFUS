@@ -14,13 +14,13 @@
 
 cd /mnt
 
-SUBJECT_STRING=$1
+SUBJECT_FILE=$1
 CONTROL_STRING=$2
 CHUNK_SIZE=$3
 
-COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
-COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
-COMBINED_SAMPLE_STRING="${SUBJECT_STRING}\t${CONTROL_STRING}"
+COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
+COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
+COMBINED_SAMPLE_STRING="${SUBJECT_FILE}\t${CONTROL_STRING}"
 
 SUPP_DIR="rufus_supplemental/"
 
@@ -115,8 +115,8 @@ do
             end_coord=$curr_len
         fi
 	
-		CURR_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
-		CURR_PRE_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		CURR_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		CURR_PRE_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
         if [[ -f "${CURR_VCF}" ]]; then
        
             # Write out trimmed region to final vcf
