@@ -78,8 +78,8 @@ echo "Made it past trim and combine" >&2
 
 # Check for empty lines
 echo "Checking vcf formatting..."
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf.gz"
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf.gz"
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
 rm $TEMP_FINAL_VCF
 rm $TEMP_PREFILTERED_VCF
 mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
