@@ -47,7 +47,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	#PILEUP_VCF="pileup.vcf"
 	MERGED_PILEUP="merged_pileup.vcf.gz"
 	# for testing purposes TODO
-	if [ -s "$MERGED_PILEUP" ]; then
+	if [ ! -s "$MERGED_PILEUP" ]; then
 		echo "Starting parallel mpileup..." >&2
 		# TODO: put back in after debugging
 		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
