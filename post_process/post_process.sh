@@ -1,7 +1,7 @@
 #!/bin/bash
 
 usage() {
-	echo "Usage: $0 [-w window_size] [-r reference] -[c control1,control2,control3...] [-h]"
+	echo "Usage: $0 [-w window_size] [-r reference] [-s subject] [-c control1,control2,control3...] [-h]"
 	echo "Options:"
 	echo " -w window_size	Required: The size of the window used in the RUFUS run"
 	echo " -r reference	Required: The reference used in the RUFUS run"
