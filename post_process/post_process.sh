@@ -74,6 +74,8 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 	mv $PREFILTERED_VCF rufus_supplementals/ # todo: am I doing this in trim and combine also?
 fi
 
+exit
+
 # Check for empty lines
 echo "Checking vcf formatting..."
 bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF
