@@ -21,7 +21,7 @@ BWA=/opt/RUFUS/bin/externals/bwa/src/bwa_project/bwa
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
-mkdir "${ISEC_OUT_DIR}"
+mkdir i-p "${ISEC_OUT_DIR}"
 
 #format final rufus vcf for intersections
 vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $NORMED_VCF
@@ -43,10 +43,16 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     #run pileup and call variants
 	NORMED_BED="normed.bed"
 	bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
-    bcftools mpileup -d100 -T $NORMED_BED -f $REFERENCE_FILE $CONTROL_BAM | bcftools call -cv -Oz -o $CONTROL_VCF 
+	PILEUP_VCF="pileup.vcf"
+    bcftools mpileup -d 50 -T $NORMED_BED -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
+	echo "Finished pileup, starting call" >&2
+	bcftools call -cv -Oz -o $CONTROL_VCF $PILEUP_VCF
+	echo "Finished call, starting to index $CONTROL_VCF" >&2
+ 
     bcftools index -t $CONTROL_VCF
     	
     #intersect the control vcf with formatted rufus vcf
+	echo "Starting intersection..." >&2
     bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF
         
     # save the new vcf as rufus final vcf
