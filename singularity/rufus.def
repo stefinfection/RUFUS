@@ -8,7 +8,7 @@ From: ubuntu:22.04
 %post
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev bc libncurses5-dev autoconf automake make liblzma-dev libcurl4-gnutls-dev libssl-dev samtools bamtools bedtools bcftools vt
+    apt-get install -y git cmake wget g++ build-essential software-properties-common zlib1g-dev libbz2-dev bc libncurses5-dev autoconf automake make liblzma-dev libcurl4-gnutls-dev libssl-dev samtools bamtools bedtools bcftools vt parallel
     add-apt-repository ppa:ubuntu-toolchain-r/test
 
     # install htslib

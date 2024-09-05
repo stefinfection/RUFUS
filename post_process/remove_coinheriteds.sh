@@ -42,7 +42,8 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     fi
     
     #run pileup and call variants
-	bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
+	
+	#bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
 	#PILEUP_VCF="pileup.vcf"
 	bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
 	cat regions.out | parallel -j +0 $PILEUP_SCRIPT {} $CONTROL_BAM $REFERENCE
