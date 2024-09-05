@@ -95,7 +95,8 @@ bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
 #mv "sorted.$TEMP_PREFILTERED_VCF" rufus_supplementals/
 mv $TEMP_PREFILTERED_VCF rufus_supplementals/
 rm $TEMP_FINAL_VCF
-rm $TEMP_PREFILTERED_VCF
+#rm $TEMP_PREFILTERED_VCF
+bcftools index "sorted.$TEMP_FINAL_VCF"
 
 # Remove coinheriteds
 echo "Removing coinheriteds..."
