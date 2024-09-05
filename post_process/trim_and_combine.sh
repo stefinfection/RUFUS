@@ -95,7 +95,7 @@ CHR_LENGTHS=(
 # Initialize combined headers
 cat "$HEADER_START" > $COMBINED_HEADER
 cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
-TEMP_TRIMMED="/mnt/temp.trimmed"
+TEMP_TRIMMED="temp.trimmed"
 
 # TODO: need to add rufus command line here too to header
 
@@ -115,8 +115,8 @@ do
             end_coord=$curr_len
         fi
 	
-		CURR_VCF="RUFUS.Final.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
-		CURR_PRE_VCF="${SUPP_DIR}RUFUS.Prefiltered.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		CURR_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		CURR_PRE_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_STRING}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
         if [[ -f "${CURR_VCF}" ]]; then
        
             # Write out trimmed region to final vcf
@@ -129,9 +129,9 @@ do
             bcftools view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
             bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
 
-			# Remove vcf and indexes
-			rm $CURR_VCF*
-			rm $CURR_PRE_VCF*
+	    	# Remove vcf and indexes
+	    	rm $CURR_VCF*
+	    	rm $CURR_PRE_VCF*
         fi
     
         # Advance start coordinate
@@ -141,12 +141,10 @@ do
 done
 
 cat $COMBINED_HEADER | uniq > $COMBINED_VCF
-cat "rufus.command" >> $COMBINED_VCF
 echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_VCF
 cat $COMBINED_RECORDS >> $COMBINED_VCF
 
 cat $COMBINED_PRE_HEADER | uniq > $COMBINED_PRE_VCF
-cat ".rufus.command" >> $COMBINED_VCF
 echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
 cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
@@ -162,3 +160,4 @@ rm $COMBINED_HEADER
 rm $COMBINED_PRE_HEADER
 rm $COMBINED_RECORDS
 rm $COMBINED_PRE_RECORDS
+rm rufus.cmd
