@@ -54,6 +54,10 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
+	# TODO: FOR UTAH TESTING USE ONLY - REMOVE
+	if [ "$NUM_CHUNKS" -gt "999" ]; then
+		NUM_CHUNKS=999
+	fi
 	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
