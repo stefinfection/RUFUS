@@ -129,7 +129,7 @@ Optional Arguments:
     -h help   Print usage
 ```
 
-*Notes on SLURM arguments*:\
+###*Notes on SLURM arguments*:\
 This script utilizes SLURM arrays to batch RUFUS call runs and thus requires the SLURM job array limit to comply with user settings. To find your SLURM job array limit:
 ```
 scontrol show config | grep "MaxArraySize"
