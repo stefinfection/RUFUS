@@ -156,6 +156,13 @@ rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
 cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
 rm ${SUPPLEMENTAL_DIR}*.HashList
 
+# TODO: hack for now to get rid of any lingering intermediate files 
+# TODO: this actually needs to be fixed with a graceful handling of no variants for certain windows
+rm /mnt/${SUBJECT_FILE}*.generator*
+for control in "${CONTROLS[@]}"; do
+	rm /mnt/${control}*.generator*
+done
+
 echo "Post-processing complete."
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
