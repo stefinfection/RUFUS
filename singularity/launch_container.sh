@@ -36,7 +36,7 @@ HEADER_LINES=("#!/bin/bash"
 
 # Don't overwrite a run if already exists
 if [ -f "$RUFUS_SLURM_SCRIPT" ]; then
-	echo "ERROR: run_rufus.slurm already exists - are you overwriting an existing output? Please delete run_rufus.slurm and retry"
+	echo "ERROR: $RUFUS_SLURM_SCRIPT already exists - are you overwriting an existing output? Please delete run_rufus.slurm and retry"
 	exit 1
 fi
 
