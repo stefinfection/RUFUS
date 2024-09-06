@@ -12,11 +12,11 @@ For questions and feature requests, please contact [stephanie.georges@genetics.u
 
 ## RUFUS Overview
 
-RUFUS is a reference-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with singularity installed to take advantage of parallelism. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the provided helper functions to create your SBATCH scripts (detailed below).
+RUFUS is a reference-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with singularity installed. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the provided helper functions to create your SBATCH scripts (detailed below).
 
-RUFUS currently supports a single subject sample, multiple control samples, and only accepts GRCh38 as a reference genome. The subject sample may be in BAM, CRAM, FASTQ, or FASTQ pair format. The samples must be in BAM format (though may be unaligned). The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
+RUFUS currently supports a single subject sample, multiple control samples, and only accepts GRCh38 as a reference genome. The samples must be in BAM format (though may be unaligned). The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
 
-RUFUS has two stages: a variant calling stage, and a post-processing stage. Separation of the stages is necessary because the calling stage may be run in a windowed fashion, requiring multiple parallel RUFUS jobs over all of the windows. The combination stage must wait to proceed until all calling jobs are complete. Algorithmic runtime increases roughly linearly with sample coverage. Generally with whole-genome mode, a 100x sample run will take 1 day. Windowed mode completes significantly faster.
+RUFUS has two stages: a variant calling stage, and a post-processing stage. Separation of the stages is necessary because the calling stage may be run in a windowed fashion, requiring multiple parallel RUFUS jobs over all of the genomic regions. The combination stage must wait to proceed until all calling jobs are complete. Algorithmic runtime increases roughly linearly with sample coverage. Generally with whole-genome mode, a 100x sample run will take 1 day. Windowed mode completes significantly faster.
 
 
 ## Running RUFUS
@@ -33,8 +33,8 @@ curl "https://zenodo.org/records/13694211/files/rufus.sif" -o rufus.sif
 RUFUS requires the following data to run:
 1) A subject sample in BAM format (this may be unaligned)
 2) One or more control samples in BAM format (these may be unaligned)
-3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*
-   * To create the BWA indexes, run the following commands:
+3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
+   To create the BWA indexes, run the following commands:
    ```
    bwa index -a bwtsw {REFERENCE.fa}
    samtools faidx {REFERENCE.fa}
@@ -84,18 +84,18 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 With the following usage:
 ```
     echo "Options:"
-    echo " -w window_size   Required: The size of the window used in the RUFUS run"
-    echo " -r reference Required: The reference used in the RUFUS run"
-    echo " -c controls  Required: The control bam files used in the RUFUS run"
-    echo " -s subject_file  Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-    echo " -d source_dir    Required: The source directory where the RUFUS vcf(s) are located"
+    echo " -w window_size   Required: The size of the window used in the RUFUS calling stage"
+    echo " -r reference Required: The reference used in the RUFUS calling stage"
+    echo " -c controls  Required: The control bam files used in the RUFUS calling stage"
+    echo " -s subject_file  Required: The subject file used in the RUFUS calling stage"
+    echo " -d source_dir    Required: The source directory where the RUFUS vcf(s) are located (i.e. the local data directory containing the input data)"
     echo " -h help  Print help message"
 ```
 
-
+\
 ## Using the SLURM Helper Script & Executing the SLURM Batch Scripts
 
-The SLURM helper script automatically creates the two SLURM batch scripts necessary to run RUFUS on a SLURM-managed HPC cluster, as well as a bash script to execute them. To use:
+The SLURM helper script automatically creates the two SLURM batch scripts (detailed above) necessary to run RUFUS on a SLURM-managed HPC cluster, as well as a bash script to execute them. To use:
 1) Execute the helper script (see full usage options below):
 ``` 
 singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/launch_container.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
@@ -110,18 +110,17 @@ bash launch_rufus.sh
 The full usage options for the helper script are as follows:
 ```
 Required Arguments:
-    -d data_directory The directory containing the subject, control, and reference files to be used in the run
+    -d data_directory The directory containing the subject, control, and reference files
     -s subject    The subject sample of interest; must be located in data_directory
     -c control(s) A single control or comma-delimited array of multiple controls; must be located in data_directory
     -b genome_build  The desired genome build; currently only supports GRCh38
     -r reference  The reference file matching the genome build; must be located in data_directory
-    -a slurm_account  The account for the slurm job
-    -p slurm_partition    The partition for the slurm job
-    -l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array
+    -a slurm_account  The account for the slurm jobs
+    -p slurm_partition    The partition for the slurm jobs
+    -l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array; this can be zero if NOT using optional windowed mode (-w)
     
 Optional Arguments:
-    -r reference  If not provided, will automatically provide GRCh38 file
-    -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
+    -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set; defaults to 5
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
     -e email  The email address to notify with slurm updates
     -q slurm_job_queue_lgimit    The maximum amount of jobs able to be ran at once; defaults to 20
