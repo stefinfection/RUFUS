@@ -22,7 +22,7 @@ PILEUP_SCRIPT="/opt/RUFUS/post_process/single_pileup.sh"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
-mkdir -p "${ISEC_OUT_DIR}"
+mkdir -p $ISEC_OUT_DIR
 
 #format final rufus vcf for intersections
 vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $NORMED_VCF
@@ -88,10 +88,9 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	rm "$CONTROL_VCF"*
 
     # clean up aligned control file, if it exists
-	if [ "$MADE_CONTROL_BAM" = true ]; then
+	if [ "$MADE_ALIGN_CONTROL" = "true" ]; then
     	rm $CONTROL_ALIGNED
 	fi
 
-	#TODO: delete this after testing instead of moving
-	mv $ISEC_OUT_DIR rufus_supplementals/
+	rm $ISEC_OUT_DIR
 done

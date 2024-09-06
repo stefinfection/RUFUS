@@ -142,7 +142,6 @@ rm "sorted.$TEMP_FINAL_VCF"*
 rm $COINHERITED_REMOVED_VCF*
 rm "normed.sorted.$TEMP_FINAL_VCF"*
 rm rufus.cmd
-rm temp_aligned.bam
 
 echo "Post-processing complete."
 
