@@ -137,6 +137,9 @@ rm $TEMP_FINAL_VCF*
 rm "sorted.$TEMP_FINAL_VCF"*
 rm $COINHERITED_REMOVED_VCF*
 rm "normed.sorted.$TEMP_FINAL_VCF"*
+rm -r "/mnt/Intermediates"
+rm -r "/mnt/TempOverlap"
+rm "/mnt/rufus.cmd"
 
 echo "Post-processing complete."
 end_time=$(date +"%s")
