@@ -1184,7 +1184,6 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 		ctrl_prefix=$(basename "$control")
 		for postfix in "${control_files[@]}"
 		do
-			echo "looking to remove ${ctrl_prefix}${region_postfix}.${postfix}"
 			if [ -e "${ctrl_prefix}${region_postfix}.${postfix}" ]; then
 				rm ${ctrl_prefix}${region_postfix}.${postfix}
 			fi
