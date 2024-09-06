@@ -91,5 +91,5 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     	rm $CONTROL_ALIGNED
 	fi
 
-	rm $ISEC_OUT_DIR
+	rm -r $ISEC_OUT_DIR
 done
