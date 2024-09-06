@@ -60,7 +60,7 @@ fi
 cd $SOURCE_DIR
 echo "RUFUS post-process version C.0.1"
 date
-echo "RUFUS_$0 $@" >> rufus.cmd
+echo "##RUFUS_combineCommand=$0 $@" >> rufus.cmd
 
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
 TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"

@@ -81,7 +81,6 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
  
     # save the new vcf as rufus final vcf
     OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
-	bcftools index -t $OUTFILE
     OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.tbi"
 
     cp "$OUTFILE" "${OUT_VCF}" 
@@ -94,5 +93,4 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 
 	#TODO: delete this after testing instead of moving
 	mv $ISEC_OUT_DIR rufus_supplementals/
-	rm $NORMED_BED
 done

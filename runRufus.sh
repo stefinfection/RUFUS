@@ -27,7 +27,7 @@ MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
 BOUND_DATA_DIR=/mnt
 cd $BOUND_DATA_DIR
-echo "$0 $@" > rufus.cmd
+echo "##RUFUS_callCommand=$0 $@" > rufus.cmd
 
 die()
 {
