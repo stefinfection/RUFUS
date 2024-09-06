@@ -52,7 +52,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		# TODO: put back in after debugging
 		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
 		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq > regions.out
-		cat regions.out | parallel -j +0 bash $PILEUP_SCRIPT {1} {2} {3} $CONTROL_BAM $REFERENCE_FILE
+		cat regions.out | parallel -j +0 bash "$PILEUP_SCRIPT" {1} {2} {3} "$CONTROL_BAM" "$REFERENCE_FILE"
 	
 		# combine pileups	
 		bcftools concat -o $MERGED_PILEUP -Oz mpileup_*.vcf
