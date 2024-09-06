@@ -144,7 +144,7 @@ rm "/mnt/rufus.cmd"
 echo "Post-processing complete."
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
-time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
-
-echo "RUFUS post processing stage completed in ${time_diff}"
-
+hours=$(( time_delta / 3600 ))
+minutes=$(( (time_delta % 3600) / 60 ))
+seconds=$(( time_delta % 60 ))
+printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds

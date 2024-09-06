@@ -1241,8 +1241,10 @@ fi
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
-time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
+hours=$(( time_delta / 3600 ))
+minutes=$(( (time_delta % 3600) / 60 ))
+seconds=$(( time_delta % 60 ))
+printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
 
-echo "RUFUS call stage completed in ${time_diff}"
 exit 0
 # ] <-- needed because of Argbash
