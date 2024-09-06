@@ -119,7 +119,8 @@ mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 EXE_SCRIPT=launch_rufus.sh
 echo -e "#!/bin/bash" > $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
-echo -e "This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "#This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo "" >> $EXE_SCRIPT
 echo -e "# Launch calling job" >> $EXE_SCRIPT
 echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
