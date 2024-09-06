@@ -92,7 +92,7 @@ With the following usage:
     echo " -h help  Print help message"
 ```
 
-\
+
 ## Using the SLURM Helper Script & Executing the SLURM Batch Scripts
 
 The SLURM helper script automatically creates the two SLURM batch scripts (detailed above) necessary to run RUFUS on a SLURM-managed HPC cluster, as well as a bash script to execute them. To use:
@@ -106,7 +106,6 @@ singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity
 bash launch_rufus.sh
 ```
 
-\
 The full usage options for the helper script are as follows:
 ```
 Required Arguments:
@@ -129,7 +128,7 @@ Optional Arguments:
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
     -h help   Print usage
 ```
-\
+
 *Notes on SLURM arguments*:\
 This script utilizes SLURM arrays to batch RUFUS call runs and thus requires the SLURM job array limit to comply with user settings. To find your SLURM job array limit:
 ```
