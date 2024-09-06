@@ -59,6 +59,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		# combine pileups
 		bcftools concat -o $MERGED_PILEUP -Ov mpileup_*.vcf
 		bgzip $MERGED_PILEUP
+		bcftools index $MERGED_PILEUP.gz
 		#rm mpileup_*.vcf
 
     	#bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
