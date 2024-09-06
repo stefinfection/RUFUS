@@ -131,7 +131,7 @@ echo -e "# Launch calling job" >> $EXE_SCRIPT
 echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
 echo -e "# Launch post-process job - will wait on calling phase to complete" >> $EXE_SCRIPT
-echo -e "sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
+echo -e "sbatch --depend=afterany:\$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
 
 echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please run... "
 echo -e "bash $EXE_SCRIPT"
