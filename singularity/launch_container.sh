@@ -28,8 +28,6 @@ echo -en "##RUFUS_callCommand=" > rufus.cmd
 	# TODO: left off here
 	# TODO: get number of iterations by ceil(NUM_CHUNKS/ADJ_LIMIG)		
 	# TODO: need to wrap below script composing in for loop and label each script by index number
-	# TODO: then instead of trying to invoke sbatch from here (we're in the container!) build a script that user will execute to queue jobs
-	# TODO: add to instructions
 	# TODO: also shift NUM_CHUNKS by one if not (to include 0)
 #fi
 
@@ -65,10 +63,6 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
-	# TODO: FOR UTAH TESTING USE ONLY - REMOVE
-	if [ "$NUM_CHUNKS" -gt "999" ]; then
-		NUM_CHUNKS=999
-	fi
 	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
