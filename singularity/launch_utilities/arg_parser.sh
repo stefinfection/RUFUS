@@ -15,7 +15,8 @@ usage() {
 	echo "-m kmer_depth_cutoff	The amount of kMers that must overlap the variant to be included in the final call set"
 	echo "-w window_size	The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided" 
     echo "-e email  The email address to notify with slurm updates"
-    echo "-l slurm_job_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
+    echo "-q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
+    echo "-l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array; defaults to 1000"
     echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)"
     echo "-f path_to_rufus_container    If not provided, will look in current directory for rufus.sif"
 	echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 20"
@@ -35,14 +36,15 @@ REFERENCE_RUFUS_ARG=""
 KMER_DEPTH_CUTOFF_RUFUS_ARG="5"
 WINDOW_SIZE_RUFUS_ARG="0"
 EMAIL_RUFUS_ARG=""
-SLURM_JOB_LIMIT_RUFUS_ARG="1000"
+SLURM_JOB_LIMIT_RUFUS_ARG="20"
+SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG="1000"
 SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
 REF_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
-while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:z:h" opt; do
+while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:z:h" opt; do
     case ${opt} in
 		d)	
 			HOST_DATA_DIR_RUFUS_ARG=$OPTARG
@@ -74,8 +76,11 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:z:h" opt; do
         e)
             EMAIL_RUFUS_ARG=$OPTARG
             ;;
-        l)
+        q)
             SLURM_JOB_LIMIT_RUFUS_ARG=$OPTARG
+            ;;
+        l)
+            SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$OPTARG
             ;;
         t)
             SLURM_TIME_LIMIT_RUFUS_ARG=$OPTARG
@@ -175,6 +180,7 @@ export KMER_DEPTH_CUTOFF_RUFUS_ARG
 export WINDOW_SIZE_RUFUS_ARG
 export EMAIL_RUFUS_ARG
 export SLURM_JOB_LIMIT_RUFUS_ARG
+export SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG
 export SLURM_TIME_LIMIT_RUFUS_ARG
 export CONTAINER_PATH_RUFUS_ARG
 export THREAD_LIMIT_RUFUS_ARG

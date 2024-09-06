@@ -21,6 +21,16 @@ mkdir -p slurm_out
 echo -en "##RUFUS_callCommand=" > rufus.cmd
 
 # TODO: if ARRAY_SIZE_LIMIT < NUM_CHUNKS need to split these into multiple batch scripts
+# Shift to 0-based slurm array index
+ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
+if [ "$ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt "$NUM_CHUNKS" ]; then
+
+	# TODO: left off here
+	# TODO: get number of iterations by ceil(NUM_CHUNKS/ADJ_LIMIG)		
+	# TODO: need to wrap below script composing in for loop and label each script by index number
+	# TODO: then instead of trying to invoke sbatch from here (we're in the container!) build a script that user will execute to queue jobs
+	# TODO: add to instructions
+fi
 
 # Compose run script(s)
 RUFUS_SLURM_SCRIPT="rufus_call.slurm"
@@ -115,10 +125,10 @@ mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 # TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
 ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
 
-# Remove now empty dirs
-rm -r /mnt/Intermediates
 rm -r /mnt/TempOverlap
 
 sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT
 echo "All RUFUS runs completed. Beginning post-processing..."
 rm "${HOST_DATA_DIR_RUFUS_ARG}/rufus.cmd"
+rm -r /mnt/Intermediates
+rm -r /mnt/TempOverlap
