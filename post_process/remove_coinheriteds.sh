@@ -70,10 +70,11 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	fi
 	
 	# call variants from merged pileup vcf
-	bcftools call -cv -Oz -o $CONTROL_VCF $MERGED_PILEUP.gz
+	bcftools call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
 	echo "Finished call, starting to index $CONTROL_VCF" >&2
     bcftools index -t $CONTROL_VCF
-    	
+	rm "sorted.$MERGED_PILEUP.gz"*    
+	
     #intersect the control vcf with formatted rufus vcf
 	echo "Starting intersection..." >&2
     bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
