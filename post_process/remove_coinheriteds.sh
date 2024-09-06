@@ -11,6 +11,8 @@ SRC_DIR=$4
 ARG_LIST=("$@")
 CONTROL_BAM_LIST=("${ARG_LIST[@]:4}") # Remaining args, all control bams
 
+export REFERENCE_FILE
+
 cd $SRC_DIR
 
 # static vars
@@ -31,7 +33,8 @@ bcftools index -t $NORMED_VCF
 #for loop for each control file provided by user
 for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     MADE_ALIGN_CONTROL=false
-    
+	CONTROL_BAM=""   
+ 
     #check to see if the provided bam file is aligned
     if [ "$(samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
         CONTROL_BAM=$CONTROL
@@ -40,6 +43,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
         CONTROL_BAM=$CONTROL_ALIGNED
 	    MADE_ALIGN_CONTROL=true
     fi
+	export CONTROL_BAM
     
     #run pileup and call variants
 	
