@@ -56,16 +56,16 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" $2 "\t" $3 "\t" bam "\t" ref}' > arguments.txt
 		cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3} {4} {5}
 
-		exit	
 		# combine pileups
-		bcftools concat -o $MERGED_PILEUP -Ov mpileup_*.vcf
+		bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
 		bgzip $MERGED_PILEUP
 		bcftools index $MERGED_PILEUP.gz
 		#rm mpileup_*.vcf
 
     	#bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
 		echo "Finished pileups, starting call" >&2
-	fi	
+	fi
+	exit	
 	# call variants from merged pileup vcf
 	bcftools call -cv -Oz -o $CONTROL_VCF $MERGED_PILEUP.gz
 	echo "Finished call, starting to index $CONTROL_VCF" >&2
