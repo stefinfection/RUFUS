@@ -141,6 +141,21 @@ rm -r "/mnt/Intermediates"
 rm -r "/mnt/TempOverlap"
 rm "/mnt/rufus.cmd"
 
+# Combining supplementals
+SUPPLEMENTAL_DIR=/mnt/rufus_supplementals/
+# TODO: only do this if not reporting in developer mode
+ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
+ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
+samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
+samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
+rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
+rm ${SUPPLEMENTAL_DIR}unique_reads.bam
+rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
+rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
+
+cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
+rm ${SUPPLEMENTAL_DIR}*.HashList
+
 echo "Post-processing complete."
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
