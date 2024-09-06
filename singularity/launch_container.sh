@@ -16,7 +16,6 @@ CHUNK_UTILITIES=${UTIL_PATH}chunk_utilities.sh
 NUM_CHUNKS=$(get_num_chunks $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
 
 WORKING_DIR=$(pwd)
-mkdir -p slurm_out
 
 echo -en "##RUFUS_callCommand=" > rufus.cmd
 
