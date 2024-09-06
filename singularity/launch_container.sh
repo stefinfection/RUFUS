@@ -18,7 +18,20 @@ NUM_CHUNKS=$(get_num_chunks $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
 WORKING_DIR=$(pwd)
 mkdir -p slurm_out
 
+echo -en "##RUFUS_callCommand=" > rufus.cmd
+
 # TODO: if ARRAY_SIZE_LIMIT < NUM_CHUNKS need to split these into multiple batch scripts
+# Shift to 0-based slurm array index
+# ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
+#if [ "$ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt "$NUM_CHUNKS" ]; then
+
+	# TODO: left off here
+	# TODO: get number of iterations by ceil(NUM_CHUNKS/ADJ_LIMIG)		
+	# TODO: need to wrap below script composing in for loop and label each script by index number
+	# TODO: then instead of trying to invoke sbatch from here (we're in the container!) build a script that user will execute to queue jobs
+	# TODO: add to instructions
+	# TODO: also shift NUM_CHUNKS by one if not (to include 0)
+#fi
 
 # Compose run script(s)
 RUFUS_SLURM_SCRIPT="rufus_call.slurm"
@@ -34,7 +47,7 @@ HEADER_LINES=("#!/bin/bash"
 
 # Don't overwrite a run if already exists
 if [ -f "$RUFUS_SLURM_SCRIPT" ]; then
-	echo "ERROR: run_rufus.slurm already exists - are you overwriting an existing output? Please delete run_rufus.slurm and retry"
+	echo "ERROR: $RUFUS_SLURM_SCRIPT already exists - are you overwriting an existing output? Please delete run_rufus.slurm and retry"
 	exit 1
 fi
 
@@ -52,6 +65,10 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
+	# TODO: FOR UTAH TESTING USE ONLY - REMOVE
+	if [ "$NUM_CHUNKS" -gt "999" ]; then
+		NUM_CHUNKS=999
+	fi
 	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
@@ -59,14 +76,18 @@ else
 fi
 
 echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
 for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	echo -en "-c $control " >> $RUFUS_SLURM_SCRIPT
+	echo -en "-c $control " >> rufus.cmd
 done
 
 if [ ! -z "$REF_HASH_RUFUS_ARG" ]; then
 	echo -en "-f $REF_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+	echo -en "-f $REF_HASH_RUFUS_ARG " >> rufus.cmd
 fi
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
+echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> rufus.cmd
 
 # Compose post-process slurm wrapper
 PP_SLURM_SCRIPT="rufus_post_process.slurm" # Slurm wrapper for post process script
@@ -94,15 +115,23 @@ IFS=$','
 CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
 BOUND_DATA_DIR="/mnt"
+
 echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
 
-# Get rufus run(s) going
-# TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
-#ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
+echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
+echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
+mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 
-# Remove now empty dirs
-rm -r /mnt/Intermediates
-rm -r /mnt/TempOverlap
+# Compose invocation script to be executed outside of container
+EXE_SCRIPT=launch_rufus.sh
+echo -e "#!/bin/bash" > $EXE_SCRIPT
+echo -e "" >> $EXE_SCRIPT
+echo -e "This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "# Launch calling job" >> $EXE_SCRIPT
+echo -e "ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
+echo -e "" >> $EXE_SCRIPT
+echo -e "# Launch post-process job - will wait on calling phase to complete" >> $EXE_SCRIPT
+echo -e "sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
 
-#sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT
-echo "All RUFUS runs completed. Beginning post-processing..."
+echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please run... "
+echo -e "bash $EXE_SCRIPT"

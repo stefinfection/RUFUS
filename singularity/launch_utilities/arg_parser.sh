@@ -10,12 +10,13 @@ usage() {
     echo "-r reference  The reference file matching the genome build; must be located in data_directory"
     echo "-a slurm_account  The account for the slurm job"
     echo "-p slurm_partition    The partition for the slurm job"
+    echo "-l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array"
     echo "Optional Arguments:"
     echo "-r reference  If not provided, will automatically provide GRCh38 file"
 	echo "-m kmer_depth_cutoff	The amount of kMers that must overlap the variant to be included in the final call set"
 	echo "-w window_size	The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided" 
     echo "-e email  The email address to notify with slurm updates"
-    echo "-l slurm_job_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
+    echo "-q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
     echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)"
     echo "-f path_to_rufus_container    If not provided, will look in current directory for rufus.sif"
 	echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 20"
@@ -35,14 +36,15 @@ REFERENCE_RUFUS_ARG=""
 KMER_DEPTH_CUTOFF_RUFUS_ARG="5"
 WINDOW_SIZE_RUFUS_ARG="0"
 EMAIL_RUFUS_ARG=""
-SLURM_JOB_LIMIT_RUFUS_ARG="1000"
+SLURM_JOB_LIMIT_RUFUS_ARG="20"
+SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG="1000"
 SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
 REF_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
-while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:z:h" opt; do
+while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:z:h" opt; do
     case ${opt} in
 		d)	
 			HOST_DATA_DIR_RUFUS_ARG=$OPTARG
@@ -74,8 +76,11 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:t:f:z:h" opt; do
         e)
             EMAIL_RUFUS_ARG=$OPTARG
             ;;
-        l)
+        q)
             SLURM_JOB_LIMIT_RUFUS_ARG=$OPTARG
+            ;;
+        l)
+            SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$OPTARG
             ;;
         t)
             SLURM_TIME_LIMIT_RUFUS_ARG=$OPTARG
@@ -102,7 +107,7 @@ done
 shift $((OPTIND - 1))
 
 # Check for required strings
-if [[ -z "$HOST_DATA_DIR_RUFUS_ARG" || -z "$SUBJECT_RUFUS_ARG" || -z "$GENOME_BUILD_RUFUS_ARG" || -z "$REFERENCE_RUFUS_ARG" || -z "$SLURM_ACCOUNT_RUFUS_ARG" || -z "$SLURM_PARTITION_RUFUS_ARG" ]]; then
+if [[ -z "$HOST_DATA_DIR_RUFUS_ARG" || -z "$SUBJECT_RUFUS_ARG" || -z "$GENOME_BUILD_RUFUS_ARG" || -z "$REFERENCE_RUFUS_ARG" || -z "$SLURM_ACCOUNT_RUFUS_ARG" || -z "$SLURM_PARTITION_RUFUS_ARG" || -z "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" ]]; then
     echo "Error: Missing required argument(s)." >&2
     usage
 fi
@@ -175,6 +180,7 @@ export KMER_DEPTH_CUTOFF_RUFUS_ARG
 export WINDOW_SIZE_RUFUS_ARG
 export EMAIL_RUFUS_ARG
 export SLURM_JOB_LIMIT_RUFUS_ARG
+export SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG
 export SLURM_TIME_LIMIT_RUFUS_ARG
 export CONTAINER_PATH_RUFUS_ARG
 export THREAD_LIMIT_RUFUS_ARG
