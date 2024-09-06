@@ -54,7 +54,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
 		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
 		awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1, $2, $3, bam, ref}' > arguments.txt
-		cat arguments.txt | parallel -j +0 bash "$PILEUP_SCRIPT" {1} {2} {3} {4} {5}
+		cat arguments.txt | parallel -j +0 bash $PILEUP_SCRIPT {1} {2} {3} {4} {5}
 	
 		# combine pileups	
 		bcftools concat -o $MERGED_PILEUP -Oz mpileup_*.vcf
