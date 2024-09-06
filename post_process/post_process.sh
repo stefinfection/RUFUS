@@ -61,6 +61,7 @@ cd $SOURCE_DIR
 echo "RUFUS post-process version C.0.1"
 date
 echo -e "##RUFUS_combineCommand=$0 $*" >> /mnt/rufus.cmd
+start_time=$(date +"%s")
 
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
 TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
@@ -140,4 +141,9 @@ rm "normed.sorted.$TEMP_FINAL_VCF"*
 rm rufus.cmd
 
 echo "Post-processing complete."
+end_time=$(date +"%s")
+time_delta=$(( $end_time - $start_time ))
+time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
+
+echo "RUFUS post processing stage completed in ${time_diff}"
 
