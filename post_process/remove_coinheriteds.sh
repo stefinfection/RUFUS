@@ -85,6 +85,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 
     cp "$OUTFILE" "${OUT_VCF}" 
     cp "$OUT_INDEX" "${OUT_VCF}.tbi" 
+	rm "$CONTROL_VCF"*
 
     # clean up aligned control file, if it exists
 	if [ "$MADE_CONTROL_BAM" = true ]; then

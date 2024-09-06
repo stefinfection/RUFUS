@@ -60,7 +60,7 @@ fi
 cd $SOURCE_DIR
 echo "RUFUS post-process version C.0.1"
 date
-echo "##RUFUS_combineCommand=$0 $@" >> rufus.cmd
+echo -e "##RUFUS_combineCommand=$0 $*" >> /mnt/rufus.cmd
 
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
 TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
@@ -111,7 +111,7 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
 bcftools view -h $COINHERITED_REMOVED_VCF | head -n -1 > $FINAL_VCF
-cat rufus.cmd >> $FINAL_VCF
+cat /mnt/rufus.cmd >> $FINAL_VCF
 bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 >> $FINAL_VCF
 bcftools view -H $COINHERITED_REMOVED_VCF >> $FINAL_VCF
 bgzip $FINAL_VCF
@@ -119,13 +119,16 @@ bcftools index "$FINAL_VCF.gz"
 
 #TODO: Comment back in after prefiltered vcf cleaned up
 #bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-#cat rufus.cmd >> $PREFILTERED_VCF
+#cat /mnt/rufus.cmd >> $PREFILTERED_VCF
 #bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
 #bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
 #bgzip $PREFILTERED_VCF
 #bcftools index "$PREFILTERED_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
-mv $TEMP_PREFILTERED_VCF* rufus_supplementals/
+mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+mv prefiltered.vcf.gz* rufus_supplementals/
+
 
 # TODO: Separate SVs and SNV/Indels
 #echo "Separating snvs/indels and SVs..."

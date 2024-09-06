@@ -20,14 +20,14 @@ set -e
 
 start_time=$(date +"%s")
 echo "RUFUS version C.0.1"
-echo "RUFUS command was: $0 $@"
+echo -e "RUFUS command was: $0 $@"
 date
 
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
 BOUND_DATA_DIR=/mnt
 cd $BOUND_DATA_DIR
-echo "##RUFUS_callCommand=$0 $@" > rufus.cmd
+echo -e "##RUFUS_callCommand=$0 $*" > /mnt/rufus.cmd
 
 die()
 {
