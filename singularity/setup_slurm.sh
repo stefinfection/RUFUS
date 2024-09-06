@@ -1,4 +1,8 @@
 #!/bin/bash
+# This script creates three files in the directory it's run in (pwd):
+# 1. A rufus call slurm script
+# 2. A rufus post-process slurm script
+# 3. A bash script to batch submit the two above slurm scripts
 
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
 #UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
@@ -119,7 +123,8 @@ mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 EXE_SCRIPT=launch_rufus.sh
 echo -e "#!/bin/bash" > $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
-echo -e "#This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "# This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "# Insert command for your system to load singularity here if needed (e.g. module load singularity)"
 echo "" >> $EXE_SCRIPT
 echo -e "# Launch calling job" >> $EXE_SCRIPT
 echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
@@ -127,5 +132,5 @@ echo -e "" >> $EXE_SCRIPT
 echo -e "# Launch post-process job - will wait on calling phase to complete" >> $EXE_SCRIPT
 echo -e "sbatch --depend=afterany:\$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
 
-echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please run... "
+echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please make sure singularity is available in your environment, and then run... "
 echo -e "bash $EXE_SCRIPT"
