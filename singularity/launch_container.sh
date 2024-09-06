@@ -22,15 +22,15 @@ echo -en "##RUFUS_callCommand=" > rufus.cmd
 
 # TODO: if ARRAY_SIZE_LIMIT < NUM_CHUNKS need to split these into multiple batch scripts
 # Shift to 0-based slurm array index
-ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
-if [ "$ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt "$NUM_CHUNKS" ]; then
+# ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
+#if [ "$ADJ_SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt "$NUM_CHUNKS" ]; then
 
 	# TODO: left off here
 	# TODO: get number of iterations by ceil(NUM_CHUNKS/ADJ_LIMIG)		
 	# TODO: need to wrap below script composing in for loop and label each script by index number
 	# TODO: then instead of trying to invoke sbatch from here (we're in the container!) build a script that user will execute to queue jobs
 	# TODO: add to instructions
-fi
+#fi
 
 # Compose run script(s)
 RUFUS_SLURM_SCRIPT="rufus_call.slurm"
@@ -121,14 +121,16 @@ echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
 echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
 mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 
-# Get rufus run(s) going
-# TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
-ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)
+# Compose invocation script to be executed outside of container
+EXE_SCRIPT=run_rufus.sh
+echo -e "#!/bin/bash" > $EXE_SCRIPT
+echo -e "" >> $EXE_SCRIPT
+echo -e "This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "# Launch calling job" >> $EXE_SCRIPT
+echo -e "ARRAY_JOB_ID=$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
+echo -e "" >> $EXE_SCRIPT
+echo -e "# Launch post-process job - will wait on calling phase to complete" >> $EXE_SCRIPT
+echo -e "sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
 
-rm -r /mnt/TempOverlap
-
-sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT
-echo "All RUFUS runs completed. Beginning post-processing..."
-rm "${HOST_DATA_DIR_RUFUS_ARG}/rufus.cmd"
-rm -r /mnt/Intermediates
-rm -r /mnt/TempOverlap
+echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please run... "
+echo -e "bash $EXE_SCRIPT"
