@@ -49,7 +49,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	MERGED_PILEUP="merged_pileup.vcf"
 	# for testing purposes TODO
 	if [ ! -s "$MERGED_PILEUP" ]; then
-		echo "Starting parallel mpileup..." >&2
+		echo "Starting parallel mpileup..."
 		# TODO: put back in after debugging
 		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
 		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
@@ -66,17 +66,16 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		rm arguments.txt		
 
     	#bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
-		echo "Finished pileups, starting call" >&2
+		echo "Starting pileup call..."
 	fi
 	
 	# call variants from merged pileup vcf
 	bcftools call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
-	echo "Finished call, starting to index $CONTROL_VCF" >&2
     bcftools index -t $CONTROL_VCF
 	rm "sorted.$MERGED_PILEUP.gz"*    
 	
     #intersect the control vcf with formatted rufus vcf
-	echo "Starting intersection..." >&2
+	echo "Starting intersection..."
     bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
  
     # save the new vcf as rufus final vcf

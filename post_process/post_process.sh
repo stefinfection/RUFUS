@@ -73,8 +73,6 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
 
-echo "Made it past trim and combine" >&2
-
 # Check for empty lines
 echo "Checking vcf formatting..."
 bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
@@ -85,7 +83,6 @@ mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
 mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 
 # Sort
-echo "Made it past empty check" >&2
 echo "Sorting..."
 bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
 # TODO: when fix formatting on prefiltered vcf, comment two lines below back in
@@ -99,7 +96,6 @@ bcftools index "sorted.$TEMP_FINAL_VCF"
 echo "Removing coinheriteds..."
 IFS=$','
 CONTROL_STRING="${CONTROLS[*]}"
-echo "Passing $CONTROL_STRING to coinherited script" >&2
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
 
