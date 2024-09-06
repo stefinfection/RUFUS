@@ -98,7 +98,7 @@ With the following usage:
 The SLURM helper script automatically creates the two SLURM batch scripts necessary to run RUFUS on a SLURM-managed HPC cluster, as well as a bash script to execute them. To use:
 1) Execute the helper script (see full usage options below):
 ``` 
-singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/launch_container.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
+singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
 ```
 
 2) Then execute the generated bash script:
@@ -144,7 +144,7 @@ scontrol show config | grep "default_queue_depth"
 
 #### Example Invocation of the helper script
 ```
-singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/launch_container.sh -d /home/my_data_dir/ -s subject.bam -c control_a.bam, control_b.bam -r GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu" -f /home/my_container_path/
+singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -d /home/my_data_dir/ -s subject.bam -c control_a.bam, control_b.bam -r GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu" -f /home/my_container_path/
 ```
 
 ## 
