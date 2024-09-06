@@ -100,10 +100,12 @@ IFS=$','
 CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
 BOUND_DATA_DIR="/mnt"
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
 
-echo -en "RUFUS_postProcessCommand=" >> rufus.cmd
+$cho -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
+
+echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
 echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
+mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 
 # Get rufus run(s) going
 # TODO: need to iterate through all batch script args, collect JOBIDs and wait on all
@@ -115,3 +117,4 @@ rm -r /mnt/TempOverlap
 
 #sbatch --depend=afterany:$ARRAY_JOB_ID $PP_SLURM_SCRIPT
 echo "All RUFUS runs completed. Beginning post-processing..."
+rm "${HOST_DATA_DIR_RUFUS_ARG}/rufus.cmd"
