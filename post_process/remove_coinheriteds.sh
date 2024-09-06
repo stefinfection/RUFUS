@@ -58,7 +58,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 
 		# combine pileups
 		bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
-		bcfools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
+		bcftools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
 		bgzip "sorted.$MERGED_PILEUP"
 		bcftools index "sorted.$MERGED_PILEUP.gz"
 		#rm $MERGED_PILEUP
