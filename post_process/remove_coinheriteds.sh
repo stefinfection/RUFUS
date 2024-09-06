@@ -11,8 +11,6 @@ SRC_DIR=$4
 ARG_LIST=("$@")
 CONTROL_BAM_LIST=("${ARG_LIST[@]:4}") # Remaining args, all control bams
 
-export REFERENCE_FILE
-
 cd $SRC_DIR
 
 # static vars
@@ -43,7 +41,6 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
         CONTROL_BAM=$CONTROL_ALIGNED
 	    MADE_ALIGN_CONTROL=true
     fi
-	export CONTROL_BAM
     
     #run pileup and call variants
 	
@@ -55,8 +52,9 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		echo "Starting parallel mpileup..." >&2
 		# TODO: put back in after debugging
 		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
-		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq > regions.out
-		cat regions.out | parallel -j +0 bash "$PILEUP_SCRIPT" {1} {2} {3} "$CONTROL_BAM" "$REFERENCE_FILE"
+		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
+		awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1, $2, $3, bam, ref}' > arguments.txt
+		cat arguments.txt | parallel -j +0 bash "$PILEUP_SCRIPT" {1} {2} {3} {4} {5}
 	
 		# combine pileups	
 		bcftools concat -o $MERGED_PILEUP -Oz mpileup_*.vcf
