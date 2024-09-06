@@ -30,6 +30,7 @@ echo -en "##RUFUS_callCommand=" > rufus.cmd
 	# TODO: need to wrap below script composing in for loop and label each script by index number
 	# TODO: then instead of trying to invoke sbatch from here (we're in the container!) build a script that user will execute to queue jobs
 	# TODO: add to instructions
+	# TODO: also shift NUM_CHUNKS by one if not (to include 0)
 #fi
 
 # Compose run script(s)
@@ -122,7 +123,7 @@ echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINE
 mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 
 # Compose invocation script to be executed outside of container
-EXE_SCRIPT=run_rufus.sh
+EXE_SCRIPT=launch_rufus.sh
 echo -e "#!/bin/bash" > $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
 echo -e "This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
