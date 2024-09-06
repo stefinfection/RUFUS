@@ -18,7 +18,7 @@ usage() {
     echo "-e email  The email address to notify with slurm updates"
     echo "-q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
     echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)"
-    echo "-f path_to_rufus_container    If not provided, will look in current directory for rufus.sif"
+    echo "-f path_to_rufus_container   If not provided, will look in current directory for rufus.sif"
 	echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 20"
 	echo "-h help	Print usage"
 	exit 1
