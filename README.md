@@ -124,7 +124,7 @@ Optional Arguments:
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
     -e email  The email address to notify with slurm updates
-    -q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20
+    -q slurm_job_queue_lgimit    The maximum amount of jobs able to be ran at once; defaults to 20
     -t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
     -f path_to_rufus_container    If not provided, will look in current directory for rufus.sif
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
@@ -150,3 +150,4 @@ singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/l
 ## 
 
 =======
+
