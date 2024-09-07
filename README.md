@@ -62,18 +62,16 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 ```
 With the following usage:
 ```
-    -s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
-    -c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multipe times)"
-    -e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
-    -se,--single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
-    -r,--ref: file path to the desired reference file (no default)"
-    -cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
-    -t,--threads: number of threads to use (no default) (min 3)"
-    -k,--kersize: size of k-mer to use (no default)"
-    -m,--min: overwrites the minimum k-mer count to call variant (no default)"
-    -i,--saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
-    -mx,--MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-    -L,--Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"
+Required Arguments:
+	-s,--subject: single bam file (may be unaligned) containing the subject of interest"
+    -c, --controls: bam file (may be unaligned) for the sequence data of the control sample (can be used multiple times, e.g. -c control1 -c control2)"
+    -r,--ref: file path to the desired reference file"
+    -t,--threads: number of threads to use (min 3)"
+
+Optional Arguments:
+    -k,--kmersize: length of k-mer to use (defaults to 25)"
+    -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)"
+    -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)"
     -h,--help: Print help"
 ```
 
@@ -120,14 +118,15 @@ Required Arguments:
     -l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array
     
 Optional Arguments:
-    -r reference  If not provided, will automatically provide GRCh38 file
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
+    -f path_to_rufus_container    If not provided, will look in current directory for rufus.sif
+	-x, exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
+	-y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
+    -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
     -e email  The email address to notify with slurm updates
     -q slurm_job_queue_lgimit    The maximum amount of jobs able to be ran at once; defaults to 20
     -t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
-    -f path_to_rufus_container    If not provided, will look in current directory for rufus.sif
-    -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
     -h help   Print usage
 ```
 \
