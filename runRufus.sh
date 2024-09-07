@@ -53,9 +53,9 @@ _arg_exclude=()
 _arg_controls=()
 _arg_subject=
 _arg_ref=
-_arg_threads=
-_arg_kmersize=
-_arg_min=
+_arg_threads=3
+_arg_kmersize=25
+_arg_min=5
 _arg_refhash=
 _arg_saliva="FALSE"
 _arg_exome="FALSE"
@@ -495,8 +495,7 @@ if [ "$_arg_exome" = "TRUE" ]; then
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
 
-	if [ -z $_arg_min ]
-	then 
+	if [ -z $_arg_min ]; then 
 		echo "Minimum not provided, picking a min of 20 for the alt count" 
 		_arg_min="20"
 	fi 
