@@ -72,6 +72,7 @@ Optional Arguments:
     -k,--kmersize: length of k-mer to use (defaults to 25)"
     -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)"
     -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)"
+	-f,--refhash: Jhash file containing reference hashList
     -h,--help: Print help"
 ```
 
@@ -120,8 +121,8 @@ Required Arguments:
 Optional Arguments:
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
-    -f path_to_rufus_container    If not provided, will look in current directory for rufus.sif
-	-x, exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
+	-f reference_hash: Jhash file containing reference kMer hash list
+	-x exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
 	-y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
     -e email  The email address to notify with slurm updates
