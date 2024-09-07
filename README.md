@@ -34,6 +34,7 @@ RUFUS requires the following data to run:
 1) A subject sample in BAM format (this may be unaligned)
 2) One or more control samples in BAM format (these may be unaligned)
 3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
+\
    To create the BWA indexes, run the following commands:
    ```
    bwa index -a bwtsw {REFERENCE.fa}
