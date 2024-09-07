@@ -12,9 +12,9 @@ For questions and feature requests, please contact [stephanie.georges@genetics.u
 
 ## RUFUS Overview
 
-RUFUS is a reference-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with singularity installed to take advantage of parallelism. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the provided helper functions to create your SBATCH scripts (detailed below).
+RUFUS is a reference-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with singularity installed. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the provided helper functions to create your SBATCH scripts (detailed below).
 
-RUFUS currently supports a single subject sample, multiple control samples, and only accepts GRCh38 as a reference genome. The subject sample may be in BAM, CRAM, FASTQ, or FASTQ pair format. The samples must be in BAM format (though may be unaligned). The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
+RUFUS currently supports a single subject sample, multiple control samples, and only accepts GRCh38 as a reference genome. The samples must be in BAM format (though may be unaligned). The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
 
 RUFUS has two stages: a variant calling stage, and a post-processing stage. Separation of the stages is necessary because the calling stage may be run in a windowed fashion, requiring multiple parallel RUFUS jobs over all of the windows. The combination stage must wait to proceed until all calling jobs are complete. Algorithmic runtime increases roughly linearly with sample coverage. Generally with whole-genome mode, a 100x sample run will take 1 day. Windowed mode completes significantly faster.
 
@@ -33,14 +33,14 @@ curl "https:zenodo.org/record/XXXXXXX/files/rufus.sif" -o rufus.sif
 RUFUS requires the following data to run:
 1) A subject sample in BAM format (this may be unaligned)
 2) One or more control samples in BAM format (these may be unaligned)
-3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*
-   * To create the BWA indexes, run the following commands:
+3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
+   To create the BWA indexes, run the following commands:
    ```
    bwa index -a bwtsw {REFERENCE.fa}
    samtools faidx {REFERENCE.fa}
    ```
 
-**All of the above files must be located in a single directory, which will be mounted to the singularity container.**
+**All of the above required files, as well as any optional ones passed as arguments, must be located in a single directory, which will be mounted to the singularity container.**
 
 ### Output Data
 
@@ -63,7 +63,7 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 With the following usage:
 ```
 Required Arguments:
-	-s,--subject: single bam file (may be unaligned) containing the subject of interest"
+    -s,--subject: single bam file (may be unaligned) containing the subject of interest"
     -c, --controls: bam file (may be unaligned) for the sequence data of the control sample (can be used multiple times, e.g. -c control1 -c control2)"
     -r,--ref: file path to the desired reference file"
     -t,--threads: number of threads to use (min 3)"
@@ -72,7 +72,7 @@ Optional Arguments:
     -k,--kmersize: length of k-mer to use (defaults to 25)"
     -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)"
     -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)"
-	-f,--refhash: Jhash file containing reference hashList
+    -f,--refhash: Jhash file containing reference hashList
     -h,--help: Print help"
 ```
 
@@ -87,7 +87,7 @@ With the following usage:
     echo " -r reference Required: The reference used in the RUFUS run"
     echo " -c controls  Required: The control bam files used in the RUFUS run"
     echo " -s subject_file  Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-    echo " -d source_dir    Required: The source directory where the RUFUS vcf(s) are located"
+    echo " -d source_dir    Required: The source directory where the vcf(s) made by the calling stage are located"
     echo " -h help  Print help message"
 ```
 
@@ -105,7 +105,6 @@ singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity
 bash launch_rufus.sh
 ```
 
-\
 The full usage options for the helper script are as follows:
 ```
 Required Arguments:
@@ -121,9 +120,9 @@ Required Arguments:
 Optional Arguments:
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
-	-f reference_hash: Jhash file containing reference kMer hash list
-	-x exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
-	-y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
+    -f reference_hash: Jhash file containing reference kMer hash list
+    -x exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
+    -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
     -e email  The email address to notify with slurm updates
     -q slurm_job_queue_lgimit    The maximum amount of jobs able to be ran at once; defaults to 20
