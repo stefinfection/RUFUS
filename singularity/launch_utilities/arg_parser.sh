@@ -18,8 +18,10 @@ usage() {
     echo "-e email  The email address to notify with slurm updates"
     echo "-q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20"
     echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)"
-    echo "-f path_to_rufus_container   If not provided, will look in current directory for rufus.sif"
+    echo "-y path_to_rufus_container   If not provided, will look in current directory for rufus.sif"
 	echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 20"
+	echo "-f, reference_hash: Jhash file containing reference kMer hash list"
+	echo "-x, exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list"
 	echo "-h help	Print usage"
 	exit 1
 }
@@ -41,10 +43,11 @@ SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG="1000"
 SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
-REF_HASH_RUFUS_ARG=""
+EXCLUDE_HASH_LIST_RUFUS_ARG=()
+REFERENCE_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
-while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:z:h" opt; do
+while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
     case ${opt} in
 		d)	
 			HOST_DATA_DIR_RUFUS_ARG=$OPTARG
@@ -85,9 +88,15 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:z:h" opt; do
         t)
             SLURM_TIME_LIMIT_RUFUS_ARG=$OPTARG
             ;;
-        f)
+        y)
             CONTAINER_PATH_RUFUS_ARG=$OPTARG
             ;;
+		x)
+            IFS=',' read -r -a EXCLUDE_HASH_LIST_RUFUS_ARG <<< "$OPTARG"
+			;;
+		f)
+			REFERENCE_HASH_RUFUS_ARG=$OPTARG
+			;;
 		z)
 			THREAD_LIMIT_RUFUS_ARG=$OPTARG
 			;;
@@ -162,11 +171,6 @@ else
 	fi
 fi
 
-# If build is GRCh38, include prebuilt hash
-if [ "$GENOME_BUILD_RUFUS_ARG" = "GRCh38" ]; then
-	REF_HASH_RUFUS_ARG="/opt/RUFUS/resources/references/prebuilt_hashes/GRCh38_full_analysis_set_plus_decoy_hla.25.Jhash"
-fi
-
 # Export variables for use in the main script
 export HOST_DATA_DIR_RUFUS_ARG
 export SUBJECT_RUFUS_ARG
@@ -184,4 +188,5 @@ export SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG
 export SLURM_TIME_LIMIT_RUFUS_ARG
 export CONTAINER_PATH_RUFUS_ARG
 export THREAD_LIMIT_RUFUS_ARG
-export REF_HASH_RUFUS_ARG
+export EXCLUDE_HASH_LIST_RUFUS_ARG
+export REFERENCE_HASH_RUFUS_ARG

@@ -79,10 +79,18 @@ for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	echo -en "-c $control " >> rufus.cmd
 done
 
-if [ ! -z "$REF_HASH_RUFUS_ARG" ]; then
-	echo -en "-f $REF_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-	echo -en "-f $REF_HASH_RUFUS_ARG " >> rufus.cmd
+# Add in optional hashes if provided
+if [ ! -z "$REFERENCE_HASH_RUFUS_ARG" ]; then
+	echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+	echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> rufus.cmd
 fi
+if [ ! -z "$EXCLUDE_HASH_LIST_RUFUS_ARG" ]; then
+	for exclude in "${EXCLUDE_HASH_LIST_RUFUS_ARG[@]}"; do
+		echo -en "-e $exclude " >> $RUFUS_SLURM_SCRIPT
+		echo -en "-e $exclude " >> rufus.cmd
+	done
+fi
+
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> rufus.cmd
 
