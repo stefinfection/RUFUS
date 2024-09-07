@@ -35,13 +35,13 @@ RUFUS requires the following data to run:
 2) One or more control samples in BAM format (these may be unaligned)
 3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
 \
-   To create the BWA indexes, run the following commands:
+To create the BWA indexes, run the following commands:
    ```
    bwa index -a bwtsw {REFERENCE.fa}
    samtools faidx {REFERENCE.fa}
    ```
 
-**All of the above required files, as well as any optional ones passed as arguments, must be located in a single directory, which will be mounted to the singularity container.**
+**All of the above required files, as well as any optional ones, must be located in a single directory, which will be mounted to the singularity container.**
 
 ### Output Data
 
@@ -64,17 +64,17 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 With the following usage:
 ```
 Required Arguments:
-    -s,--subject: single bam file (may be unaligned) containing the subject of interest"
-    -c, --controls: bam file (may be unaligned) for the sequence data of the control sample (can be used multiple times, e.g. -c control1 -c control2)"
-    -r,--ref: file path to the desired reference file"
-    -t,--threads: number of threads to use (min 3)"
+    -s,--subject: single bam file (may be unaligned) containing the subject of interest
+    -c,--controls: bam file (may be unaligned) for the sequence data of the control sample (can be used multiple times, e.g. -c control1 -c control2)
+    -r,--ref: file path to the desired reference file
+    -t,--threads: number of threads to use (min 3)
 
 Optional Arguments:
-    -k,--kmersize: length of k-mer to use (defaults to 25)"
-    -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)"
-    -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)"
+    -k,--kmersize: length of k-mer to use (defaults to 25)
+    -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)
+    -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)
     -f,--refhash: Jhash file containing reference hashList
-    -h,--help: Print help"
+    -h,--help: Print help
 ```
 
 2) The post-processing stage, invoked by the following
@@ -83,13 +83,12 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 ```
 With the following usage:
 ```
-    echo "Options:"
-    echo " -w window_size   Required: The size of the window used in the RUFUS run"
-    echo " -r reference Required: The reference used in the RUFUS run"
-    echo " -c controls  Required: The control bam files used in the RUFUS run"
-    echo " -s subject_file  Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-    echo " -d source_dir    Required: The source directory where the vcf(s) made by the calling stage are located"
-    echo " -h help  Print help message"
+    -w window_size   Required: The size of the window used in the RUFUS run
+    -r reference Required: The reference used in the RUFUS run
+    -c controls  Required: The control bam files used in the RUFUS run
+    -s subject_file  Required: The name of the subject file: must be the same as that supplied to the RUFUS run
+    -d source_dir    Required: The source directory where the vcf(s) made by the calling stage are located
+    -h help  Print help message
 ```
 
 
@@ -126,7 +125,7 @@ Optional Arguments:
     -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
     -e email  The email address to notify with slurm updates
-    -q slurm_job_queue_lgimit    The maximum amount of jobs able to be ran at once; defaults to 20
+    -q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20
     -t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
     -h help   Print usage
 ```
