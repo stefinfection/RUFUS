@@ -71,6 +71,10 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 	TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
 	echo "Windowed run performed, trimming and combining region vcfs..."
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
+else 
+	# Slight name change if not doing a windowed run
+	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
+	TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
 # Check for empty lines
