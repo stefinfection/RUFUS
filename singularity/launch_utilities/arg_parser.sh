@@ -171,8 +171,8 @@ else
 fi
 
 # Check that if path to image not provided, it's in the current dir
-if [ -z $CONATINER_PATH_RUFUS_ARG ];
-	if [ ! -f "rufus.sif" ];
+if [ -z $CONATINER_PATH_RUFUS_ARG ]; then
+	if [ ! -f "rufus.sif" ]; then
 		echo "Error: rufus.sif not in current directory - please provide path to container or put it in this one under rufus.sif"
 		usage
 	fi
