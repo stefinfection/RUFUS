@@ -65,7 +65,16 @@ while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
     	echo "" >> $CURR_CALL_SCRIPT
     	echo -e "REGION_ARG=\"\"" >> $CURR_CALL_SCRIPT
 	else
-    	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $CURR_CALL_SCRIPT
+		ADJ_INDEX=$(( i - 1 ))
+		CURR_ARR_START=$(( ADJ_INDEX * WINDOW_SIZE ))
+		CURR_ARR_END=$(( i * WINDOW_SIZE - 1 ))
+		
+		# If on the last script, adjust to the remainder
+		if [ "$i" = "$NUM_CALL_SLURMS" ]; then
+			CURR_ARR_END=$(( REM - 1 ))
+		fi
+
+    	echo -e "#SBATCH -a ${CURR_ARR_START}-${CURR_ARR_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $CURR_CALL_SCRIPT
     	echo "" >> $CURR_CALL_SCRIPT
     	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $CURR_CALL_SCRIPT
     	echo -e "REGION_ARG=\"-R \$region_arg\"" >> $CURR_CALL_SCRIPT
