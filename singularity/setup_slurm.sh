@@ -42,10 +42,10 @@ fi
 # Compose run script(s)
 echo -en "##RUFUS_callCommand=" > rufus.cmd
 	
-NUM_CALL_SLURMS=$(($NUM_CHUNKS / $ARRAY_SIZE_LIMIT ))
-REM=$(($NUM_CHUNKS % $ARRAY_SIZE_LIMIT))
+NUM_CALL_SLURMS=$(( NUM_CHUNKS / SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG ))
+REM=$(( NUM_CHUNKS % SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG ))
 if [ "$REM" -gt 0 ]; then
-	NUM_CALL_SLURMS=$(( $NUM_CALL_SLURMS + 1 ))
+	NUM_CALL_SLURMS=$(( NUM_CALL_SLURMS + 1 ))
 fi
 
 i=1
