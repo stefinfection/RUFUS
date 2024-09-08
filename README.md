@@ -83,12 +83,15 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 ```
 With the following usage:
 ```
-    -w window_size   Required: The size of the window used in the RUFUS run
-    -r reference Required: The reference used in the RUFUS run
-    -c controls  Required: The control bam files used in the RUFUS run
-    -s subject_file  Required: The name of the subject file: must be the same as that supplied to the RUFUS run
-    -d source_dir    Required: The source directory where the vcf(s) made by the calling stage are located
-    -h help  Print help message
+Required Arguments:
+    -w window_size   The size of the window used in the RUFUS run
+    -r reference The reference used in the RUFUS run
+    -c controls  The control bam files used in the RUFUS run
+    -s subject_file  The name of the subject file: must be the same as that supplied to the RUFUS run
+    -d source_dir    The source directory where the vcf(s) made by the calling stage are located
+
+Optional Arguments:    
+	-h help  Print help message
 ```
 
 
