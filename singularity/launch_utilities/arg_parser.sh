@@ -170,6 +170,14 @@ else
 	fi
 fi
 
+# Check that if path to image not provided, it's in the current dir
+if [ -z $CONATINER_PATH_RUFUS_ARG ];
+	if [ ! -f "rufus.sif" ];
+		echo "Error: rufus.sif not in current directory - please provide path to container or put it in this one under rufus.sif"
+		usage
+	fi
+fi
+
 # Export variables for use in the main script
 export HOST_DATA_DIR_RUFUS_ARG
 export SUBJECT_RUFUS_ARG
