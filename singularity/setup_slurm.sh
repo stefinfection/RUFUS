@@ -148,7 +148,7 @@ echo -e "# This script should be executed after calling the container setup_slur
 echo -e "# Insert command for your system to load singularity here if needed (e.g. module load singularity)"
 echo "" >> $EXE_SCRIPT
 echo -e "# Launch calling job(s)" >> $EXE_SCRIPT
-echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $CURR_CALL_SCRIPT)" >> $EXE_SCRIPT
+echo -e "ARRAY_JOB_ID=\$(sbatch --parsable rufus_call_1.slurm)" >> $EXE_SCRIPT
 
 i=2
 while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
