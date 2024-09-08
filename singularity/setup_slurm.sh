@@ -50,7 +50,7 @@ fi
 
 i=1
 while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
-    CURR_CALL_SLURM="rufus_call_${i}.slurm"
+    CURR_CALL_SCRIPT="rufus_call_${i}.slurm"
 	for line in "${HEADER_LINES[@]}"
 	do
     	echo -e "$line" >> $CURR_CALL_SCRIPT
@@ -142,8 +142,8 @@ echo -e "# Launch calling job(s)" >> $EXE_SCRIPT
 echo -e "ARRAY_JOB_IDS=()"
 i=1
 while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
-	CURR_CALL_SLURM="rufus_call_${i}.slurm"
-	echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $CURR_CALL_SLURM)" >> $EXE_SCRIPT
+	CURR_CALL_SCRIPT="rufus_call_${i}.slurm"
+	echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $CURR_CALL_SCRIPT)" >> $EXE_SCRIPT
 	echo -e "ARRAY_JOB_IDS+=(\"\$ARRAY_JOB_ID\")"
 done
 
