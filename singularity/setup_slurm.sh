@@ -148,21 +148,18 @@ echo -e "# This script should be executed after calling the container setup_slur
 echo -e "# Insert command for your system to load singularity here if needed (e.g. module load singularity)"
 echo "" >> $EXE_SCRIPT
 echo -e "# Launch calling job(s)" >> $EXE_SCRIPT
-echo -e "ARRAY_JOB_IDS=()"
+echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $CURR_CALL_SCRIPT)" >> $EXE_SCRIPT
 
-i=1
+i=2
 while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
-	CURR_CALL_SCRIPT="rufus_call_${i}.slurm"
-	echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $CURR_CALL_SCRIPT)" >> $EXE_SCRIPT
-	echo -e "ARRAY_JOB_IDS+=(\"\$ARRAY_JOB_ID\")" >> $EXE_SCRIPT
+	CURR_CALL_SCRIPT="rufus_call_${i}.slurm"	
+	echo -e "ARRAY_JOB_ID=\$(sbatch --parsable --depend=afterany:\$ARRAY_JOB_ID $CURR_CALL_SCRIPT)" >> $EXE_SCRIPT
 	i=$(( i + 1 ))
 done
 
 echo -e "" >> $EXE_SCRIPT
 echo -e "# Launch post-process job - will wait on calling phase to complete" >> $EXE_SCRIPT
-echo -e "ARRAY_STRING=\$(echo \"\$ARRAY_JOB_IDS\" | tr ' ' ':')" >> $EXE_SCRIPT
-echo -e "echo -e \"queueing \$ARRAY_STRING\"" >> $EXE_SCRIPT
-echo -e "sbatch --depend=afterany:\$ARRAY_STRING $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
+echo -e "sbatch --depend=afterany:\$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
 
 # Give user instructions for next step
 echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please make sure singularity is available in your environment, and then run... "
