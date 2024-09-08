@@ -71,7 +71,7 @@ while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
 		
 		# If on the last script, adjust to the remainder
 		if [ "$i" = "$NUM_CALL_SLURMS" ]; then
-			CURR_ARR_END=$(( REM - 1 ))
+			CURR_ARR_END=$(( CURR_ARR_START + REM - 1 ))
 		fi
 
     	echo -e "#SBATCH -a ${CURR_ARR_START}-${CURR_ARR_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $CURR_CALL_SCRIPT
