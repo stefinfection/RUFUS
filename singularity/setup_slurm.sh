@@ -66,8 +66,8 @@ while [ "$i" -le "$NUM_CALL_SLURMS" ]; do
     	echo -e "REGION_ARG=\"\"" >> $CURR_CALL_SCRIPT
 	else
 		ADJ_INDEX=$(( i - 1 ))
-		CURR_ARR_START=$(( ADJ_INDEX * WINDOW_SIZE ))
-		CURR_ARR_END=$(( i * WINDOW_SIZE - 1 ))
+		CURR_ARR_START=$(( ADJ_INDEX * WINDOW_SIZE_RUFUS_ARG ))
+		CURR_ARR_END=$(( i * WINDOW_SIZE_RUFUS_ARG - 1 ))
 		
 		# If on the last script, adjust to the remainder
 		if [ "$i" = "$NUM_CALL_SLURMS" ]; then
