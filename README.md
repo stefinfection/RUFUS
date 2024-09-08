@@ -134,7 +134,7 @@ Optional Arguments:
 ```
 \
 *Notes on SLURM arguments*:\
-This script utilizes SLURM arrays to batch RUFUS call runs and thus requires the SLURM job array limit to comply with user settings. To find your SLURM job array limit:
+This script utilizes SLURM arrays to batch RUFUS call runs and thus requires the SLURM job array limit to comply with user settings. It's recommended to supply this value with a buffer amount (e.g. 20-50) subtracted, to allow you to submit other SLURM jobs while RUFUS is running. To find your SLURM job array limit:
 ```
 scontrol show config | grep "MaxArraySize"
 ```
