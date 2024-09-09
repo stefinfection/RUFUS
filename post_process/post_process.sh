@@ -63,8 +63,8 @@ date
 start_time=$(date +"%s")
 
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
-TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
-TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
+TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
+TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
@@ -101,11 +101,12 @@ echo "Removing coinheriteds..."
 IFS=$','
 CONTROL_STRING="${CONTROLS[*]}"
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
+echo -e "bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING""
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
-AF_ADDED_VCF="hd_af${COINHERITED_REMOVAL_VCF}"
+AF_ADDED_VCF="hd_af${COINHERITED_REMOVED_VCF}"
 SUBJECT_SAMPLE_NAME=$(bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
 bgzip $AF_ADDED_VCF
