@@ -103,6 +103,8 @@ CONTROL_STRING="${CONTROLS[*]}"
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 echo -e "bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING""
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+echo -e "Stopping after coinherited removal..." >&2
+exit
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
