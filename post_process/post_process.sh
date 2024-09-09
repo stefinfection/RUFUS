@@ -77,6 +77,13 @@ else
 	TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
+# TODO: check to see if we had any variants in final, and if not, stop and report
+VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
+if [ "$VARS_REPORTED" = "0" ]; then
+	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
+	exit 0
+fi
+
 # Check for empty lines
 echo "Checking vcf formatting..."
 bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
@@ -101,10 +108,7 @@ echo "Removing coinheriteds..."
 IFS=$','
 CONTROL_STRING="${CONTROLS[*]}"
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
-echo -e "bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING""
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
-echo -e "Stopping after coinherited removal..." >&2
-exit
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
