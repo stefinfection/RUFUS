@@ -38,7 +38,7 @@ KMER_DEPTH_CUTOFF_RUFUS_ARG="5"
 WINDOW_SIZE_RUFUS_ARG="0"
 EMAIL_RUFUS_ARG=""
 SLURM_JOB_LIMIT_RUFUS_ARG="20"
-SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=""
+SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG="1000"
 SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
@@ -167,14 +167,6 @@ elif [ "$WINDOW_SIZE_RUFUS_ARG" -lt 500 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -gt 5000
 else
 	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="01:00:00"
-	fi
-fi
-
-# Check that if path to image not provided, it's in the current dir
-if [ -z $CONTAINER_PATH_RUFUS_ARG ]; then
-	if [ ! -f "rufus.sif" ]; then
-		echo "Error: rufus.sif not in current directory - please provide path to container or put it in this one under rufus.sif"
-		usage
 	fi
 fi
 

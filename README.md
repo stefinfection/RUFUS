@@ -83,15 +83,12 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 ```
 With the following usage:
 ```
-Required Arguments:
-    -w window_size   The size of the window used in the RUFUS run
-    -r reference The reference used in the RUFUS run
-    -c controls  The control bam files used in the RUFUS run
-    -s subject_file  The name of the subject file: must be the same as that supplied to the RUFUS run
-    -d source_dir    The source directory where the vcf(s) made by the calling stage are located
-
-Optional Arguments:    
-	-h help  Print help message
+    -w window_size   Required: The size of the window used in the RUFUS run
+    -r reference Required: The reference used in the RUFUS run
+    -c controls  Required: The control bam files used in the RUFUS run
+    -s subject_file  Required: The name of the subject file: must be the same as that supplied to the RUFUS run
+    -d source_dir    Required: The source directory where the vcf(s) made by the calling stage are located
+    -h help  Print help message
 ```
 
 
@@ -134,7 +131,7 @@ Optional Arguments:
 ```
 \
 *Notes on SLURM arguments*:\
-This script utilizes SLURM arrays to batch RUFUS call runs and thus requires the SLURM job array limit to comply with user settings. It's recommended to supply this value with a buffer amount (e.g. 20-50) subtracted, to allow you to submit other SLURM jobs while RUFUS is running. To find your SLURM job array limit:
+This script utilizes SLURM arrays to batch RUFUS call runs and thus requires the SLURM job array limit to comply with user settings. To find your SLURM job array limit:
 ```
 scontrol show config | grep "MaxArraySize"
 ```
