@@ -13,6 +13,8 @@ CONTROL_BAM_LIST=("${ARG_LIST[@]:4}") # Remaining args, all control bams
 
 cd $SRC_DIR
 
+echo " args to coinher $@" >&2
+
 # static vars
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
@@ -56,6 +58,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 		awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" $2 "\t" $3 "\t" bam "\t" ref}' > arguments.txt
 		cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3} {4} {5}
 
+		exit
 		# combine pileups
 		bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
 		bcftools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
