@@ -63,8 +63,8 @@ date
 start_time=$(date +"%s")
 
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
-TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
-TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
+TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
+TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
 
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
