@@ -63,7 +63,7 @@ do
    	echo -e "$line" >> $CALL_SLURM_SCRIPT
 done
 
-if ["$SINGLE_MODE" = "FALSE" ];
+if ["$SINGLE_MODE" = "FALSE" ]; then
 	echo -e "REGION_INDEX=\$1" >> $CALL_SLURM_SCRIPT
 fi
 
@@ -116,7 +116,7 @@ echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREA
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> rufus.cmd
 
 # Make throttled slurm script to run scaffold	
-if [ "$SINGLE_MODE" = "FALSE" ];
+if [ "$SINGLE_MODE" = "FALSE" ]; then
 	CALL_SLURM_SCRIPT="rufus_call.slurm"
 	SCAFFOLD_SLURM_SCRIPT="rufus_scaffold.slurm"
     echo -e "max_concurrent_jobs=$SLURM_JOB_LIMIT_RUFUS_ARG" >> $CALL_SLURM_SCRIPT
