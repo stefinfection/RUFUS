@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# Calculates and adds an HD_MED info field and allele frequency field to the first column of the vcf file (in RUFUS, this is the tumor/subject) and adds a format field to that same first column with the tag HD_AF. This value is the HD_MED / DP[0]. Prints new file to "hd_af$IN_VCF".
+# Calculates and adds an HD_MED info field and allele frequency field to the first column of the vcf file (in RUFUS, this is the tumor/subject) and adds a format field to that same first column with the tag HD_AF. This value is the HD_MED / DP[0]. Prints new file to "hd_af.$IN_VCF".
 
 IN_VCF=$1
 SUBJECT_SAMPLE_NAME="$2"
 TEMP_FILE="fields.tsv"
 TEMP_HD_FILE="hd.tsv"
 TEMP_AF_FILE="af.tsv"
+
+echo "running hd af script..." >&2
 
 # Add HD_MED info field if it doesn't already exist
 bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD\n' $IN_VCF > $TEMP_FILE
@@ -46,6 +48,8 @@ function median(arr, n) {
 
 bgzip $TEMP_HD_FILE
 
+echo "indexing temp file in hd af script" >&2
+
 # Index text file
 tabix -s1 -b2 -e2 ${TEMP_HD_FILE}.gz
 
@@ -71,10 +75,10 @@ echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="Allele frequency fo
 echo "Writing hd_af.$IN_VCF" >&2
 bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med".$IN_VCF > "hd_af".$IN_VCF
 
-rm $TEMP_FILE
-rm ${TEMP_AF_FILE}.gz
-rm ${TEMP_AF_FILE}.gz.tbi
-rm ${TEMP_HD_FILE}.gz
-rm ${TEMP_HD_FILE}.gz.tbi
-rm "hd_med".$IN_VCF
-rm hdr.txt
+#rm $TEMP_FILE
+#rm ${TEMP_AF_FILE}.gz
+#rm ${TEMP_AF_FILE}.gz.tbi
+#rm ${TEMP_HD_FILE}.gz
+#rm ${TEMP_HD_FILE}.gz.tbi
+#rm "hd_med".$IN_VCF
+#rm hdr.txt
