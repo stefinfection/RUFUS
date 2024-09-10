@@ -8,8 +8,6 @@ TEMP_FILE="fields.tsv"
 TEMP_HD_FILE="hd.tsv"
 TEMP_AF_FILE="af.tsv"
 
-echo "running hd af script..." >&2
-
 # Add HD_MED info field if it doesn't already exist
 bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD\n' $IN_VCF > $TEMP_FILE
 
@@ -48,8 +46,6 @@ function median(arr, n) {
 
 bgzip $TEMP_HD_FILE
 
-echo "indexing temp file in hd af script" >&2
-
 # Index text file
 tabix -s1 -b2 -e2 ${TEMP_HD_FILE}.gz
 
@@ -72,13 +68,12 @@ tabix -s1 -b2 -e2 ${TEMP_AF_FILE}.gz
 # Make a header line to insert
 echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="kMer-based allele frequency for subject sample only (HD_MED/DP)">' >> hdr.txt
 
-echo "Writing hd_af.$IN_VCF" >&2
 bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med.$IN_VCF" > "hd_af.$IN_VCF"
 
-#rm $TEMP_FILE
-#rm ${TEMP_AF_FILE}.gz
-#rm ${TEMP_AF_FILE}.gz.tbi
-#rm ${TEMP_HD_FILE}.gz
-#rm ${TEMP_HD_FILE}.gz.tbi
-#rm "hd_med".$IN_VCF
+rm $TEMP_FILE
+rm ${TEMP_AF_FILE}.gz
+rm ${TEMP_AF_FILE}.gz.tbi
+rm ${TEMP_HD_FILE}.gz
+rm ${TEMP_HD_FILE}.gz.tbi
+rm "hd_med".$IN_VCF
 #rm hdr.txt
