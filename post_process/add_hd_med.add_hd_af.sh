@@ -76,4 +76,4 @@ rm ${TEMP_AF_FILE}.gz.tbi
 rm ${TEMP_HD_FILE}.gz
 rm ${TEMP_HD_FILE}.gz.tbi
 rm "hd_med".$IN_VCF
-#rm hdr.txt
+rm hdr.txt
