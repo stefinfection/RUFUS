@@ -59,15 +59,15 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	bcftools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
 	bgzip "sorted.$MERGED_PILEUP"
 	bcftools index "sorted.$MERGED_PILEUP.gz"
-	#rm $MERGED_PILEUP
-	#rm mpileup_*.vcf
-	#rm arguments.txt		
+	rm $MERGED_PILEUP
+	rm mpileup_*.vcf
+	rm arguments.txt		
 
 	# call variants from merged pileup vcf
 	echo "Starting pileup call..."
 	bcftools call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
     bcftools index -t $CONTROL_VCF
-	#rm "sorted.$MERGED_PILEUP.gz"*    
+	rm "sorted.$MERGED_PILEUP.gz"*    
 	
     #intersect the control vcf with formatted rufus vcf
 	echo "Starting intersection..."

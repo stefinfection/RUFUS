@@ -68,6 +68,7 @@ tabix -s1 -b2 -e2 ${TEMP_AF_FILE}.gz
 # Make a header line to insert
 echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="Allele frequency for subject sample (HD_MED/DP)">' >> hdr.txt
 
+echo "Writing hd_af.$IN_VCF" >&2
 bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med".$IN_VCF > "hd_af".$IN_VCF
 
 rm $TEMP_FILE
