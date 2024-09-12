@@ -74,7 +74,7 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 else 
 	# Slight name change if not doing a windowed run
 	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
-	TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
+	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
 # TODO: check to see if we had any variants in final, and if not, stop and report
@@ -149,9 +149,13 @@ bcftools index "$FINAL_VCF.gz"
 #bgzip $PREFILTERED_VCF
 #bcftools index "$PREFILTERED_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
-mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
-mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
-mv prefiltered.vcf.gz* rufus_supplementals/
+
+# Only need to move and rename if did a windowed run
+if [ "$WINDOW_SIZE" = "0" ]; then
+	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+	mv prefiltered.vcf.gz* rufus_supplementals/
+fi
 
 
 # TODO: Separate SVs and SNV/Indels
