@@ -3,6 +3,7 @@
 # 1. A rufus call slurm script
 # 2. A rufus post-process slurm script
 # 3. A bash script to batch submit the two above slurm scripts
+# v1.0.0-beta
 
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
 #UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
