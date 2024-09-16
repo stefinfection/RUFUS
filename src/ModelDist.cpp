@@ -2,7 +2,7 @@
  * ModelDist.cpp
  * ----------------------------------------------------------
  * Takes raw k-mer frequency histogram produced by Jellyfish,
- * and fits models of the underlying copy number distribition 
+ * and fits models of the underlying copy number distribution
  * to the raw k-mer histogram for each sample
  * ----------------------------------------------------------
  */

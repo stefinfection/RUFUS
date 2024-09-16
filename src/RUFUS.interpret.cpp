@@ -4839,15 +4839,15 @@ float AlignmentAllA(SamRead R)
 	}
 	
 	
-	cout << "true = " << true << endl; 
-	cout << "yay done and allA = " << allA << endl; 
-	cout << "A = " << A <<" T = " << T << " Aprop = " << (float) A / size << " Tprop = " << (float) T / size << endl; 
-	if (allA)
-	{ cout << "returning 1" << endl; return 1; }
-	else if ( A > T)
-	{cout << "returning " << (float) A / size << endl;return (float) A / size; }
-	else
-	{cout << "returning " << (float) T / size << endl;return (float) T / size; }
+	// cout << "true = " << true << endl; 
+	// cout << "yay done and allA = " << allA << endl; 
+	// cout << "A = " << A <<" T = " << T << " Aprop = " << (float) A / size << " Tprop = " << (float) T / size << endl; 
+	//if (allA)
+	//{ cout << "returning 1" << endl; return 1; }
+	//else if ( A > T)
+	//{cout << "returning " << (float) A / size << endl;return (float) A / size; }
+	//else
+	//{cout << "returning " << (float) T / size << endl;return (float) T / size; }
 	
 }
 int MobAligneBases(MobRead M, SamRead R)
@@ -4910,7 +4910,7 @@ void FindFirstAndLast(vector<SamRead>& R, int& A, int& B)
 		}
 		if (R[j].seq.size() < shortest)
 			shortest = R[j].seq.size(); 
-		R[j].write(); 
+		//R[j].write(); 
 		if (R[j].sigBreakPoint() > 0)
 			considering.push_back(true);
 		else
