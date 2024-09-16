@@ -151,7 +151,7 @@ bcftools index "$FINAL_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
 
 # Only need to move and rename if did a windowed run
-if [ "$WINDOW_SIZE" = "0" ]; then
+if [ "$WINDOW_SIZE" != "0" ]; then
 	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
 	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
 	mv prefiltered.vcf.gz* rufus_supplementals/
