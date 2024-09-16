@@ -47,29 +47,24 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	#bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF > $NORMED_BED
 	#PILEUP_VCF="pileup.vcf"
 	MERGED_PILEUP="merged_pileup.vcf"
-	# for testing purposes TODO
-	if [ ! -s "$MERGED_PILEUP" ]; then
-		echo "Starting parallel mpileup..."
-		# TODO: put back in after debugging
-		#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
-		bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
-		awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" $2 "\t" $3 "\t" bam "\t" ref}' > arguments.txt
-		cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3} {4} {5}
+	echo "Starting parallel mpileup..."
+	# TODO: put back in after debugging
+	#bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq > regions.out
+	bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
+	awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" $2 "\t" $3 "\t" bam "\t" ref}' > arguments.txt
+	cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3} {4} {5}
 
-		# combine pileups
-		bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
-		bcftools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
-		bgzip "sorted.$MERGED_PILEUP"
-		bcftools index "sorted.$MERGED_PILEUP.gz"
-		rm $MERGED_PILEUP
-		rm mpileup_*.vcf
-		rm arguments.txt		
+	# combine pileups
+	bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
+	bcftools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
+	bgzip "sorted.$MERGED_PILEUP"
+	bcftools index "sorted.$MERGED_PILEUP.gz"
+	rm $MERGED_PILEUP
+	rm mpileup_*.vcf
+	rm arguments.txt		
 
-    	#bcftools mpileup -d 100 -r -f $REFERENCE_FILE -o $PILEUP_VCF $CONTROL_BAM
-		echo "Starting pileup call..."
-	fi
-	
 	# call variants from merged pileup vcf
+	echo "Starting pileup call..."
 	bcftools call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
     bcftools index -t $CONTROL_VCF
 	rm "sorted.$MERGED_PILEUP.gz"*    

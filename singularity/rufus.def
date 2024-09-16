@@ -3,7 +3,7 @@ From: ubuntu:22.04
 
 %labels
     Author Stephanie Georges
-    Version v0.0.1
+    Version 1.0.0
 
 %post
     export DEBIAN_FRONTEND=noninteractive

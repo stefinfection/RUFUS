@@ -53,9 +53,9 @@ _arg_exclude=()
 _arg_controls=()
 _arg_subject=
 _arg_ref=
-_arg_threads=
-_arg_kmersize=
-_arg_min=
+_arg_threads=3
+_arg_kmersize=25
+_arg_min=5
 _arg_refhash=
 _arg_saliva="FALSE"
 _arg_exome="FALSE"
@@ -495,8 +495,7 @@ if [ "$_arg_exome" = "TRUE" ]; then
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
 
-	if [ -z $_arg_min ]
-	then 
+	if [ -z $_arg_min ]; then 
 		echo "Minimum not provided, picking a min of 20 for the alt count" 
 		_arg_min="20"
 	fi 
@@ -1184,7 +1183,6 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 		ctrl_prefix=$(basename "$control")
 		for postfix in "${control_files[@]}"
 		do
-			echo "looking to remove ${ctrl_prefix}${region_postfix}.${postfix}"
 			if [ -e "${ctrl_prefix}${region_postfix}.${postfix}" ]; then
 				rm ${ctrl_prefix}${region_postfix}.${postfix}
 			fi
@@ -1241,8 +1239,10 @@ fi
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
-time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
+hours=$(( time_delta / 3600 ))
+minutes=$(( (time_delta % 3600) / 60 ))
+seconds=$(( time_delta % 60 ))
+printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
 
-echo "RUFUS call stage completed in ${time_diff}"
 exit 0
 # ] <-- needed because of Argbash

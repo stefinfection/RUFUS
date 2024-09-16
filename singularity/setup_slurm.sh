@@ -1,4 +1,9 @@
 #!/bin/bash
+# This script creates three files in the directory it's run in (pwd):
+# 1. A rufus call slurm script
+# 2. A rufus post-process slurm script
+# 3. A bash script to batch submit the two above slurm scripts
+# v1.0.0-beta
 
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
 #UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
@@ -64,21 +69,29 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 else
 	echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
-	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
+	echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
 fi
 
-echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
 for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	echo -en "-c $control " >> $RUFUS_SLURM_SCRIPT
 	echo -en "-c $control " >> rufus.cmd
 done
 
-if [ ! -z "$REF_HASH_RUFUS_ARG" ]; then
-	echo -en "-f $REF_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-	echo -en "-f $REF_HASH_RUFUS_ARG " >> rufus.cmd
+# Add in optional hashes if provided
+if [ ! -z "$REFERENCE_HASH_RUFUS_ARG" ]; then
+	echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+	echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> rufus.cmd
 fi
+if [ ! -z "$EXCLUDE_HASH_LIST_RUFUS_ARG" ]; then
+	for exclude in "${EXCLUDE_HASH_LIST_RUFUS_ARG[@]}"; do
+		echo -en "-e $exclude " >> $RUFUS_SLURM_SCRIPT
+		echo -en "-e $exclude " >> rufus.cmd
+	done
+fi
+
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
 echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> rufus.cmd
 
@@ -109,17 +122,18 @@ CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
 BOUND_DATA_DIR="/mnt"
 
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
+echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
 
 echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
+echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
 mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
 
 # Compose invocation script to be executed outside of container
 EXE_SCRIPT=launch_rufus.sh
 echo -e "#!/bin/bash" > $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
-echo -e "#This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "# This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
+echo -e "# Insert command for your system to load singularity here if needed (e.g. module load singularity)"
 echo "" >> $EXE_SCRIPT
 echo -e "# Launch calling job" >> $EXE_SCRIPT
 echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
@@ -127,5 +141,5 @@ echo -e "" >> $EXE_SCRIPT
 echo -e "# Launch post-process job - will wait on calling phase to complete" >> $EXE_SCRIPT
 echo -e "sbatch --depend=afterany:\$ARRAY_JOB_ID $PP_SLURM_SCRIPT" >> $EXE_SCRIPT
 
-echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please run... "
+echo -e "Slurm scripts ready to execute with $EXE_SCRIPT. Please make sure singularity is available in your environment, and then run... "
 echo -e "bash $EXE_SCRIPT"

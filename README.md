@@ -33,14 +33,20 @@ curl "https://zenodo.org/records/13694211/files/rufus.sif" -o rufus.sif
 RUFUS requires the following data to run:
 1) A subject sample in BAM format (this may be unaligned)
 2) One or more control samples in BAM format (these may be unaligned)
+<<<<<<< HEAD
 3) A reference fasta file (currently only supports GRCh38) that is indexed by BWA - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
    To create the BWA indexes, run the following commands:
+=======
+3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
+\
+To create the BWA indexes, run the following commands:
+>>>>>>> singularity
    ```
    bwa index -a bwtsw {REFERENCE.fa}
    samtools faidx {REFERENCE.fa}
    ```
 
-**All of the above files must be located in a single directory, which will be mounted to the singularity container.**
+**All of the above required files, as well as any optional ones, must be located in a single directory, which will be mounted to the singularity container.**
 
 ### Output Data
 
@@ -62,19 +68,18 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 ```
 With the following usage:
 ```
-    -s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
-    -c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multipe times)"
-    -e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
-    -se,--single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
-    -r,--ref: file path to the desired reference file (no default)"
-    -cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
-    -t,--threads: number of threads to use (no default) (min 3)"
-    -k,--kersize: size of k-mer to use (no default)"
-    -m,--min: overwrites the minimum k-mer count to call variant (no default)"
-    -i,--saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
-    -mx,--MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-    -L,--Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"
-    -h,--help: Print help"
+Required Arguments:
+    -s,--subject: single bam file (may be unaligned) containing the subject of interest
+    -c,--controls: bam file (may be unaligned) for the sequence data of the control sample (can be used multiple times, e.g. -c control1 -c control2)
+    -r,--ref: file path to the desired reference file
+    -t,--threads: number of threads to use (min 3)
+
+Optional Arguments:
+    -k,--kmersize: length of k-mer to use (defaults to 25)
+    -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)
+    -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)
+    -f,--refhash: Jhash file containing reference hashList
+    -h,--help: Print help
 ```
 
 2) The post-processing stage, invoked by the following
@@ -83,6 +88,7 @@ singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/
 ```
 With the following usage:
 ```
+<<<<<<< HEAD
     echo "Options:"
     echo " -w window_size   Required: The size of the window used in the RUFUS calling stage"
     echo " -r reference Required: The reference used in the RUFUS calling stage"
@@ -90,6 +96,16 @@ With the following usage:
     echo " -s subject_file  Required: The subject file used in the RUFUS calling stage"
     echo " -d source_dir    Required: The source directory where the RUFUS vcf(s) are located (i.e. the local data directory containing the input data)"
     echo " -h help  Print help message"
+=======
+Required Arguments:
+    -w window_size   The size of the window used in the RUFUS run
+    -r reference The reference used in the RUFUS run
+    -c controls  The control bam files used in the RUFUS run
+    -s subject_file  The name of the subject file: must be the same as that supplied to the RUFUS run
+    -d source_dir    The source directory where the vcf(s) made by the calling stage are located
+Optional Arguments:    
+	-h help  Print help message
+>>>>>>> singularity
 ```
 
 
@@ -98,7 +114,7 @@ With the following usage:
 The SLURM helper script automatically creates the two SLURM batch scripts (detailed above) necessary to run RUFUS on a SLURM-managed HPC cluster, as well as a bash script to execute them. To use:
 1) Execute the helper script (see full usage options below):
 ``` 
-singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/launch_container.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
+singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
 ```
 
 2) Then execute the generated bash script:
@@ -119,13 +135,24 @@ Required Arguments:
     -l slurm_job_array_limit    The maximum amount of jobs SLURM allows in an array; this can be zero if NOT using optional windowed mode (-w)
     
 Optional Arguments:
+<<<<<<< HEAD
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set; defaults to 5
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
     -e email  The email address to notify with SLURM updates
     -q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20
     -t slurm_time_limit   The maximum amount of time to let the SLURM job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
     -f path_to_rufus_container    If not provided, will look in current directory for rufus.sif
+=======
+    -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
+    -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
+    -f reference_hash: Jhash file containing reference kMer hash list
+    -x exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
+    -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
+>>>>>>> singularity
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
+    -e email  The email address to notify with slurm updates
+    -q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20
+    -t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
     -h help   Print usage
 ```
 
@@ -142,7 +169,7 @@ scontrol show config | grep "default_queue_depth"
 
 #### Example Invocation of the helper script
 ```
-singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/launch_container.sh -d /home/my_data_dir/ -s subject.bam -c control_a.bam, control_b.bam -r GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu" -f /home/my_container_path/
+singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -d /home/my_data_dir/ -s subject.bam -c control_a.bam, control_b.bam -r GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu" -f /home/my_container_path/
 ```
 =======
 

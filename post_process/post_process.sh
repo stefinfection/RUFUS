@@ -71,6 +71,27 @@ if [ "$WINDOW_SIZE" != "0" ]; then
 	TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
 	echo "Windowed run performed, trimming and combining region vcfs..."
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
+else 
+	# Slight name change if not doing a windowed run
+	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
+	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
+fi
+
+# TODO: check to see if we had any variants in final, and if not, stop and report
+VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
+if [ "$VARS_REPORTED" = "0" ]; then
+	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
+	rm /mnt/${SUBJECT_FILE}*.generator*
+	for control in "${CONTROLS[@]}"; do
+    	rm /mnt/${control}*.generator*
+	done
+	rm -r /mnt/Intermediates
+	rm -r /mnt/TempOverlap	
+	rm -r /mnt/rufus.cmd
+	rm /mnt/temp*.vcf*
+
+	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > fail.out
+	exit 0
 fi
 
 # Check for empty lines
@@ -99,6 +120,13 @@ CONTROL_STRING="${CONTROLS[*]}"
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
 
+# Add HD_AF field
+echo "Adding kmer-based allele frequencies..." 
+AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
+SUBJECT_SAMPLE_NAME=$(bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
+bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
+bcftools index $AF_ADDED_VCF 
+
 # Compose final vcfs
 SUBJECT_STRING=$(basename $SUBJECT_FILE)
 FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
@@ -106,10 +134,10 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
-bcftools view -h $COINHERITED_REMOVED_VCF | head -n -1 > $FINAL_VCF
+bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
 cat /mnt/rufus.cmd >> $FINAL_VCF
-bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 >> $FINAL_VCF
-bcftools view -H $COINHERITED_REMOVED_VCF >> $FINAL_VCF
+bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
+bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
 bgzip $FINAL_VCF
 bcftools index "$FINAL_VCF.gz"
 
@@ -121,9 +149,13 @@ bcftools index "$FINAL_VCF.gz"
 #bgzip $PREFILTERED_VCF
 #bcftools index "$PREFILTERED_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
-mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
-mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
-mv prefiltered.vcf.gz* rufus_supplementals/
+
+# Only need to move and rename if did a windowed run
+if [ "$WINDOW_SIZE" != "0" ]; then
+	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+	mv prefiltered.vcf.gz* rufus_supplementals/
+fi
 
 
 # TODO: Separate SVs and SNV/Indels
@@ -140,11 +172,34 @@ rm "normed.sorted.$TEMP_FINAL_VCF"*
 rm -r "/mnt/Intermediates"
 rm -r "/mnt/TempOverlap"
 rm "/mnt/rufus.cmd"
+rm "$AF_ADDED_VCF"*
+
+# Combining supplementals
+SUPPLEMENTAL_DIR=/mnt/rufus_supplementals/
+# TODO: only do this if not reporting in developer mode
+ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
+ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
+samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
+samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
+rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
+rm ${SUPPLEMENTAL_DIR}unique_reads.bam
+rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
+rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
+
+cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
+rm ${SUPPLEMENTAL_DIR}*.HashList
+
+# TODO: hack for now to get rid of any lingering intermediate files 
+# TODO: this actually needs to be fixed with a graceful handling of no variants for certain windows
+rm /mnt/${SUBJECT_FILE}*.generator*
+for control in "${CONTROLS[@]}"; do
+	rm /mnt/${control}*.generator*
+done
 
 echo "Post-processing complete."
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
-time_diff=$(date -d"@${time_delta}" +"%H:%M:%S" )
-
-echo "RUFUS post processing stage completed in ${time_diff}"
-
+hours=$(( time_delta / 3600 ))
+minutes=$(( (time_delta % 3600) / 60 ))
+seconds=$(( time_delta % 60 ))
+printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
