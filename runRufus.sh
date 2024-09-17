@@ -25,6 +25,22 @@ date
 
 MaxHashDepth=1200; #need to make this a passed option
 RDIR=/opt/RUFUS
+##########################__SET_EXECUTABLE_PATHS__##############################
+RUFUSmodel=$RDIR/bin/ModelDist
+RUFUSfilter=$RDIR/bin/RUFUS.Filter
+RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
+RUFUSOverlap=$RDIR/scripts/Overlap.shorter.sh
+RunJelly=$RDIR/scripts/RunJellyForRUFUS.sh
+PullSampleHashes=$RDIR/scripts/CheckJellyHashList.sh
+RemoveCoInheritedVars=$RDIR/scripts/remove_coinherited.sh
+modifiedJelly=$RDIR/bin/externals/modified_jellyfish/src/modified_jellyfish_project/bin/jellyfish
+bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
+RUFUSfilterFASTQ=$RDIR/bin/RUFUS.Filter
+RUFUSfilterFASTQse=$RDIR/bin/RUFUS.Filter.single
+fastp=$RDIR/bin/externals/fastp/src/fastp_project/fastp
+samblaster=$RDIR/bin/externals/samblaster/src/samblaster_project/samblaster
+############################################################################################
+
 BOUND_DATA_DIR=/mnt
 cd $BOUND_DATA_DIR
 
@@ -357,10 +373,6 @@ parse_commandline ()
 		_arg_dev_file_output="TRUE"
 		echo "Retain all intermediate files created by RUFUS run"
 		;;
-	-local)
-		# TODO: get rid of this before publication
-		RDIR=/home/ubuntu/RUFUS
-		;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
 		rm *generator.Jhash *generator.Jhash.histo *generator.Jhash.histo.7.7.dist *generator.Jhash.histo.7.7.out *generator.Jhash.histo.7.7.prob *generator.k25_c4.HashList *generator.Mutations.Mate1.fastq *generator.Mutations.Mate2.fastq *.generator.temp *.generator.temp.mate1.fastq *.temp.mate2.fastq *.generator.V2.overlap.fastq *.generator.V2.overlap.fastqd *.generator.V2.overlap.hashcount.fastq *.generator.V2.overlap.hashcount.fastq.bam.vcf *.generator.V2.overlap.hashcount.fastq.bam.vcf.bed;  
@@ -550,7 +562,7 @@ fi
 if [ "$BUILD_REFS" = "TRUE" ]; then
 	echo "Missing reference file indexes needed for BWA... Generating... "
 	fasta_idx=$(basename ${_arg_ref})
-	bwa index -a bwtsw $fasta_idx
+	$bwa index -a bwtsw $fasta_idx
 	samtools faidx $fasta_idx
 fi
 
@@ -748,26 +760,6 @@ do
 done
 
 ##################################################
-
-
-
-##########################__SET_EXECUTABLE_PATHS__##############################
-RUFUSmodel=$RDIR/bin/ModelDist
-RUFUSfilter=$RDIR/bin/RUFUS.Filter
-RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
-RUFUSOverlap=$RDIR/scripts/Overlap.shorter.sh
-RunJelly=$RDIR/scripts/RunJellyForRUFUS.sh
-PullSampleHashes=$RDIR/scripts/CheckJellyHashList.sh
-RemoveCoInheritedVars=$RDIR/scripts/remove_coinherited.sh
-modifiedJelly=$RDIR/bin/externals/modified_jellyfish/src/modified_jellyfish_project/bin/jellyfish
-bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
-RUFUSfilterFASTQ=$RDIR/bin/RUFUS.Filter
-RUFUSfilterFASTQse=$RDIR/bin/RUFUS.Filter.single
-fastp=$RDIR/bin/externals/fastp/src/fastp_project/fastp
-samblaster=$RDIR/bin/externals/samblaster/src/samblaster_project/samblaster
-############################################################################################
-
-
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
