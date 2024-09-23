@@ -82,18 +82,19 @@ else
   if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt $((NUM_CHUNKS + 1)) ]; then
     # Always have to subtract two to allow post-processing script queue
     SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
+    # 999
 
-    # Get number of jobs most of the scripts will run
+    # Get number of jobs most of the scripts will run (1-based count)
     BASE_COUNT_PER_SCRIPT=$((NUM_CHUNKS / SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
     # 3
 
-    # Get remainder that needs to be distributed amongst the last N scripts
+    # Get remainder that needs to be distributed amongst the last N scripts (1-based count)
     NUM_JOBS_PLUS_ONE=$((NUM_CHUNKS % SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
     # 105
 
     # Get the switch point (i.e. the 1-based array index number where we need to have +1 on the base count)
     NUM_JOBS_BASE_COUNT=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - NUM_JOBS_PLUS_ONE))
-    # 895
+    # 894
 
     # Sanity check
     RUFUS_CALLS_BASE_COUNT=$((NUM_JOBS_BASE_COUNT * BASE_COUNT_PER_SCRIPT))
@@ -104,23 +105,26 @@ else
       exit 1
     else
       GIVEN_LIMIT=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG + 1))
-      echo "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script and $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script to fit into the allotted $GIVEN_LIMIT jobs"
+      echo -e "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
+      echo -e "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
+      echo -e "INFO: one slurm array job will be run to combine results"
+      echo -e "INFO: to fit into the allotted $GIVEN_LIMIT jobs"
     fi
 
     # Write out the slurm header
-    ADJ_SLURM_ARRAY_END=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
+    ADJ_SLURM_ARRAY_END=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1)) # 0-based index (998)
     echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
     echo "" >> $RUFUS_SLURM_SCRIPT
 
     # Write out the region argument and srun command
-    echo -e "job_count=$BASE_COUNT_PER_SCRIPT" >> $RUFUS_SLURM_SCRIPT
-    echo -e "starting_index=\$((SLURM_ARRAY_TASK_ID * $BASE_COUNT_PER_SCRIPT))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "if [ \$SLURM_ARRAY_TASK_ID -eq $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   job_count=\$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "elif [ \$SLURM_ARRAY_TASK_ID -gt $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   job_count=\$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   num_jobs_plus_one=\$((\$SLURM_ARRAY_TASK_ID - $NUM_JOBS_BASE_COUNT))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   starting_index=\$(($RUFUS_CALLS_BASE_COUNT + (\$num_jobs_plus_one * ($BASE_COUNT_PER_SCRIPT + 1))))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "job_count=$BASE_COUNT_PER_SCRIPT" >> $RUFUS_SLURM_SCRIPT # 3
+    echo -e "starting_index=\$((SLURM_ARRAY_TASK_ID * $BASE_COUNT_PER_SCRIPT))" >> $RUFUS_SLURM_SCRIPT # 0-based
+    echo -e "if [ \$SLURM_ARRAY_TASK_ID -eq $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT # at TASK_ID 894 only
+    echo -e "   job_count=\$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT # 4
+    echo -e "elif [ \$SLURM_ARRAY_TASK_ID -gt $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT # at TASK_ID 895+
+    echo -e "   job_count=\$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT # 4
+    echo -e "   num_jobs_plus_one=\$((\$SLURM_ARRAY_TASK_ID - $NUM_JOBS_BASE_COUNT))" >> $RUFUS_SLURM_SCRIPT # 1
+    echo -e "   starting_index=\$(((($NUM_JOBS_BASE_COUNT - 1) * $BASE_COUNT_PER_SCRIPT) + (\$num_jobs_plus_one * ($BASE_COUNT_PER_SCRIPT + 1))))" >> $RUFUS_SLURM_SCRIPT # 0-based index desired so have to subtract one from 1-based base count
     echo -e "fi" >> $RUFUS_SLURM_SCRIPT
     echo -e "for i in \$(seq 0 \$((\$job_count - 1))); do" >> $RUFUS_SLURM_SCRIPT
     echo -e "    curr_job=\$((\$starting_index + \$i))" >> $RUFUS_SLURM_SCRIPT
@@ -129,6 +133,7 @@ else
     echo -en "   srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
     echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
 	  echo -en "-pa \$SLURM_ARRAY_TASK_ID " >> $RUFUS_SLURM_SCRIPT
+	  echo -en "-cn \$curr_job " >> $RUFUS_SLURM_SCRIPT
     write_out_rest_of_rufus_args
     echo -e "done" >> $RUFUS_SLURM_SCRIPT
   else

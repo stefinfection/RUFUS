@@ -88,6 +88,7 @@ _arg_stop="nope"
 _arg_dev_reporting="FALSE"
 _arg_dev_file_output="FALSE"
 _arg_slurm_array_index=0
+_arg_abs_coord_index=0
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
@@ -152,6 +153,8 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-h,--help: HELP!!!!!!!!!!!!!!!"
 	printf "\t%s\n" "-d,--devhelp: HELP!!! for developers"
 	printf "\t%s\n" "-pa,--passArray: pass the slurm array index to the script for debugging purposes"
+	printf "\t%s\n" "-cn,--currAbsNum: pass the calculated absolute coordinate value to the script for debugging purposes"
+
 }
 re='^[0-9]+$'; 
 parse_commandline ()
@@ -316,6 +319,15 @@ parse_commandline ()
     fi
     shift
 		;;
+  -cn|--currAbsNum)
+    test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+    _arg_abs_coord_index=$2
+    if ! [[ $_arg_abs_coord_index =~ $re ]] ; then
+      echo "arg -cn or --currAbsNum must be a number "
+      exit 100
+    fi
+    shift
+    ;;
 	-i|--saliva)
 		_arg_saliva="TRUE"
 		echo "INFO: Saliva subject sample provided"
@@ -614,7 +626,9 @@ fi
 
 #TODO: debugging, get rid of
 echo -e "slurm array index is: $_arg_slurm_array_index"
+echo -e "absolute coordinate index is: $_arg_abs_coord_index"
 echo -e "slurm array index is: $_arg_slurm_array_index" >&2
+echo -e "absolute coordinate index is: $_arg_abs_coord_index" >&2
 exit 100
 
 #########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
