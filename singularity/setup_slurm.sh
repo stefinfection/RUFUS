@@ -78,17 +78,18 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
-  if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt "$NUM_CHUNKS" ]; then
+  # Add a chunk for post-processing
+  if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt $(($NUM_CHUNKS + 1)) ]; then
     # Always have to subtract two to allow post-processing script queue and 0-based shift
     SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 2))
 
-    # Get division base
-    BASE_COUNT_PER_SCRIPT=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG / $NUM_CHUNKS))
+    # Get number of jobs most of the scripts will run
+    BASE_COUNT_PER_SCRIPT=$(($NUM_CHUNKS / $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
 
     # Get remainder that needs to be distributed amongst the last N scripts
-    REMAINDER=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG % $NUM_CHUNKS))
+    REMAINDER=$(($NUM_CHUNKS % $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
 
-    # Get the switch point (i.e. the 1-based array index number where we need to have +1 on the base count)
+    # Get the switch point (i.e. the 0-based array index number where we need to have +1 on the base count)
     ARRAY_INDEX_SWITCH=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - $REMAINDER))
 
     # Sanity check
@@ -108,18 +109,18 @@ else
 
     # Write out the region argument and srun command
     echo -e "job_count=$BASE_COUNT_PER_SCRIPT" >> $RUFUS_SLURM_SCRIPT
-    echo -e "if [ \$SLURM_ARRAY_TASK_ID -lt $ARRAY_INDEX_SWITCH ]; then" >> $RUFUS_SLURM_SCRIPT
+    echo -e "if [ \$SLURM_ARRAY_TASK_ID -le $ARRAY_INDEX_SWITCH ]; then" >> $RUFUS_SLURM_SCRIPT
     echo -e "   job_count = \$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
     echo -e "else" >> $RUFUS_SLURM_SCRIPT
-    echo -e "for i in \$(seq 0 \$job_count); do" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   curr_job=\$((\$i + \$SLURM_ARRAY_TASK_ID))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
-    echo -e "" >> $RUFUS_SLURM_SCRIPT
-    echo -en "  srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+    echo -e "   for i in \$(seq 0 \$job_count); do" >> $RUFUS_SLURM_SCRIPT
+    echo -e "       curr_job=\$((\$i + \$SLURM_ARRAY_TASK_ID))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "       region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
+    echo -e "       REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
+    echo -en "      srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
     echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
     write_out_rest_of_rufus_args
-    echo -e "done" >> $RUFUS_SLURM_SCRIPT
+    echo -e "   done" >> $RUFUS_SLURM_SCRIPT
+    echo -e "fi" >> $RUFUS_SLURM_SCRIPT
   else
       # Write out the slurm header
       echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
