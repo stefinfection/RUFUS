@@ -55,7 +55,8 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	# Split pileup by sites
 	#bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
 	#awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" $2 "\t" $3 "\t" bam "\t" ref}' > arguments.txt
-	#cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3} {4} {5}
+	# NOTE: have to do out of order now, because single pileup start and end are optional
+	#cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {4} {5} {2} {3}
 
 	# combine pileups
 	bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
