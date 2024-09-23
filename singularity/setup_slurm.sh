@@ -78,7 +78,7 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
-  if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" < "$NUM_CHUNKS" ]; then
+  if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt "$NUM_CHUNKS" ]; then
     # Always have to subtract two to allow post-processing script queue and 0-based shift
     SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 2))
 
