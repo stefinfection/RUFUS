@@ -113,8 +113,7 @@ else
     echo "" >> $RUFUS_SLURM_SCRIPT
 
     # Write out the region argument and srun command
-    #TODO: left off - how do I test this?
-    echo -e "job_count=$((BASE_COUNT_PER_SCRIPT - 1))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "job_count=$BASE_COUNT_PER_SCRIPT" >> $RUFUS_SLURM_SCRIPT
     echo -e "starting_index=\$((SLURM_ARRAY_TASK_ID * $BASE_COUNT_PER_SCRIPT))" >> $RUFUS_SLURM_SCRIPT
     echo -e "if [ \$SLURM_ARRAY_TASK_ID -eq $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
     echo -e "   job_count=\$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
