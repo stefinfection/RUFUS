@@ -92,7 +92,7 @@ else
     # 105
 
     # Get the switch point (i.e. the 1-based array index number where we need to have +1 on the base count)
-    NUM_JOBS_BASE_COUNT=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - REMAINDER))
+    NUM_JOBS_BASE_COUNT=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - NUM_JOBS_PLUS_ONE))
     # 895
 
     # Sanity check
