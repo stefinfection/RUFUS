@@ -113,12 +113,18 @@ else
     echo "" >> $RUFUS_SLURM_SCRIPT
 
     # Write out the region argument and srun command
+    #TODO: left off - how do I test this?
     echo -e "job_count=$((BASE_COUNT_PER_SCRIPT - 1))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "if [ \$SLURM_ARRAY_TASK_ID -ge $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
+    echo -e "starting_index=\$((SLURM_ARRAY_TASK_ID * $BASE_COUNT_PER_SCRIPT))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "if [ \$SLURM_ARRAY_TASK_ID -eq $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
     echo -e "   job_count = \$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "elif [ \$SLURM_ARRAY_TASK_ID -gt $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
+    echo -e "   job_count = \$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "   num_jobs_plus_one=\$((SLURM_ARRAY_TASK_ID - $NUM_JOBS_BASE_COUNT))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "   starting_index=\$(($RUFUS_CALLS_BASE_COUNT + (num_jobs_plus_one * ($BASE_COUNT_PER_SCRIPT + 1))))" >> $RUFUS_SLURM_SCRIPT
     echo -e "else" >> $RUFUS_SLURM_SCRIPT
-    echo -e "   for i in \$(seq 0 \$job_count); do" >> $RUFUS_SLURM_SCRIPT
-    echo -e "       curr_job=\$((\$i + \$SLURM_ARRAY_TASK_ID))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "   for i in \$(seq 0 \$(($job_count - 1))); do" >> $RUFUS_SLURM_SCRIPT
+    echo -e "       curr_job=\$((\$starting_index + \$i))" >> $RUFUS_SLURM_SCRIPT
     echo -e "       region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
     echo -e "       REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
     echo -en "      srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
@@ -137,6 +143,7 @@ else
       echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
       echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+	  echo -en "-pa \$SLURM_ARRAY_TASK_ID"
       write_out_rest_of_rufus_args
   fi
 fi

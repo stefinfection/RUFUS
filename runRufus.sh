@@ -87,6 +87,7 @@ _filterMinQ=15
 _arg_stop="nope"
 _arg_dev_reporting="FALSE"
 _arg_dev_file_output="FALSE"
+_arg_slurm_array_index=""
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
@@ -150,7 +151,7 @@ s-n>] ...\n' "$0"
 	printf "\t\t%s\n" "This can be useful when you know you have low level contamination and want to remove kmers up to a certain count"
 	printf "\t%s\n" "-h,--help: HELP!!!!!!!!!!!!!!!"
 	printf "\t%s\n" "-d,--devhelp: HELP!!! for developers"
-	
+    printf "\t%s\n" "-pa,--passArray: pass slurm array information"	
 }
 re='^[0-9]+$'; 
 parse_commandline ()
@@ -373,6 +374,10 @@ parse_commandline ()
 		_arg_dev_file_output="TRUE"
 		echo "Retain all intermediate files created by RUFUS run"
 		;;
+    -pa)
+       _arg_slurm_array_index="$2"
+	   echo "Reporting passed slurm array indexes for debugging purposes"
+       ;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
 		rm *generator.Jhash *generator.Jhash.histo *generator.Jhash.histo.7.7.dist *generator.Jhash.histo.7.7.out *generator.Jhash.histo.7.7.prob *generator.k25_c4.HashList *generator.Mutations.Mate1.fastq *generator.Mutations.Mate2.fastq *.generator.temp *.generator.temp.mate1.fastq *.temp.mate2.fastq *.generator.V2.overlap.fastq *.generator.V2.overlap.fastqd *.generator.V2.overlap.hashcount.fastq *.generator.V2.overlap.hashcount.fastq.bam.vcf *.generator.V2.overlap.hashcount.fastq.bam.vcf.bed;  
@@ -598,6 +603,9 @@ else
     _arg_ref_bwa=$_arg_ref
 fi
 
+#TODO: debugging, get rid of
+echo "slurm array index is: $_arg_slurm_array_index"
+exit 0
 
 #echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 #echo "Reference supplied: " "$_arg_ref"
