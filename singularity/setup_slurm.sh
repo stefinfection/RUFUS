@@ -98,11 +98,11 @@ else
     # Sanity check
     RUFUS_CALLS_BASE_COUNT=$((NUM_JOBS_BASE_COUNT * BASE_COUNT_PER_SCRIPT))
     RUFUS_CALLS_PLUS_ONE=$((NUM_JOBS_PLUS_ONE * (BASE_COUNT_PER_SCRIPT + 1)))
+    echo "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG $BASE_COUNT_PER_SCRIPT $NUM_JOBS_PLUS_ONE $NUM_JOBS_BASE_COUNT $RUFUS_CALLS_BASE_COUNT $RUFUS_CALLS_PLUS_ONE"
     if [ $((RUFUS_CALLS_BASE_COUNT + RUFUS_CALLS_PLUS_ONE)) -ne "$NUM_CHUNKS" ] || [ $((NUM_JOBS_PLUS_ONE + NUM_JOBS_BASE_COUNT)) -ne "$SLURM_ARRAY_JOB_LIMIT" ]; then
       echo "ERROR: Calculation error in determining number of jobs per script; could not create SLURM scripts"
       exit 1
     else
-    echo "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG $BASE_COUNT_PER_SCRIPT $NUM_JOBS_PLUS_ONE $NUM_JOBS_BASE_COUNT $RUFUS_CALLS_BASE_COUNT $RUFUS_CALLS_PLUS_ONE"
       echo "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
       echo "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
     fi
