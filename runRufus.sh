@@ -87,7 +87,7 @@ _filterMinQ=15
 _arg_stop="nope"
 _arg_dev_reporting="FALSE"
 _arg_dev_file_output="FALSE"
-_arg_slurm_array_index=""
+_arg_slurm_array_index=0
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
@@ -306,7 +306,16 @@ parse_commandline ()
 			exit 100
 		fi
 		shift
-		;;	
+		;;
+	-pa|--passArray)
+	  test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_slurm_array_index=$2
+		if ! [[ $_arg_slurm_array_index =~ $re ]] ; then
+      echo "arg -pa or --passArray must be a number "
+      exit 100
+    fi
+    shift
+		;;
 	-i|--saliva)
 		_arg_saliva="TRUE"
 		echo "INFO: Saliva subject sample provided"
@@ -373,10 +382,6 @@ parse_commandline ()
 	-z)
 		_arg_dev_file_output="TRUE"
 		echo "Retain all intermediate files created by RUFUS run"
-		;;
-	-pa|--passArray)
-		_arg_slurm_array_index=$2
-		echo "Report slurm array indices in rufus run for debugging purposes"
 		;;
 	-CLEAN)
 		echo "Cleaning up intermediate files";
