@@ -18,7 +18,7 @@ GENOME_HELPERS=${UTIL_PATH}genome_helpers.sh
 CHUNK_UTILITIES=${UTIL_PATH}chunk_utilities.sh
 . $CHUNK_UTILITIES
 
-NUM_CHUNKS=$(get_num_chunks $WINDOW_SIZE_RUFUS_ARG $GENOME_BUILD_RUFUS_ARG)
+NUM_CHUNKS=$(get_num_chunks "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG")
 
 WORKING_DIR=$(pwd)
 
@@ -44,11 +44,11 @@ function write_out_rest_of_rufus_args() {
     done
 
     # Add in optional hashes if provided
-    if [ ! -z "$REFERENCE_HASH_RUFUS_ARG" ]; then
+    if [ -n "$REFERENCE_HASH_RUFUS_ARG" ]; then
       echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> rufus.cmd
     fi
-    if [ ! -z "$EXCLUDE_HASH_LIST_RUFUS_ARG" ]; then
+    if [ -n "$EXCLUDE_HASH_LIST_RUFUS_ARG" ]; then
       for exclude in "${EXCLUDE_HASH_LIST_RUFUS_ARG[@]}"; do
         echo -en "-e $exclude " >> $RUFUS_SLURM_SCRIPT
         echo -en "-e $exclude " >> rufus.cmd
@@ -69,7 +69,7 @@ do
     echo -e "$line" >> $RUFUS_SLURM_SCRIPT
 done
 
-if [ ! -z $EMAIL_RUFUS_ARG ]; then
+if [ -n "$EMAIL_RUFUS_ARG" ]; then
 	echo -e "#SBATCH --mail-type=ALL" >> $RUFUS_SLURM_SCRIPT
 	echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 fi
@@ -79,37 +79,42 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 else
   # Add a chunk for post-processing
-  if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt $(($NUM_CHUNKS + 1)) ]; then
-    # Always have to subtract two to allow post-processing script queue and 0-based shift
-    SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 2))
+  if [ "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" -lt $((NUM_CHUNKS + 1)) ]; then
+    # Always have to subtract two to allow post-processing script queue
+    SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
 
     # Get number of jobs most of the scripts will run
-    BASE_COUNT_PER_SCRIPT=$(($NUM_CHUNKS / $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
+    BASE_COUNT_PER_SCRIPT=$((NUM_CHUNKS / SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
+    # 3
 
     # Get remainder that needs to be distributed amongst the last N scripts
-    REMAINDER=$(($NUM_CHUNKS % $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
+    NUM_JOBS_PLUS_ONE=$((NUM_CHUNKS % SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG))
+    # 105
 
-    # Get the switch point (i.e. the 0-based array index number where we need to have +1 on the base count)
-    ARRAY_INDEX_SWITCH=$(($SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - $REMAINDER))
+    # Get the switch point (i.e. the 1-based array index number where we need to have +1 on the base count)
+    NUM_JOBS_BASE_COUNT=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - REMAINDER))
+    # 895
 
     # Sanity check
-    NUM_JOBS_WITH_BASE_COUNT=$(($ARRAY_INDEX_SWITCH * $BASE_COUNT_PER_SCRIPT))
-    NUM_JOBS_WITH_REMAINDER=$(($REMAINDER * ($BASE_COUNT_PER_SCRIPT + 1)))
-    if [ $(($NUM_JOBS_WITH_BASE_COUNT + $NUM_JOBS_WITH_REMAINDER)) -ne $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG ]; then
-      echo "ERROR: Calculation error in determining number of jobs per script"
+    RUFUS_CALLS_BASE_COUNT=$((NUM_JOBS_BASE_COUNT * BASE_COUNT_PER_SCRIPT))
+    RUFUS_CALLS_PLUS_ONE=$((NUM_JOBS_PLUS_ONE * (BASE_COUNT_PER_SCRIPT + 1)))
+    if [ $((RUFUS_CALLS_BASE_COUNT + RUFUS_CALLS_PLUS_ONE)) -ne "$NUM_CHUNKS" ] || [ $((NUM_JOBS_PLUS_ONE + NUM_JOBS_BASE_COUNT)) -ne "$SLURM_ARRAY_JOB_LIMIT" ]; then
+      echo "ERROR: Calculation error in determining number of jobs per script; could not create SLURM scripts"
       exit 1
     else
-      echo "INFO: $NUM_JOBS_WITH_BASE_COUNT jobs will be run with $BASE_COUNT_PER_SCRIPT jobs per script"
-      echo "INFO: $NUM_JOBS_WITH_REMAINDER jobs will be run with $(($BASE_COUNT_PER_SCRIPT + 1)) jobs per script"
+    echo "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG $BASE_COUNT_PER_SCRIPT $NUM_JOBS_PLUS_ONE $NUM_JOBS_BASE_COUNT $RUFUS_CALLS_BASE_COUNT $RUFUS_CALLS_PLUS_ONE"
+      echo "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
+      echo "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
     fi
 
     # Write out the slurm header
-    echo -e "#SBATCH -a 0-${SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
+    ADJ_SLURM_ARRAY_END=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG - 1))
+    echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
     echo "" >> $RUFUS_SLURM_SCRIPT
 
     # Write out the region argument and srun command
-    echo -e "job_count=$BASE_COUNT_PER_SCRIPT" >> $RUFUS_SLURM_SCRIPT
-    echo -e "if [ \$SLURM_ARRAY_TASK_ID -le $ARRAY_INDEX_SWITCH ]; then" >> $RUFUS_SLURM_SCRIPT
+    echo -e "job_count=$((BASE_COUNT_PER_SCRIPT - 1))" >> $RUFUS_SLURM_SCRIPT
+    echo -e "if [ \$SLURM_ARRAY_TASK_ID -ge $NUM_JOBS_BASE_COUNT ]; then" >> $RUFUS_SLURM_SCRIPT
     echo -e "   job_count = \$((\$job_count + 1))" >> $RUFUS_SLURM_SCRIPT
     echo -e "else" >> $RUFUS_SLURM_SCRIPT
     echo -e "   for i in \$(seq 0 \$job_count); do" >> $RUFUS_SLURM_SCRIPT
@@ -123,7 +128,8 @@ else
     echo -e "fi" >> $RUFUS_SLURM_SCRIPT
   else
       # Write out the slurm header
-      echo -e "#SBATCH -a 0-${NUM_CHUNKS}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
+      ADJ_CHUNK_END=$((NUM_CHUNKS - 1))
+      echo -e "#SBATCH -a 0-${ADJ_CHUNK_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
       echo "" >> $RUFUS_SLURM_SCRIPT
 
       # Write out the region argument and srun command
@@ -151,7 +157,7 @@ do
     echo -e "$line" >> $PP_SLURM_SCRIPT
 done
 
-if [ ! -z $EMAIL_RUFUS_ARG ]; then
+if [ -n "$EMAIL_RUFUS_ARG" ]; then
     echo -e "#SBATCH --mail-type=ALL" >> $PP_SLURM_SCRIPT
     echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $PP_SLURM_SCRIPT
 fi
@@ -166,7 +172,7 @@ echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINE
 
 echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
 echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
-mv rufus.cmd ${HOST_DATA_DIR_RUFUS_ARG}
+mv rufus.cmd "${HOST_DATA_DIR_RUFUS_ARG}"
 
 # Compose invocation script to be executed outside of container
 EXE_SCRIPT=launch_rufus.sh
