@@ -129,7 +129,7 @@ else
     echo -e "       REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
     echo -en "      srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
     echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
-	echo -en "-pa \$SLURM_ARRAY_TASK_ID"
+	echo -en "-pa \$SLURM_ARRAY_TASK_ID" >> $RUFUS_SLURM_SCRIPT
     write_out_rest_of_rufus_args
     echo -e "   done" >> $RUFUS_SLURM_SCRIPT
     echo -e "fi" >> $RUFUS_SLURM_SCRIPT
