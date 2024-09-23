@@ -98,13 +98,13 @@ else
     # Sanity check
     RUFUS_CALLS_BASE_COUNT=$((NUM_JOBS_BASE_COUNT * BASE_COUNT_PER_SCRIPT))
     RUFUS_CALLS_PLUS_ONE=$((NUM_JOBS_PLUS_ONE * (BASE_COUNT_PER_SCRIPT + 1)))
-    echo "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG $BASE_COUNT_PER_SCRIPT $NUM_JOBS_PLUS_ONE $NUM_JOBS_BASE_COUNT $RUFUS_CALLS_BASE_COUNT $RUFUS_CALLS_PLUS_ONE"
-    if [ $((RUFUS_CALLS_BASE_COUNT + RUFUS_CALLS_PLUS_ONE)) -ne "$NUM_CHUNKS" ] || [ $((NUM_JOBS_PLUS_ONE + NUM_JOBS_BASE_COUNT)) -ne "$SLURM_ARRAY_JOB_LIMIT" ]; then
+    if [ "$((RUFUS_CALLS_BASE_COUNT + RUFUS_CALLS_PLUS_ONE))" -ne "$NUM_CHUNKS" ] || \
+       [ "$((NUM_JOBS_PLUS_ONE + NUM_JOBS_BASE_COUNT))" -ne "$SLURM_ARRAY_JOB_LIMIT" ]; then
       echo "ERROR: Calculation error in determining number of jobs per script; could not create SLURM scripts"
       exit 1
     else
-      echo "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
-      echo "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
+      GIVEN_LIMIT=$((SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG + 1))
+      echo "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script and $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script to fit into the allotted $GIVEN_LIMIT jobs"
     fi
 
     # Write out the slurm header
@@ -179,7 +179,7 @@ EXE_SCRIPT=launch_rufus.sh
 echo -e "#!/bin/bash" > $EXE_SCRIPT
 echo -e "" >> $EXE_SCRIPT
 echo -e "# This script should be executed after calling the container setup_slurm.sh helper. It requires $PP_SLURM_SCRIPT and $RUFUS_SLURM_SCRIPT to be present in the same directory." >> $EXE_SCRIPT 
-echo -e "# Insert command for your system to load singularity here if needed (e.g. module load singularity)"
+echo -e "# Insert command for your system to load singularity here if needed (e.g. module load singularity)" >> $EXE_SCRIPT
 echo "" >> $EXE_SCRIPT
 echo -e "# Launch calling job" >> $EXE_SCRIPT
 echo -e "ARRAY_JOB_ID=\$(sbatch --parsable $RUFUS_SLURM_SCRIPT)" >> $EXE_SCRIPT
