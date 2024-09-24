@@ -42,10 +42,7 @@ function get_chunk_region() {
   leftover=$((leftover + curr_chunk))
 
   # Calculate the start and end of the chunk
-  local chunkStart=$((leftover * adjusted_size))
-  if [ "$chunkStart" = 0 ]; then
-    chunkStart=1
-  fi
+  local chunkStart=$((leftover * adjusted_size + 1))
   local chunkEnd=$((chunkStart + adjusted_size - 1))
   curr_length=${chrom_lengths[chr_idx]}
   if [ "$chunkEnd" -gt "$curr_length" ]; then
