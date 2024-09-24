@@ -5,9 +5,9 @@
 # 3. A bash script to batch submit the two above slurm scripts
 # v1.0.0-gamma
 
-LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
-UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
-#UTIL_PATH=/opt/RUFUS/singularity/launch_utilities/
+#LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
+#UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
+UTIL_PATH=/opt/RUFUS/singularity/launch_utilities/
 
 PARSER=${UTIL_PATH}arg_parser.sh
 . $PARSER "$@"
