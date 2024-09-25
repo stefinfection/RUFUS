@@ -85,11 +85,12 @@ else
     # 999
 
     # Get number of jobs most of the scripts will run (1-based count)
-    BASE_COUNT_PER_SCRIPT=$((NUM_CHUNKS / ADJ_SLURM_ARRAY_LIMIT))
+    BASE_COUNT_PER_SCRIPT=$(((NUM_CHUNKS - 1) / ADJ_SLURM_ARRAY_LIMIT))
     # 3
 
     # Get remainder that needs to be distributed amongst the last N scripts (0-based count)
     NUM_JOBS_PLUS_ONE=$(((NUM_CHUNKS - 1) % ADJ_SLURM_ARRAY_LIMIT))
+    echo "NUM_JOBS_PLUS_ONE: $NUM_JOBS_PLUS_ONE"
     # 3101 % 999 = 104
 
     # Get the switch point (i.e. the 0-based array index number where we need to have +1 on the base count)
@@ -99,7 +100,7 @@ else
 
     # Sanity check
     RUFUS_CALLS_BASE_COUNT=$((NUM_JOBS_BASE_COUNT * BASE_COUNT_PER_SCRIPT))
-    RUFUS_CALLS_PLUS_ONE=$((NUM_JOBS_PLUS_ONE * BASE_COUNT_PER_SCRIPT))
+    RUFUS_CALLS_PLUS_ONE=$((NUM_JOBS_PLUS_ONE * (BASE_COUNT_PER_SCRIPT + 1)))
 
     TOTAL_RUFUS_CALLS=$((RUFUS_CALLS_BASE_COUNT + RUFUS_CALLS_PLUS_ONE))
     TOTAL_JOBS=$((NUM_JOBS_BASE_COUNT + NUM_JOBS_PLUS_ONE))
