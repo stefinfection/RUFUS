@@ -89,7 +89,7 @@ else
     # 3
 
     # Get remainder that needs to be distributed amongst the last N scripts (0-based count)
-    NUM_JOBS_PLUS_ONE=$(((NUM_CHUNKS - 1) % ADJ_SLURM_ARRAY_LIMIT))
+    NUM_JOBS_PLUS_ONE=$(((NUM_CHUNKS - 1) % SLURM_JOB_LIMIT_RUFUS_ARG))
     echo "NUM_JOBS_PLUS_ONE: $NUM_JOBS_PLUS_ONE"
     # 3101 % 999 = 104
 
