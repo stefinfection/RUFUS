@@ -85,11 +85,11 @@ else
     # 999
 
     # Get number of jobs most of the scripts will run (1-based count)
-    BASE_COUNT_PER_SCRIPT=$(((NUM_CHUNKS - 1) / ADJ_SLURM_ARRAY_LIMIT))
+    BASE_COUNT_PER_SCRIPT=$((NUM_CHUNKS / ADJ_SLURM_ARRAY_LIMIT))
     # 3
 
     # Get remainder that needs to be distributed amongst the last N scripts (0-based count)
-    NUM_JOBS_PLUS_ONE=$((NUM_CHUNKS % SLURM_JOB_LIMIT_RUFUS_ARG))
+    NUM_JOBS_PLUS_ONE=$((NUM_CHUNKS % ADJ_SLURM_ARRAY_LIMIT))
     echo "NUM_JOBS_PLUS_ONE: $NUM_JOBS_PLUS_ONE"
     # 3102 % 999 = 105
 
@@ -120,7 +120,7 @@ else
 
     # Write out the slurm header
     ADJ_SLURM_ARRAY_END=$((ADJ_SLURM_ARRAY_LIMIT - 1))
-    echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${ADJ_SLURM_ARRAY_LIMIT}" >> $RUFUS_SLURM_SCRIPT
+    echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
     echo "" >> $RUFUS_SLURM_SCRIPT
 
     # Write out the region argument and srun command
