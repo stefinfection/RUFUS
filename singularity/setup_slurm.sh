@@ -105,7 +105,6 @@ else
     TOTAL_RUFUS_CALLS=$((RUFUS_CALLS_BASE_COUNT + RUFUS_CALLS_PLUS_ONE))
     TOTAL_JOBS=$((NUM_JOBS_BASE_COUNT + NUM_JOBS_PLUS_ONE))
 
-    echo "$RUFUS_CALLS_BASE_COUNT $RUFUS_CALLS_PLUS_ONE $TOTAL_RUFUS_CALLS $TOTAL_JOBS $NUM_CHUNKS $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG"
     if [ "$TOTAL_RUFUS_CALLS" != "$NUM_CHUNKS" ] || [ "$TOTAL_JOBS" != "$ADJ_SLURM_ARRAY_LIMIT" ]; then
       echo -e "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
       echo -e "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
