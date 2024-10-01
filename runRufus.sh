@@ -624,12 +624,10 @@ fi
 #echo "Reference supplied: " "$_arg_ref"
 #echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
-#TODO: debugging, get rid of
 echo -e "slurm array index is: $_arg_slurm_array_index"
 echo -e "absolute coordinate index is: $_arg_abs_coord_index"
 echo -e "slurm array index is: $_arg_slurm_array_index" >&2
 echo -e "absolute coordinate index is: $_arg_abs_coord_index" >&2
-exit 1
 
 
 #########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
