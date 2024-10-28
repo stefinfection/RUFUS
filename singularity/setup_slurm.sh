@@ -77,9 +77,8 @@ fi
 if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
 	echo "" >> $RUFUS_SLURM_SCRIPT
 	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
-	echo "" >> $RUFUS_SLURM_SCRIPT
-	echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-  echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+	echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+  echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
   write_out_rest_of_rufus_args
 else
   # Add a chunk for post-processing
