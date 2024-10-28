@@ -48,9 +48,9 @@ REFERENCE_HASH_RUFUS_ARG=""
 # Parse command line options using getopts
 while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
     case ${opt} in
-		d)	
-			HOST_DATA_DIR_RUFUS_ARG=$OPTARG
-			;;
+		    d)
+			      HOST_DATA_DIR_RUFUS_ARG=$OPTARG
+			      ;;
         s)
             SUBJECT_RUFUS_ARG=$OPTARG
             ;;
@@ -72,9 +72,9 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
         m)
             KMER_DEPTH_CUTOFF_RUFUS_ARG=$OPTARG
             ;;
-		w)
-			WINDOW_SIZE_RUFUS_ARG=$OPTARG
-			;;
+		    w)
+			      WINDOW_SIZE_RUFUS_ARG=$OPTARG
+			      ;;
         e)
             EMAIL_RUFUS_ARG=$OPTARG
             ;;
@@ -90,15 +90,15 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
         y)
             CONTAINER_PATH_RUFUS_ARG=$OPTARG
             ;;
-		x)
+		    x)
             IFS=',' read -r -a EXCLUDE_HASH_LIST_RUFUS_ARG <<< "$OPTARG"
-			;;
-		f)
-			REFERENCE_HASH_RUFUS_ARG=$OPTARG
-			;;
-		z)
-			THREAD_LIMIT_RUFUS_ARG=$OPTARG
-			;;
+			      ;;
+		    f)
+			    REFERENCE_HASH_RUFUS_ARG=$OPTARG
+			    ;;
+		    z)
+			    THREAD_LIMIT_RUFUS_ARG=$OPTARG
+			    ;;
         h)
             usage
             ;;
