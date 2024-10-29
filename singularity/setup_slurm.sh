@@ -32,8 +32,6 @@ HEADER_LINES=("#!/bin/bash"
 "#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
 "#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
 "#SBATCH --cpus-per-task=${THREAD_LIMIT_RUFUS_ARG}"
-"#SBATCH -o ${WORKING_DIR}/slurm_out/%A_%a.out"
-"#SBATCH -e ${WORKING_DIR}/slurm_err/%A_%a.err"
 )
 
 # Helper function to avoid redundant echoes
@@ -54,8 +52,13 @@ function write_out_rest_of_rufus_args() {
         echo -en "-e $exclude " >> rufus.cmd
       done
     fi
-    echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
-    echo -e "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs \$REGION_ARG" >> rufus.cmd
+    echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
+    echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
+
+    if [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]; then
+      echo -e "\$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
+      echo -e "\$REGION_ARG" >> rufus.cmd
+    fi
 }
 
 # Don't overwrite a run if already exists
@@ -75,8 +78,9 @@ if [ -n "$EMAIL_RUFUS_ARG" ]; then
 fi
 
 if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
+  echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%j.out" >> $RUFUS_SLURM_SCRIPT
+  echo -e "#SBATCH -e ${WORKING_DIR}/slurm_out/rufus_call_%j.err" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
-	echo -e "REGION_ARG=\"\"" >> $RUFUS_SLURM_SCRIPT
 	echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
   echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
   write_out_rest_of_rufus_args
@@ -122,6 +126,8 @@ else
 
     # Write out the slurm header
     ADJ_SLURM_ARRAY_END=$((ADJ_SLURM_ARRAY_LIMIT - 1))
+    echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%A_%a.out" >> $RUFUS_SLURM_SCRIPT
+    echo -e "#SBATCH -e ${WORKING_DIR}/slurm_err/rufus_call_%A_%a.err" >> $RUFUS_SLURM_SCRIPT
     echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
     echo "" >> $RUFUS_SLURM_SCRIPT
 
