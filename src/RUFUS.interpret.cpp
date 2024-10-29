@@ -5086,7 +5086,9 @@ void LastDitch(vector<SamRead>& reads, int i, int A, int B, int& CurrentSVeventI
 		qual = ((float)readAmut) / ((float)readApos) * 100.0; 
 	else
 		qual = 0; 
-	stringstream info;	
+	stringstream info;
+    if (SVDES !="")
+        {info << "SVDES=" << SVDES << ";";}
 	info << "SVTYPE=BND;MATEID=bnd_" << reads[reads[i].alignments[B]].BNDid << ";";
 	string phase="none"; 
 	if (reads[reads[i].alignments[A]].phase != "none")
@@ -7371,7 +7373,7 @@ options:\
 						//if (abs(positionAa - positionBa) < HashSize || abs(positionAb -  positionBb) < HashSize || abs(positionAa -  positionBb) < HashSize || abs(positionAb - positionBa) < HashSize )
 						
 						
-						if (abs(positionI - positionJ) < 1000000 && reads[i].SVeventid ==0 && reads[i+j].SVeventid == 0 && (reads[i].mapQual > 0 && reads[i+j].mapQual > 0))
+						if (abs(positionI - positionJ) < 1000 && reads[i].SVeventid ==0 && reads[i+j].SVeventid == 0 && (reads[i].mapQual > 0 && reads[i+j].mapQual > 0))
 						{
 	//						cout << "Found Large Insert" << endl; 
 	//						reads[i].write(); 
