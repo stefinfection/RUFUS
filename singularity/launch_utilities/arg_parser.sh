@@ -158,7 +158,7 @@ fi
 # Check that window size is in valid range
 # Check if time limit has been assigned, if not - use defaults for full mode or windowed mode
 if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
-	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
+	if [ -z "$SLURM_TIME_LIMIT_RUFUS_ARG" ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="7-00:00:00"
 	fi
 elif [ "$WINDOW_SIZE_RUFUS_ARG" -lt 500 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -gt 5000 ]; then
