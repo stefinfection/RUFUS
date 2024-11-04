@@ -388,7 +388,7 @@ assign_positional_args ()
 	done
 }
 
-which samtools || die "ERROR, samtools not installed, exiting"
+#which samtools || die "ERROR, samtools not installed, exiting"
 #which bamtools || die "ERROR, bamtools not installed, exiting"
 
 parse_commandline "$@"
@@ -1144,14 +1144,14 @@ else
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
-echo "about to head prefinal vcf prior to zipping"
-bcftools view -h "./$PREFINAL_VCF" | head -n 5
+#echo "about to head prefinal vcf prior to zipping"
+#bcftools view -h "./$PREFINAL_VCF" | head -n 5
 
 bgzip -f "./$PREFINAL_VCF"
 tabix "./${PREFINAL_VCF}.gz"
 
-echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
-bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string
+#echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
+#bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string
 
 echo "done with everything"
 exit 0
