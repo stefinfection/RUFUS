@@ -435,6 +435,7 @@ if [ ! -z "${_arg_region}" ]; then
 	formatted_region=$(echo "${_arg_region}" | tr : _ | tr - _)
 	region_postfix=".${formatted_region}"
 fi
+echo "region_postfix argument is: $region_postfix"
 
 
 # [ <-- needed because of Argbash
@@ -1176,14 +1177,15 @@ tabix ./$FINAL_VCF.gz
 echo "Cleaning up intermediary files..."
 if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	SUPP_DIR="rufus_supplementals"
-        mkdir -p $SUPP_DIR
+  	mkdir -p $SUPP_DIR
 	
 	mv "Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
+	# sometimes this vcf is malformed, and trying to zip and index it bricks the rest of the run
+	#bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+	#bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
 
 	rm Intermediates/*${region_postfix}*
-    rm TempOverlap/*${region_postfix}*
+ 	rm TempOverlap/*${region_postfix}*
 	rm "${ProbandGenerator}.mer_counts_merged.jf"
 	control_files=(
 		"generator"
