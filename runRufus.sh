@@ -118,17 +118,17 @@ print_devhelp ()
 s-n>] ...\n' "$0"
 	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multiple times)"
-        printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
-        printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
-        printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
-        printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
-        printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
-        printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
-        printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
-        printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
-        printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-        printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
-        printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
+  printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
+  printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
+  printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
+  printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
+  printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
+  printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
+  printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+  printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
+  printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
+  printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
+  printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
 	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
 
 	printf "\t%s\n" "################################################################################################"	
@@ -188,7 +188,7 @@ parse_commandline ()
                                 _arg_subject=("$2")
                         fi
                         shift
-                done	
+                done
 		;;
 	-r|--ref)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
@@ -427,6 +427,32 @@ assign_positional_args ()
 	done
 }
 
+# This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
+# It writes all exit statuses for controls to a single file, exit_code_controls.log and the exit status for the subject to exit_code_subject.log
+# Reports whether a hash table is empty if looking in a specific region to stdout.
+make_jelly_hash ()
+{
+  local generator=$1
+  local k=$2
+  local threads=$3
+  local lowK=$4
+  local regionArg=$5
+  local isControl=$6
+
+  bash $RunJelly "$generator" "$k" "$threads" "$lowK"
+  local exitCode=$?
+
+  if [ "$isControl" = "TRUE" ]; then
+    echo "$exit_code" > "exit_code_controls.log"
+  else
+    echo "$exit_code" > "exit_code_subject.log"
+  fi
+
+  if [ $exit_code -ne 0 ] & [ -n "$regionArg" ]; then
+      echo "RUFUS could not find any kmers in the provided region $regionArg in the file $generator; this usually means there is no coverage"
+  fi
+}
+
 parse_commandline "$@"
 
 region_postfix=""
@@ -643,6 +669,13 @@ then
     kill -9 $$
 elif [[ "$ProbandExtension" == "bam" ]]
 then
+    # check for index file (needed for mpileup in post processing)
+    if [[ ! -e "$_arg_subject".bai ]]
+    then
+        echo "Index file for subject bam file "$_arg_subject" not found. Please place in data directory and rerun."
+        return 1
+    fi
+
 #   echo "you provided the proband cram file" "$_arg_subject"
     ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
     echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
@@ -675,12 +708,20 @@ do
     ParentFileNames=$ParentFileNames$space$parent
     parentExtension="${parentFileName##*.}"
 
-    if  [[ "$parentExtension" != "cram" ]] && [[ "$parentExtension" != "bam" ]]  && [[ "$parentExtension" != "generator" ]] 
+    if  [[ "$parentExtension" != "cram" ]] && [[ "$parentExtension" != "bam" ]]  && [[ "$parentExtension" != "generator" ]]
     then
-	echo "The control bam/generator file" "$parent" " was not provided, or does not exist; killing run with non-zero exit status"
-	kill -9 $$
+	    echo "The control bam/generator file" "$parent" " was not provided, or does not exist; killing run with non-zero exit status"
+	    kill -9 $$
     elif [[ "$parentExtension" == "bam" ]]
     then
+
+      # check for index file (needed for mpileup in post processing)
+      if [[ ! -e "$parentFileName".bai ]]
+      then
+          echo "Index file for control bam file "$parentFileName" not found. Please place in data directory and rerun."
+          return 1
+      fi
+
 	    parentGenerator="${parentFileName}${region_postfix}.generator"
 	    ParentGenerators+=("$parentGenerator")
 	    echo "samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
@@ -794,32 +835,36 @@ then
 	JThreads=$(( Threads / 3 ))
 	if [ "$JThreads" -lt 3 ]
 	then
-	    JThreads=3
+    JThreads=3
 	fi
-	#JThreads=$Threads
-	
+
 	for parent in "${ParentGenerators[@]}"
 	do
-	      bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
+    make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
+    #bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
 	done
-	
-	bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  & 
-	wait
+    make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
+    #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
+    wait
+    check_empty_hashes # TODO: left off here - need to write this function - at least one control has to have hashes and subject does too
+
 else
-        JThreads=$Threads
-	if [ "$JThreads" -lt 3 ]
-        then
-            JThreads=3
-        fi
+  JThreads=$Threads
+  if [ "$JThreads" -lt 3 ]
+    then
+      JThreads=3
+    fi
 
-        for parent in "${ParentGenerators[@]}"
-        do
-              bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  
-        done
+    for parent in "${ParentGenerators[@]}"
+    do
+      make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK
+      #bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK
+    done
+      make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2
+      #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2
 
-        # bash $RunJelly $ProbandGenerator $K  $Threads 2
-         bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  
-fi 	
+      check_empty_hashes
+fi
 ##############################################################################
 
 
@@ -1181,16 +1226,16 @@ if [ "$_arg_dev_file_output" = "FALSE" ]; then
 	bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
 
 	rm Intermediates/*${region_postfix}*
-    rm TempOverlap/*${region_postfix}*
+  rm TempOverlap/*${region_postfix}*
 	rm "${ProbandGenerator}.mer_counts_merged.jf"
 	control_files=(
 		"generator"
 		"generator.Jelly.chr"
 		"generator.Jhash"
-	    "generator.Jhash.histo"
+	  "generator.Jhash.histo"
 		"generator.Jhash.histo.7.7.dist"
 		"generator.Jhash.histo.7.7.model"
-	    "generator.Jhash.histo.7.7.out"
+	  "generator.Jhash.histo.7.7.out"
 		"generator.Jhash.histo.7.7.prob" 	
 	)	
 
