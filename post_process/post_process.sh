@@ -65,6 +65,11 @@ start_time=$(date +"%s")
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
 TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
+GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
+
+# Retain germline vcf for analysis
+cp $TEMP_FINAL_VCF $GERMLINE_VCF
+mv $GERMLINE_VCF rufus_supplementals/
 
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
