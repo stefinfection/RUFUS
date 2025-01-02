@@ -19,7 +19,7 @@ set -e
 # Generated online by https://argbash.io/generate
 
 start_time=$(date +"%s")
-echo "RUFUS version V1.0.0-gamma-ip"
+echo "RUFUS version V1.0.1-delta-ip"
 echo -e "RUFUS command was: $0 $@"
 date
 
@@ -428,7 +428,7 @@ assign_positional_args ()
 }
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
-# It writes all exit statuses for controls to a single file, exit_code_controls.log and the exit status for the subject to exit_code_subject.log
+# It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
 # Reports whether a hash table is empty if looking in a specific region to stdout.
 make_jelly_hash ()
 {
@@ -438,19 +438,66 @@ make_jelly_hash ()
   local lowK=$4
   local regionArg=$5
   local isControl=$6
+  local control_code_file=$7
+  local subject_code_file=$8
 
   bash $RunJelly "$generator" "$k" "$threads" "$lowK"
   local exitCode=$?
 
   if [ "$isControl" = "TRUE" ]; then
-    echo "$exit_code" > "exit_code_controls.log"
+    echo "$exit_code" >> "$control_code_file"
   else
-    echo "$exit_code" > "exit_code_subject.log"
+    echo "$exit_code" >> "$subject_code_file"
   fi
 
   if [ $exit_code -ne 0 ] & [ -n "$regionArg" ]; then
       echo "RUFUS could not find any kmers in the provided region $regionArg in the file $generator; this usually means there is no coverage"
   fi
+}
+
+check_empty_hashes ()
+{
+  local control_code_file="$1"
+  local subject_code_file="$2"
+  local region_arg="$3"
+
+  # Check that at least one control has hashes
+  found_zero=false
+  while IFS= read -r line; do
+    # Check if the line is "0"
+    if [[ "$line" -eq 0 ]]; then
+      found_zero=true
+      break
+    fi
+  done < "$control_code_file"
+
+  if [ "$found_zero" = false ]; then
+    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
+    rm "$control_code_file"
+    rm "$subject_code_file"
+    exit 0
+  fi
+
+  # Check that the subject has hashes
+  found_zero=false
+    while IFS= read -r line; do
+      # Check if the line is "0"
+      if [[ "$line" -eq 0 ]]; then
+        found_zero=true
+        break
+      fi
+    done < "$subject_code_file"
+
+    if [ "$found_zero" = false ]; then
+      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
+      rm "$control_code_file"
+      rm "$subject_code_file"
+      exit 0
+    fi
+
+    # Cleanup
+    rm "$control_code_file"
+    rm "$subject_code_file"
 }
 
 parse_commandline "$@"
@@ -838,15 +885,18 @@ then
     JThreads=3
 	fi
 
+  CONTROL_EXIT_CODES="jelly_exit_code_controls.log"
+  SUBJECT_EXIT_CODES="jelly_exit_code_subject.log"
+
 	for parent in "${ParentGenerators[@]}"
 	do
-    make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
+    make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $_arg_region true $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES  &
     #bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
 	done
-    make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
+    make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_arg_region false $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES &
     #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
     wait
-    check_empty_hashes # TODO: left off here - need to write this function - at least one control has to have hashes and subject does too
+    check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
 
 else
   JThreads=$Threads
@@ -857,13 +907,13 @@ else
 
     for parent in "${ParentGenerators[@]}"
     do
-      make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK
+      make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $_arg_region true $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES
       #bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK
     done
-      make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2
+      make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_arg_region false $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES
       #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2
 
-      check_empty_hashes
+      check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
 fi
 ##############################################################################
 
