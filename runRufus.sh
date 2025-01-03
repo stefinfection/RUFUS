@@ -720,7 +720,7 @@ then
     if [[ ! -e "$_arg_subject".bai ]]
     then
         echo "Index file for subject bam file "$_arg_subject" not found. Please place in data directory and rerun."
-        return 1
+        exit 1
     fi
 
 #   echo "you provided the proband cram file" "$_arg_subject"
@@ -766,7 +766,7 @@ do
       if [[ ! -e "$parentFileName".bai ]]
       then
           echo "Index file for control bam file "$parentFileName" not found. Please place in data directory and rerun."
-          return 1
+          exit 1
       fi
 
 	    parentGenerator="${parentFileName}${region_postfix}.generator"
