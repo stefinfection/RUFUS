@@ -473,6 +473,7 @@ check_empty_hashes ()
 
   if [ "$found_zero" = false ]; then
     echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
+    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
     rm "$control_code_file"
     rm "$subject_code_file"
     exit 0
@@ -490,6 +491,7 @@ check_empty_hashes ()
 
     if [ "$found_zero" = false ]; then
       echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
+      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
       rm "$control_code_file"
       rm "$subject_code_file"
       exit 0
