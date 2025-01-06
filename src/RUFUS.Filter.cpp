@@ -202,6 +202,7 @@ int main(int argc, char *argv[])
 
 			for (int i = start; i < BufferMate1[BuffCount + 1].length()-1 ; i++) 
 			{
+                // If quality is too low, or base is N
 			 	if (((int)BufferMate1[BuffCount + 3].c_str()[i] - 33) < MinQ || (int)BufferMate1[BuffCount + 1].c_str()[i] == 78) 
 				{
 					//cout << "found bad base in read " << BufferMate1[BuffCount + 0] << "at pos " << i << " base " << BufferMate1[BuffCount + 1].c_str()[i] << " qual = " << BufferMate1[BuffCount + 3].c_str()[i]  << " = " << (int)BufferMate1[BuffCount + 3].c_str()[i] - 33 << endl; 
@@ -242,6 +243,7 @@ int main(int argc, char *argv[])
 	
 				for (int i = startM2; i < BufferMate2[BuffCount + 1].length()-1 ; i++) 
 				{
+                    // If quality is too low, or base is N
 					if (((int)BufferMate2[BuffCount + 3].c_str()[i] - 33) < MinQ || (int)BufferMate2[BuffCount + 1].c_str()[i] == 78) 
 					{
 						//cout << "found bad base in read2 " << BufferMate2[BuffCount + 0] << "at pos " << i << " base " << BufferMate2[BuffCount + 1].c_str()[i] << " qual = " << BufferMate2[BuffCount + 3].c_str()[i]  << " = " << (int)BufferMate2[BuffCount + 3].c_str()[i] - 33 << endl;

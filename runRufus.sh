@@ -1070,8 +1070,14 @@ fi
 ########################################################################################
 
 if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
-	echo "ERROR: No mutant hashes identified, either the files are exactly the same of something went wrong in previous step"
-	exit 100
+  if [ -z $_arg_region ]
+  then
+    echo "ERROR: No mutant hashes pulled from fastqs, either the files are exactly the same of something went wrong in previous step"
+    exit 100
+  else
+    echo "No mutant hashes identified in region $_arg_region"
+    exit 0
+  fi
 fi
 ########################################################################################
 if [ "$_arg_stop" = "hash" ];
@@ -1122,9 +1128,8 @@ then
 			wait
 		fi
 	fi
-	#if [ $(wc -l "$ProbandGenerator".Mutations.Mate1.fastq | awk '{print $1}') -eq "0" ]; then	
 	if [ $(head "$ProbandGenerator".Mutations.Mate1.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
-		echo "ERROR: No mutant fastq reads idenfied.  Either the files are exactly the same of something went wrong in previous step" 
+		echo "ERROR: No unique hashes pulled from fastq files in filtering step."
 		exit 100
 	fi
 	
@@ -1179,7 +1184,6 @@ else
 		fi
 	fi
 	
-	#if [ $(wc -l "$ProbandGenerator".Mutations.fastq | awk '{print $1}') -eq "0" ]; then
 	if [ $(head "$ProbandGenerator".Mutations.fastq | wc -l  | awk '{print $1}') -eq "0" ]; then
 		echo "ERROR: No mutant fastq reads idenfied.  Either the files are exactly the same of something went wrong in previous step" 
 		exit 100
@@ -1190,8 +1194,8 @@ else
 	then 
 		echo "skipping mapping mates" 
 	else
-	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
-	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
+	  $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
+	  samtools index "$ProbandGenerator".Mutations.fastq.bam
 			
 	fi
 
@@ -1216,7 +1220,7 @@ fi
 
 
 if [ $( samtools view "${ProbandGenerator}".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
-        echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq.  Either the files are exactly the same of something went wrong in previous step" 
+        echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq."
         exit 100
 fi 
 #################################################################################
