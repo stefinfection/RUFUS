@@ -38,8 +38,7 @@ if [ ! -s  $GEN.Jhash.histo ]; then
 fi
 if [ $(awk '$2 > 0' $GEN.Jhash.histo | wc -l ) -eq "0" ]; then  
 	echo "ERROR: jellyfish failed on the file $GEN"
-	exit 100 
+	exit 100
 fi
 
-
-exit
+exit 0

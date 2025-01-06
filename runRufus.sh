@@ -438,19 +438,21 @@ make_jelly_hash ()
   local lowK=$4
   local regionArg=$5
   local isControl=$6
-  local control_code_file=$7
-  local subject_code_file=$8
+  local controlCodeFile=$7
+  local subjectCodeFile=$8
 
   bash $RunJelly "$generator" "$k" "$threads" "$lowK"
   local exitCode=$?
 
+  echo "Jellyfish exit code: $exitCode"
+
   if [ "$isControl" = "TRUE" ]; then
-    echo "$exit_code" >> "$control_code_file"
+    echo "$exitCode" >> "$controlCodeFile"
   else
-    echo "$exit_code" >> "$subject_code_file"
+    echo "$exitCode" >> "$subjectCodeFile"
   fi
 
-  if [ $exit_code -ne 0 ] & [ -n "$regionArg" ]; then
+  if [[ $exitCode -ne 0 && -n "$regionArg" ]]; then
       echo "RUFUS could not find any kmers in the provided region $regionArg in the file $generator; this usually means there is no coverage"
   fi
 }
