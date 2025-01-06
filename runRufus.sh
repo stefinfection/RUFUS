@@ -878,6 +878,11 @@ done
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
+CONTROL_EXIT_CODES="jelly_exit_code_controls.log"
+SUBJECT_EXIT_CODES="jelly_exit_code_subject.log"
+touch $CONTROL_EXIT_CODES
+touch $SUBJECT_EXIT_CODES
+
 if [ $_parallel_jelly == "yes" ]
 then 
 	######## TODO instead of assuming 3 samples
@@ -886,9 +891,6 @@ then
 	then
     JThreads=3
 	fi
-
-  CONTROL_EXIT_CODES="jelly_exit_code_controls.log"
-  SUBJECT_EXIT_CODES="jelly_exit_code_subject.log"
 
 	for parent in "${ParentGenerators[@]}"
 	do
