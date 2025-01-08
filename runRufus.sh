@@ -433,12 +433,12 @@ clean_up_files ()
   local probandGenerator="$1"
   local probandFileName="$2"
   local regionPostfix="$3"
+  local SUPP_DIR="rufus_supplementals"
 
   if [ "$_arg_dev_file_output" = "FALSE" ]; then
 
     # Move files we want to keep into supplementals
     if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
-      local SUPP_DIR="rufus_supplementals"
       mkdir -p $SUPP_DIR
       mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
       bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
@@ -517,8 +517,7 @@ clean_up_files ()
         "generator.Mutations.fastq.bam"
         "generator.Mutations.fastq.bam.bai"
     )
-    SUPP_DIR="rufus_supplementals/"
-    mkdir -p $SUPP_DIR
+
     for postfix in "${supplemental_files[@]}";
     do
       if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
