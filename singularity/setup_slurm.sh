@@ -97,7 +97,7 @@ else
 
     # Get remainder that needs to be distributed amongst the last N scripts (0-based count)
     NUM_JOBS_PLUS_ONE=$((NUM_CHUNKS % ADJ_SLURM_ARRAY_LIMIT))
-    echo "NUM_JOBS_PLUS_ONE: $NUM_JOBS_PLUS_ONE"
+    # echo "NUM_JOBS_PLUS_ONE: $NUM_JOBS_PLUS_ONE"
     # 3102 % 999 = 105
 
     # Get the switch point (i.e. the 0-based array index number where we need to have +1 on the base count)
@@ -117,12 +117,15 @@ else
       echo -e "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
       echo "ERROR: Calculation error in determining number of jobs per script; could not create SLURM scripts"
       exit 1
-    else
-      echo -e "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
-      echo -e "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
-      echo -e "INFO: 1 slurm array job will be run to combine results"
-      echo -e "INFO: to fit into the allotted $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG jobs"
     fi
+
+    # Keeping until final job distribution schema settled on
+    #else
+    #  echo -e "INFO: $NUM_JOBS_BASE_COUNT slurm array jobs will be run with $BASE_COUNT_PER_SCRIPT rufus calls per script"
+    #  echo -e "INFO: $NUM_JOBS_PLUS_ONE slurm array jobs will be run with $((BASE_COUNT_PER_SCRIPT + 1)) rufus calls per script"
+    #  echo -e "INFO: 1 slurm array job will be run to combine results"
+    #  echo -e "INFO: to fit into the allotted $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG jobs"
+    #fi
 
     # Write out the slurm header
     ADJ_SLURM_ARRAY_END=$((ADJ_SLURM_ARRAY_LIMIT - 1))
