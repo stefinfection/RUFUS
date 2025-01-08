@@ -459,9 +459,9 @@ make_jelly_hash ()
 
 check_empty_hashes ()
 {
-  local control_code_file="$1"
-  local subject_code_file="$2"
-  local region_arg="$3"
+  local region_arg="$1"
+  local control_code_file="$2"
+  local subject_code_file="$3"
 
   # Check that at least one control has hashes
   found_zero=false
