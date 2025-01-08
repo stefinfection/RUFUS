@@ -31,8 +31,8 @@ HEADER_LINES=("#!/bin/bash"
 "#SBATCH --time=${SLURM_TIME_LIMIT_RUFUS_ARG}" 
 "#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
 "#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
-"#SBATCH --cpus-per-task=${THREAD_LIMIT_RUFUS_ARG}"
 )
+
 
 # Helper function to avoid redundant echoes
 function write_out_rest_of_rufus_args() {
