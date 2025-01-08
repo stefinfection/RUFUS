@@ -427,88 +427,6 @@ assign_positional_args ()
 	done
 }
 
-# This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
-# It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
-# Reports whether a hash table is empty if looking in a specific region to stdout.
-make_jelly_hash ()
-{
-  local generator=$1
-  local k=$2
-  local threads=$3
-  local lowK=$4
-  local regionArg=$5
-  local isControl=$6
-  local controlCodeFile=$7
-  local subjectCodeFile=$8
-
-  bash $RunJelly "$generator" "$k" "$threads" "$lowK"
-  local exitCode=$?
-
-  echo "Jellyfish exit code: $exitCode"
-
-  if [ "$isControl" = "TRUE" ]; then
-    echo "$exitCode" >> "$controlCodeFile"
-  else
-    echo "$exitCode" >> "$subjectCodeFile"
-  fi
-
-  if [[ $exitCode -ne 0 && -n "$regionArg" ]]; then
-      echo "RUFUS could not find any kmers in the provided region $regionArg in the file $generator; this usually means there is no coverage"
-  fi
-}
-
-check_empty_hashes ()
-{
-  local region_arg="$1"
-  local control_code_file="$2"
-  local subject_code_file="$3"
-  local proband_generator="$4"
-  local proband_file_name="$5"
-  local region_postfix="$6"
-
-  # Check that at least one control has hashes
-  found_zero=false
-  while IFS= read -r line; do
-    # Check if the line is "0"
-    if [[ "$line" -eq 0 ]]; then
-      found_zero=true
-      break
-    fi
-  done < "$control_code_file"
-
-  if [ "$found_zero" = false ]; then
-    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
-    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
-    rm "$control_code_file"
-    rm "$subject_code_file"
-    clean_up_files $proband_generator $proband_file_name $region_postfix
-    exit 0
-  fi
-
-  # Check that the subject has hashes
-  found_zero=false
-    while IFS= read -r line; do
-      # Check if the line is "0"
-      if [[ "$line" -eq 0 ]]; then
-        found_zero=true
-        break
-      fi
-    done < "$subject_code_file"
-
-    if [ "$found_zero" = false ]; then
-      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
-      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
-      rm "$control_code_file"
-      rm "$subject_code_file"
-      clean_up_files $proband_generator $proband_file_name $region_postfix
-      exit 0
-    fi
-
-    # Cleanup
-    rm "$control_code_file"
-    rm "$subject_code_file"
-}
-
 # Cleans up intermediary files created by RUFUS run if keep file flag is not set
 clean_up_files ()
 {
@@ -610,7 +528,89 @@ clean_up_files ()
   else
     echo "not cleaning up files"
   fi
+}
 
+# This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
+# It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
+# Reports whether a hash table is empty if looking in a specific region to stdout.
+make_jelly_hash ()
+{
+  local generator=$1
+  local k=$2
+  local threads=$3
+  local lowK=$4
+  local regionArg=$5
+  local isControl=$6
+  local controlCodeFile=$7
+  local subjectCodeFile=$8
+
+  bash $RunJelly "$generator" "$k" "$threads" "$lowK"
+  local exitCode=$?
+
+  echo "Jellyfish exit code: $exitCode"
+
+  if [ "$isControl" = "TRUE" ]; then
+    echo "$exitCode" >> "$controlCodeFile"
+  else
+    echo "$exitCode" >> "$subjectCodeFile"
+  fi
+
+  if [[ $exitCode -ne 0 && -n "$regionArg" ]]; then
+      echo "RUFUS could not find any kmers in the provided region $regionArg in the file $generator; this usually means there is no coverage"
+  fi
+}
+
+check_empty_hashes ()
+{
+  local region_arg="$1"
+  local control_code_file="$2"
+  local subject_code_file="$3"
+  local proband_generator="$4"
+  local proband_file_name="$5"
+  local region_postfix="$6"
+
+  # Check that at least one control has hashes
+  found_zero=false
+  while IFS= read -r line; do
+    # Check if the line is "0"
+    if [[ "$line" -eq 0 ]]; then
+      found_zero=true
+      break
+    fi
+  done < "$control_code_file"
+
+  if [ "$found_zero" = false ]; then
+    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
+    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
+
+    rm "$control_code_file"
+    rm "$subject_code_file"
+    clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
+    exit 0
+  fi
+
+  # Check that the subject has hashes
+  found_zero=false
+    while IFS= read -r line; do
+      # Check if the line is "0"
+      if [[ "$line" -eq 0 ]]; then
+        found_zero=true
+        break
+      fi
+    done < "$subject_code_file"
+
+    if [ "$found_zero" = false ]; then
+      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
+      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
+      rm "$control_code_file"
+      rm "$subject_code_file"
+      clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
+      exit 0
+    fi
+
+    # Cleanup
+    rm "$control_code_file"
+    rm "$subject_code_file"
 }
 
 parse_commandline "$@"
@@ -989,8 +989,8 @@ done
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
-CONTROL_EXIT_CODES="jelly_exit_code_controls.log"
-SUBJECT_EXIT_CODES="jelly_exit_code_subject.log"
+CONTROL_EXIT_CODES="jelly_exit_code_controls_$formatted_region.log"
+SUBJECT_EXIT_CODES="jelly_exit_code_subject_$formatted_region.log"
 touch $CONTROL_EXIT_CODES
 touch $SUBJECT_EXIT_CODES
 
