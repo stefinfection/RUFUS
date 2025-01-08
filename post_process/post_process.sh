@@ -38,27 +38,23 @@ shift $((OPTIND-1))
 
 # check for mandatory command line arguments
 if [[ -z "$WINDOW_SIZE" ]]; then
-	    echo "Error: Missing required option -w (window size)" >&2
-	        usage
+	    echo "ERROR: Missing required option -w (window size)" >&2
 fi
 
 if [[ -z "$REFERENCE" ]]; then
-	    echo "Error: Missing required option -r (reference)" >&2
-	        usage
+	    echo "ERROR: Missing required option -r (reference)" >&2
 fi
 
 if [[ -z "$SOURCE_DIR" ]]; then
-	echo "Error: Missing required option -d (source directory for RUFUS vcf(s))" >&2
-	        usage
+	echo "ERROR: Missing required option -d (source directory for RUFUS vcf(s))" >&2
 fi
 
 if [ ${#CONTROLS[@]} -eq 0 ]; then
-	    echo "Error: Must supply at least one control bam" >&2
-	        usage
+	    echo "ERROR: Must supply at least one control bam" >&2
 fi
 
 cd $SOURCE_DIR
-echo "RUFUS post-process version C.0.1"
+echo "RUFUS post-process version D-1.0.1"
 date
 start_time=$(date +"%s")
 
@@ -82,7 +78,7 @@ else
 	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
-# TODO: check to see if we had any variants in final, and if not, stop and report
+# Check to see if we had any variants in final, and if not, stop and report
 VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
 if [ "$VARS_REPORTED" = "0" ]; then
 	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
