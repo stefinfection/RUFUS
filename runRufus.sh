@@ -462,6 +462,9 @@ check_empty_hashes ()
   local region_arg="$1"
   local control_code_file="$2"
   local subject_code_file="$3"
+  local proband_generator="$4"
+  local proband_file_name="$5"
+  local region_postfix="$6"
 
   # Check that at least one control has hashes
   found_zero=false
@@ -478,6 +481,7 @@ check_empty_hashes ()
     echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
     rm "$control_code_file"
     rm "$subject_code_file"
+    clean_up_files $proband_generator $proband_file_name $region_postfix
     exit 0
   fi
 
@@ -496,12 +500,117 @@ check_empty_hashes ()
       echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
       rm "$control_code_file"
       rm "$subject_code_file"
+      clean_up_files $proband_generator $proband_file_name $region_postfix
       exit 0
     fi
 
     # Cleanup
     rm "$control_code_file"
     rm "$subject_code_file"
+}
+
+# Cleans up intermediary files created by RUFUS run if keep file flag is not set
+clean_up_files ()
+{
+  local probandGenerator="$1"
+  local probandFileName="$2"
+  local regionPostfix="$3"
+
+  if [ "$_arg_dev_file_output" = "FALSE" ]; then
+
+    # Move files we want to keep into supplementals
+    if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
+      local SUPP_DIR="rufus_supplementals"
+      mkdir -p $SUPP_DIR
+      mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
+      bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
+      bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
+    fi
+
+    # Remove files from sub directories for this region only
+    if [ -d "Intermediates" ]; then
+      rm Intermediates/*${regionPostfix}*
+    fi
+
+    if [ -d "TempOverlap" ]; then
+      rm TempOverlap/*${regionPostfix}*
+    fi
+
+    if [ -e "${probandGenerator}.mer_counts_merged.jf" ]; then
+      rm "${probandGenerator}.mer_counts_merged.jf"
+    fi
+
+    control_files=(
+      "generator"
+      "generator.Jelly.chr"
+      "generator.Jhash"
+      "generator.Jhash.histo"
+      "generator.Jhash.histo.7.7.dist"
+      "generator.Jhash.histo.7.7.model"
+      "generator.Jhash.histo.7.7.out"
+      "generator.Jhash.histo.7.7.prob"
+    )
+
+    # remove control files
+    for control in "${_arg_controls[@]}";
+    do
+      ctrl_prefix=$(basename "$control")
+      for postfix in "${control_files[@]}"
+      do
+        if [ -e "${ctrl_prefix}${regionPostfix}.${postfix}" ]; then
+          rm ${ctrl_prefix}${regionPostfix}.${postfix}
+        fi
+      done
+    done
+
+    # remove subject files
+    subject_files=(
+      "generator"
+      "generator.V2.overlap.fastqd"
+      "generator.Jelly.chr"
+      "generator.V2.overlap.hashcount.fastq"
+      "generator.Jhash"
+      "generator.Jhash.histo"
+      "generator.Jhash.histo.7.7.dist"
+      "generator.Jhash.histo.7.7.model"
+      "generator.Jhash.histo.7.7.out"
+      "generator.Jhash.histo.7.7.prob"
+      "generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
+      "generator.Mutations.Mate1.fastq"
+      "generator.filter.chr"
+      "generator.Mutations.Mate2.fastq"
+      "generator.temp"
+      "generator.temp.mate1.fastq"
+      "generator.V2.overlap.fastq"
+      "generator.temp.mate2.fastq"
+    )
+    for postfix in "${subject_files[@]}";
+    do
+      if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
+        rm ${probandFileName}${regionPostfix}.${postfix}
+      fi
+    done
+
+    supplemental_files=(
+        "generator.V2.overlap.hashcount.fastq.bam"
+        "generator.V2.overlap.hashcount.fastq.bam.bai"
+        "generator.V2.overlap.hashcount.fastq.bam.vcf"
+        "generator.k${K}_c${MutantMinCov}.HashList"
+        "generator.Mutations.fastq.bam"
+        "generator.Mutations.fastq.bam.bai"
+    )
+    SUPP_DIR="rufus_supplementals/"
+    mkdir -p $SUPP_DIR
+    for postfix in "${supplemental_files[@]}";
+    do
+      if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
+        mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR
+      fi
+    done
+  else
+    echo "not cleaning up files"
+  fi
+
 }
 
 parse_commandline "$@"
@@ -902,7 +1011,7 @@ then
     make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_arg_region false $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES &
     #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
     wait
-    check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
+    check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
 
 else
   JThreads=$Threads
@@ -919,7 +1028,7 @@ else
       make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_arg_region false $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES
       #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2
 
-      check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
+      check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
 fi
 ##############################################################################
 
@@ -1276,88 +1385,8 @@ tabix ./$FINAL_VCF.gz
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
-echo "Cleaning up intermediary files..."
-if [ "$_arg_dev_file_output" = "FALSE" ]; then
-	SUPP_DIR="rufus_supplementals"
-        mkdir -p $SUPP_DIR
-	
-	mv "Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-	bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"	
 
-	rm Intermediates/*${region_postfix}*
-  rm TempOverlap/*${region_postfix}*
-	rm "${ProbandGenerator}.mer_counts_merged.jf"
-	control_files=(
-		"generator"
-		"generator.Jelly.chr"
-		"generator.Jhash"
-	  "generator.Jhash.histo"
-		"generator.Jhash.histo.7.7.dist"
-		"generator.Jhash.histo.7.7.model"
-	  "generator.Jhash.histo.7.7.out"
-		"generator.Jhash.histo.7.7.prob" 	
-	)	
-
-	# remove control files
-	for control in "${_arg_controls[@]}";
-	do
-		ctrl_prefix=$(basename "$control")
-		for postfix in "${control_files[@]}"
-		do
-			if [ -e "${ctrl_prefix}${region_postfix}.${postfix}" ]; then
-				rm ${ctrl_prefix}${region_postfix}.${postfix}
-			fi
-		done
-	done
-	
-	# remove subject files
-	subject_files=(
-		"generator"
-		"generator.V2.overlap.fastqd"
-		"generator.Jelly.chr"
-		"generator.V2.overlap.hashcount.fastq"
-		"generator.Jhash"
-		"generator.Jhash.histo"
-		"generator.Jhash.histo.7.7.dist"
-		"generator.Jhash.histo.7.7.model"
-		"generator.Jhash.histo.7.7.out"
-		"generator.Jhash.histo.7.7.prob"
-		"generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
-		"generator.Mutations.Mate1.fastq"    
-		"generator.filter.chr"
-		"generator.Mutations.Mate2.fastq"    
-		"generator.temp"
-		"generator.temp.mate1.fastq"
-		"generator.V2.overlap.fastq"        
-		"generator.temp.mate2.fastq"
-	)
-	for postfix in "${subject_files[@]}";
-	do
-		if [ -e "${ProbandFileName}${region_postfix}.${postfix}" ]; then
-			rm ${ProbandFileName}${region_postfix}.${postfix}
-		fi
-	done
-
-	supplemental_files=(
-			"generator.V2.overlap.hashcount.fastq.bam"
-			"generator.V2.overlap.hashcount.fastq.bam.bai"
-			"generator.V2.overlap.hashcount.fastq.bam.vcf"
-			"generator.k${K}_c${MutantMinCov}.HashList"
-			"generator.Mutations.fastq.bam"      
-			"generator.Mutations.fastq.bam.bai"
-	)
-	SUPP_DIR="rufus_supplementals/"
-	mkdir -p $SUPP_DIR
-	for postfix in "${supplemental_files[@]}";
-	do
-		if [ -e "${ProbandFileName}${region_postfix}.${postfix}" ]; then
-			mv ${ProbandFileName}${region_postfix}.${postfix} $SUPP_DIR
-		fi
-	done
-else
-	echo "not cleaning up files"
-fi
+clean_up_files "$ProbandGenerator" "$ProbandFileName" "$formatted_region"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
