@@ -116,8 +116,7 @@ shift $((OPTIND - 1))
 
 # Check for required strings
 if [[ -z "$HOST_DATA_DIR_RUFUS_ARG" || -z "$SUBJECT_RUFUS_ARG" || -z "$GENOME_BUILD_RUFUS_ARG" || -z "$REFERENCE_RUFUS_ARG" || -z "$SLURM_ACCOUNT_RUFUS_ARG" || -z "$SLURM_PARTITION_RUFUS_ARG" || -z "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" ]]; then
-    echo "Error: Missing required argument(s)." >&2
-    usage
+    echo "ERROR: Missing required argument(s); please see usage instructions with -h." >&2
 fi
 
 # Add on a trailing slash to dir, just in case user omits
@@ -125,21 +124,18 @@ HOST_DATA_DIR_RUFUS_ARG="${HOST_DATA_DIR_RUFUS_ARG}/"
 
 # Check that data directory exists
 if [ ! -d "$HOST_DATA_DIR_RUFUS_ARG" ]; then
-	echo "Error: provided data_directory argument is not a directory." >&2
-	usage	
+	echo "ERROR: provided data_directory argument is not a directory." >&2
 fi
 
 # Check that subject file is in provided data directory
 if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${SUBJECT_RUFUS_ARG}" ]; then
-	echo "Error: provided subject file $SUBJECT_RUFUS_ARG does not exist in the provided data directory or cannot be read." >&2
-	usage	
+	echo "ERROR: provided subject file $SUBJECT_RUFUS_ARG does not exist in the provided data directory or cannot be read." >&2
 fi
 
 # Check that all of the control files are in the provided data directory
 for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${control}" ]; then
-		echo "Error: provided control file $controls does not exist in the provided data directory or cannot be read." >&2
-		usage	
+		echo "ERROR: provided control file $controls does not exist in the provided data directory or cannot be read." >&2
 	else
 		if [ -z $CONTROL_STRING_RUFUS_ARG ]; then
 			CONTROL_STRING_RUFUS_ARG="$control"
@@ -151,8 +147,7 @@ done
 
 # Check that reference file is in provided data directory
 if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${REFERENCE_RUFUS_ARG}" ]; then
-	echo "Error: provided reference file $REFERENCE_RUFUS_ARG does not exist in the provided data directory or cannot be read." >&2
-	usage	
+	echo "ERROR: provided reference file $REFERENCE_RUFUS_ARG does not exist in the provided data directory or cannot be read." >&2
 fi
 
 # Check that window size is in valid range
@@ -162,8 +157,7 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="7-00:00:00"
 	fi
 elif [ "$WINDOW_SIZE_RUFUS_ARG" -lt 500 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -gt 5000 ]; then
-	echo "Error: window size must be between 500 and 5000 (kilobases)"
-	usage
+	echo "ERROR: window size must be between 500 and 5000 (kilobases)"
 else
 	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="01:00:00"
@@ -173,8 +167,7 @@ fi
 # Check that if path to image not provided, it's in the current dir
 if [ -z $CONTAINER_PATH_RUFUS_ARG ]; then
 	if [ ! -f "rufus.sif" ]; then
-		echo "Error: rufus.sif not in current directory - please provide path to container or put it in this one under rufus.sif"
-		usage
+		echo "ERROR: rufus.sif not in current directory - please provide path to container or put it in this one under rufus.sif"
 	fi
 fi
 
