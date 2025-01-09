@@ -82,17 +82,24 @@ fi
 VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
 if [ "$VARS_REPORTED" = "0" ]; then
 	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
+	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
 	rm /mnt/${SUBJECT_FILE}*.generator*
 	for control in "${CONTROLS[@]}"; do
     	rm /mnt/${control}*.generator*
 	done
-	rm -r /mnt/Intermediates
-	rm -r /mnt/TempOverlap	
-	rm -r /mnt/rufus.cmd
-	rm /mnt/temp*.vcf*
+
+  # Remove intermediate files if they exist
+	if [ -d "/mnt/Intermediates" ] && [ -d "/mnt/TempOverlap" ]; then
+    rm -r /mnt/Intermediates
+    rm -r /mnt/TempOverlap
+  fi
+
+  if [ -e "/mnt/temp*.vcf*" ]; then
+    rm /mnt/temp*.vcf*
+  fi
 
 	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > fail.out
-	exit 0
+	exit 100
 fi
 
 # Check for empty lines
