@@ -12,6 +12,39 @@ usage() {
 	exit 1
 }
 
+# Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
+fail_and_exit() {
+  local SUBJECT_FILE="$1"
+  shift
+  local CONTROLS=("$@")
+
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
+
+  # Clean up intermediate files
+  echo -n "Cleaning up $SUBJECT_FILE and control files " >&2
+  rm /mnt/${SUBJECT_FILE}*.generator*
+  for control in "${CONTROLS[@]}"; do
+      echo -n "control " >&2
+      rm /mnt/${control}*.generator*
+  done
+
+  echo "intermediates..." >&2
+
+  # Remove intermediate files if they exist
+  if [ -d "/mnt/Intermediates" ] && [ -d "/mnt/TempOverlap" ]; then
+    rm -r /mnt/Intermediates
+    rm -r /mnt/TempOverlap
+  fi
+
+  if [ -e "/mnt/temp*.vcf*" ]; then
+    rm /mnt/temp*.vcf*
+  fi
+
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > fail.out
+  exit 100
+}
+
 # initialize vars
 CONTROLS=()
 WINDOW_SIZE=0
@@ -63,43 +96,36 @@ TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
 GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 
-# Retain germline vcf for analysis
+# Slight name change if not doing a windowed run
+if [ "$WINDOW_SIZE" = "0" ]; then
+	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
+	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
+fi
+
+# Check to see if final vcf exists, if not report empty results and exit
+if [ ! -e "$TEMP_FINAL_VCF" ]; then
+  fail_and_exit "$SUBJECT_FILE" "${CONTROLS[@]}"
+fi
+
+# Get number of variants reported
+VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
+
+# Keep germline vcf
 cp $TEMP_FINAL_VCF $GERMLINE_VCF
 mv $GERMLINE_VCF rufus_supplementals/
 
+# If windowed mode, trim and combine region
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
 	TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
 	echo "Windowed run performed, trimming and combining region vcfs..."
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
-else 
-	# Slight name change if not doing a windowed run
-	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
-	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
-# Check to see if we had any variants in final, and if not, stop and report
-VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
+# Check for empty vcf AFTER trimming and combining
+# If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
 if [ "$VARS_REPORTED" = "0" ]; then
-	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
-	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
-	rm /mnt/${SUBJECT_FILE}*.generator*
-	for control in "${CONTROLS[@]}"; do
-    	rm /mnt/${control}*.generator*
-	done
-
-  # Remove intermediate files if they exist
-	if [ -d "/mnt/Intermediates" ] && [ -d "/mnt/TempOverlap" ]; then
-    rm -r /mnt/Intermediates
-    rm -r /mnt/TempOverlap
-  fi
-
-  if [ -e "/mnt/temp*.vcf*" ]; then
-    rm /mnt/temp*.vcf*
-  fi
-
-	echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > fail.out
-	exit 100
+  fail_and_exit "$SUBJECT_FILE" "${CONTROLS[@]}"
 fi
 
 # Check for empty lines
