@@ -15,17 +15,59 @@ usage() {
 # Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
 fail_and_exit() {
   local SUBJECT_FILE="$1"
-  shift
-  local CONTROLS=("$@")
+  local ALL_ARGS=("$@")
+  local CONTROLS=("${ALL_ARGS[@]:1}")
 
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
 
+  # TODO: will need to not hard code eventually to accommodate other builds/species
+  chroms=(
+    "chr1",
+    "chr2",
+    "chr3",
+    "chr4",
+    "chr5",
+    "chr6",
+    "chr7",
+    "chr8",
+    "chr9",
+    "chr10",
+    "chr11",
+    "chr12",
+    "chr13",
+    "chr14",
+    "chr15",
+    "chr16",
+    "chr17",
+    "chr18",
+    "chr19",
+    "chr20",
+    "chr21",
+    "chr22",
+    "chrX",
+    "chrY",
+  )
+
   # Clean up intermediate files
   echo -n "Cleaning up $SUBJECT_FILE and control files " >&2
+
+  # Have to do this piecemeal because too many files with windowed mode for single rm command
+  for chrom in "${chroms[@]}"; do
+    if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
+      rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
+    fi
+  done
+
   rm /mnt/${SUBJECT_FILE}*.generator*
   for control in "${CONTROLS[@]}"; do
-      echo -n "control " >&2
+  echo -n "control " >&2
+    # Have to do this piecemeal because too many files with windowed mode for single rm command
+    for chrom in "${chroms[@]}"; do
+        if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
+          rm /mnt/${control}*${chrom}*.generator*
+        fi
+      done
       rm /mnt/${control}*.generator*
   done
 
