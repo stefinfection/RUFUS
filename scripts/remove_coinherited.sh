@@ -18,6 +18,7 @@ echo "Arguments to remove coinherited script: $ARG_LIST"
 OUT_VCF="$SAMPLE_NAME.FINAL.vcf.gz"
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
+samtools="/opt/samtools/samtools"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
@@ -32,10 +33,10 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     MADE_ALIGN_CONTROL=false
     
     #check to see if the provided bam file is alignedq
-    if [ "$(samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
+    if [ "$($samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
         CONTROL_BAM=$CONTROL
     else
-        bwa mem -t 40 $REFERENCE_FILE $CONTROL | samtools view -S -@ 12 -b - > $CONTROL_ALIGNED
+        bwa mem -t 40 $REFERENCE_FILE $CONTROL | $samtools view -S -@ 12 -b - > $CONTROL_ALIGNED
         CONTROL_BAM=$CONTROL_ALIGNED
 	    MADE_ALIGN_CONTROL=true
     fi

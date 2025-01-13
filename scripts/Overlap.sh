@@ -41,6 +41,7 @@ ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ
 AnnotateOverlap=$RDIR/bin/AnnotateOverlap
 #gkno=$RDIR/bin/gkno_launcher/gkno
 bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
+samtools=/opt/samtools/samtools
 RUFUSinterpret=$RDIR/bin/RUFUS.interpret
 CheckHash=$RDIR/scripts/CheckJellyHashList.sh
 OverlapSam=$RDIR/bin/OverlapSam
@@ -56,8 +57,8 @@ if [ -s ./$File.bam ]
 then 
 	echo "skipping align"
 else
-	$bwa mem $humanRefBwa "$File" | samtools sort -T $File -O bam - > $File.bam
-	samtools index $File.bam 
+	$bwa mem $humanRefBwa "$File" | $samtools sort -T $File -O bam - > $File.bam
+	$samtools index $File.bam 
 fi
 
 if [ -s ./TempOverlap/$NameStub.sam.fastqd ]  
@@ -65,7 +66,7 @@ then
 	echo "skipping sam assemble"
 else
      
-	$OverlapSam <( samtools view  -F 3328 $File.bam ) .95 25 1 ./TempOverlap/$NameStub.sam $NameStub 1 $Threads
+	$OverlapSam <( $samtools view  -F 3328 $File.bam ) .95 25 1 ./TempOverlap/$NameStub.sam $NameStub 1 $Threads
 fi
 
 if [ -s ./TempOverlap/$NameStub.1.fastqd ]
@@ -111,8 +112,8 @@ if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]
 then 
 	echo "skipping contig alignment" 
 else
-        $bwa mem -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-	samtools index ./$NameStub.overlap.hashcount.fastq.bam
+        $bwa mem -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi 
 
 
@@ -206,10 +207,10 @@ fi
 wait
 
 mkfifo check 
-samtools index ./$NameStub.overlap.hashcount.fastq.bam
+$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 
 #echo "$RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash "
 
-samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
+$samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
 
 

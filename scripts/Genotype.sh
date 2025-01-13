@@ -40,7 +40,8 @@ ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ
 AnnotateOverlap=$RDIR/bin/AnnotateOverlap
 #gkno=$RDIR/bin/gkno_launcher/gkno
 bwa=$RDIR/bin/bwa/bwa
-samtools=$RDIR/bin/samtools-1.6/samtools
+samtools=/opt/samtools/samtools
+#samtools=$RDIR/bin/samtools-1.6/samtools
 RUFUSinterpret=$RDIR/bin/RUFUS.interpret.onlytwoParents
 CheckHash=$RDIR/scripts/CheckJellyHashList.sh
 OverlapSam=$RDIR/bin/OverlapSam
@@ -143,9 +144,9 @@ fi
 wait
 
 mkfifo check 
-samtools index ./$NameStub.overlap.hashcount.fastq.bam
+$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 
-samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
+$samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
 
 
 
