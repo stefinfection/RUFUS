@@ -20,6 +20,7 @@ From: ubuntu:22.04
     autoreconf -i
     ./configure
     make
+    make install
 
     # install samtools
     cd /opt
