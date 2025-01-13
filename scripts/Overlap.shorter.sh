@@ -68,6 +68,7 @@ CheckHash=$RDIR/scripts/CheckJellyHashList.sh
 OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
 MOBList=$RDIR/resources/primate_non-LTR_Retrotransposon.fasta
+bedtools=/opt/bedtools2/bin/bedtools
 
 #if [ -s $NameStub.overlap.hashcount.fastq ]
 #then 
@@ -232,7 +233,7 @@ if [ -e ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]
 then 
 	echo "skipping pull reference sequecnes"
 else
-	bedtools getfasta -bed <( bedtools bamtobed -i ./$NameStub.overlap.hashcount.fastq.bam |  awk '{s=$2-100; if (s<0) {print $1 "\t" 0  "\t" $3+100} else {print $1 "\t" s  "\t" $3+100}}'  ) -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
+	$bedtools getfasta -bed <( $bedtools bamtobed -i ./$NameStub.overlap.hashcount.fastq.bam |  awk '{s=$2-100; if (s<0) {print $1 "\t" 0  "\t" $3+100} else {print $1 "\t" s  "\t" $3+100}}'  ) -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
 
 fi 
 

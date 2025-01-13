@@ -46,6 +46,8 @@ RUFUSinterpret=$RDIR/bin/RUFUS.interpret.onlytwoParents
 CheckHash=$RDIR/scripts/CheckJellyHashList.sh
 OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
+fastaFromBed=/opt/bedtools2/bin/fastaFromBed
+bamToBed=/opt/bedtools2/bin/bamToBed
 
 
 
@@ -54,7 +56,7 @@ if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]
 then 
 	echo "skipping pull reference sequecnes"
 else
-	~/bin/bedtools2/bin/fastaFromBed -bed <( ~/bin/bedtools2/bin//bamToBed -i ./$NameStub.overlap.hashcount.fastq.bam) -fi $humanRef -fo Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
+	$fastaFromBed -bed <( $bamToBed -i ./$NameStub.overlap.hashcount.fastq.bam) -fi $humanRef -fo Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
 fi 
 
 if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab ]

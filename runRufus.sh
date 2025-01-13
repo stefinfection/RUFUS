@@ -36,7 +36,6 @@ RemoveCoInheritedVars=$RDIR/scripts/remove_coinherited.sh
 modifiedJelly=$RDIR/bin/externals/modified_jellyfish/src/modified_jellyfish_project/bin/jellyfish
 bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
 samtools=/opt/samtools/samtools
-
 RUFUSfilterFASTQ=$RDIR/bin/RUFUS.Filter
 RUFUSfilterFASTQse=$RDIR/bin/RUFUS.Filter.single
 fastp=$RDIR/bin/externals/fastp/src/fastp_project/fastp
