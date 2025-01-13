@@ -50,7 +50,7 @@ fail_and_exit() {
   )
 
   # Clean up intermediate files
-  echo -n "Cleaning up $SUBJECT_FILE and control files " >&2
+  echo -n "Cleaning up intermediates..." >&2
 
   # Have to do this piecemeal because too many files with windowed mode for single rm command
   for chrom in "${chroms[@]}"; do
@@ -59,19 +59,15 @@ fail_and_exit() {
     fi
   done
 
-  rm /mnt/${SUBJECT_FILE}*.generator*
   for control in "${CONTROLS[@]}"; do
-  echo -n "control " >&2
+  echo -n "control $control" >&2
     # Have to do this piecemeal because too many files with windowed mode for single rm command
     for chrom in "${chroms[@]}"; do
         if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
           rm /mnt/${control}*${chrom}*.generator*
         fi
       done
-      rm /mnt/${control}*.generator*
   done
-
-  echo "intermediates..." >&2
 
   # Remove intermediate files if they exist
   if [ -d "/mnt/Intermediates" ] && [ -d "/mnt/TempOverlap" ]; then
