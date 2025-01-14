@@ -8,8 +8,10 @@ TEMP_FILE="fields.tsv"
 TEMP_HD_FILE="hd.tsv"
 TEMP_AF_FILE="af.tsv"
 
+bcftools="/opt/bcftools/bcftools"
+
 # Add HD_MED info field if it doesn't already exist
-bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD\n' $IN_VCF > $TEMP_FILE
+$bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD\n' $IN_VCF > $TEMP_FILE
 
 awk -F'\t' '
 function median(arr, n) {
@@ -53,10 +55,10 @@ tabix -s1 -b2 -e2 ${TEMP_HD_FILE}.gz
 echo -e '##INFO=<ID=HD_MED,Number=1,Type=Integer,Description="Median of HD array, not including -1s">' > hdr.txt
 
 # Write HD_MED file out
-bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_HD_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,HD_MED $IN_VCF > "hd_med".$IN_VCF
+$bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_HD_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,HD_MED $IN_VCF > "hd_med".$IN_VCF
 
 # Pull out fields to text file
-bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD_MED\t[%DP]\n' "hd_med.$IN_VCF" > $TEMP_FILE
+$bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD_MED\t[%DP]\n' "hd_med.$IN_VCF" > $TEMP_FILE
 
 # Calculate AF to 4-digit precision, add as column 7
 awk '{ if($6 == 0) printf "%s\t%s\t%s\t%s\t%s\t%s\t%.4f\n", $1, $2, $3, $4, $5, $6, 0; else if($6 < $5) printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6, "1.00"; else printf "%s\t%s\t%s\t%s\t%s\t%s\t%.4f\n", $1, $2, $3, $4, $5, $6, $5/$6; }' $TEMP_FILE > $TEMP_AF_FILE
@@ -68,7 +70,7 @@ tabix -s1 -b2 -e2 ${TEMP_AF_FILE}.gz
 # Make a header line to insert
 echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="kMer-based allele frequency for subject sample only (HD_MED/DP)">' >> hdr.txt
 
-bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med.$IN_VCF" > "hd_af.$IN_VCF"
+$bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med.$IN_VCF" > "hd_af.$IN_VCF"
 
 rm $TEMP_FILE
 rm ${TEMP_AF_FILE}.gz

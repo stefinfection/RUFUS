@@ -18,6 +18,8 @@ SUBJECT_FILE=$1
 CONTROL_STRING=$2
 WINDOW_SIZE=$3
 
+BCFTOOLS="/opt/bcftools/bcftools"
+
 COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
 COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
 COMBINED_SAMPLE_STRING="${SUBJECT_FILE}\t${CONTROL_STRING}"
@@ -121,14 +123,14 @@ do
         if [[ -f "${CURR_VCF}" ]]; then
        
             # Write out trimmed region to final vcf
-            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
-            bcftools view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
-            bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_HEADER 
+            $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
+            $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
+            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_HEADER 
            
 			# Write out trimmed region to prefiltered vcf 
-            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
-            bcftools view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
-            bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
+            $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
+            $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
+            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
 
 	    	# Remove vcf and indexes
 	    	rm $CURR_VCF*
@@ -150,10 +152,10 @@ echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE
 cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
 bgzip $COMBINED_VCF
-bcftools index -t "${COMBINED_VCF}.gz"
+$BCFTOOLS index -t "${COMBINED_VCF}.gz"
 
 bgzip $COMBINED_PRE_VCF
-bcftools index -t "${COMBINED_PRE_VCF}.gz"
+$BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
 
 # Clean up temp files
 rm $TEMP_TRIMMED

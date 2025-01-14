@@ -36,6 +36,7 @@ RemoveCoInheritedVars=$RDIR/scripts/remove_coinherited.sh
 modifiedJelly=$RDIR/bin/externals/modified_jellyfish/src/modified_jellyfish_project/bin/jellyfish
 bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
 samtools=/opt/samtools/samtools
+bcftools=/opt/bcftools/bcftools
 RUFUSfilterFASTQ=$RDIR/bin/RUFUS.Filter
 RUFUSfilterFASTQse=$RDIR/bin/RUFUS.Filter.single
 fastp=$RDIR/bin/externals/fastp/src/fastp_project/fastp
@@ -443,7 +444,7 @@ clean_up_files ()
       mkdir -p $SUPP_DIR
       mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
       bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-      bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
+      $bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
     fi
 
     # Remove files from sub directories for this region only

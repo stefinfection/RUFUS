@@ -19,6 +19,7 @@ OUT_VCF="$SAMPLE_NAME.FINAL.vcf.gz"
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
 samtools="/opt/samtools/samtools"
+bcftools="/opt/bcftools/bcftools"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
@@ -26,7 +27,7 @@ mkdir "${ISEC_OUT_DIR}"
 
 #format final rufus vcf for intersections
 vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $OUT_VCF
-bcftools index -t $OUT_VCF
+$bcftools index -t $OUT_VCF
 
 #for loop for each control file provided by user
 for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
@@ -42,11 +43,11 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     fi
     
     #run pileup and call variants
-    bcftools mpileup -d600 -T $OUT_VCF -f $REFERENCE_FILE $CONTROL_BAM | bcftools call -cv -Oz -o $CONTROL_VCF 
-    bcftools index -t $CONTROL_VCF
+    $bcftools mpileup -d600 -T $OUT_VCF -f $REFERENCE_FILE $CONTROL_BAM | $bcftools call -cv -Oz -o $CONTROL_VCF 
+    $bcftools index -t $CONTROL_VCF
     	
     #intersect the control vcf with formatted rufus vcf
-    bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $OUT_VCF $CONTROL_VCF
+    $bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $OUT_VCF $CONTROL_VCF
         
     # save the new vcf as rufus final vcf
 	OUT_VCF=$ISEC_OUT_DIR/0000.vcf
