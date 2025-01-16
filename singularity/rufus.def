@@ -75,7 +75,6 @@ From: ubuntu:22.04
     export PATH=$PATH:/opt/RUFUS/bin
     export RUFUS_ROOT=/opt/RUFUS
     export LC_CTYPE=en_US.UTF-8
-    export LC_ALL=en_US.UTF-8
     export LANG=en_US.UTF-8
     export LANGUAGE=en_US.UTF-8
 
