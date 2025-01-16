@@ -149,8 +149,8 @@ fi
 
 # Check to see if final vcf exists, if not report empty results and exit
 if [ ! -e "$TEMP_FINAL_VCF" ]; then
-  report_empty_and_exit
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+  report_empty_and_exit
   exit 0
 fi
 
@@ -172,8 +172,8 @@ fi
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
 if [ "$VARS_REPORTED" = "0" ]; then
-  report_empty_and_exit
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+  report_empty_and_exit
 fi
 
 # Check for empty lines
