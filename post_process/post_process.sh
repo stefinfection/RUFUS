@@ -12,14 +12,17 @@ usage() {
 	exit 1
 }
 
+report_empty_results() {
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > results.out
+}
+
 # Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
-fail_and_exit() {
+clean_up_early_intermeds() {
   local SUBJECT_FILE="$1"
   local ALL_ARGS=("$@")
   local CONTROLS=("${ALL_ARGS[@]:1}")
-
-  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
-  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
 
   # TODO: will need to not hard code eventually to accommodate other builds/species
   chroms=(
@@ -54,7 +57,9 @@ fail_and_exit() {
 
   # Have to do this piecemeal because too many files with windowed mode for single rm command
   for chrom in "${chroms[@]}"; do
+    echo "looking for echo /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
     if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
+      echo "found and trying to remove /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
       rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
     fi
   done
@@ -64,6 +69,7 @@ fail_and_exit() {
     # Have to do this piecemeal because too many files with windowed mode for single rm command
     for chrom in "${chroms[@]}"; do
         if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
+          echo "trying to remove /mnt/${control}*${chrom}*.generator*" >&2
           rm /mnt/${control}*${chrom}*.generator*
         fi
       done
@@ -78,9 +84,6 @@ fail_and_exit() {
   if [ -e "/mnt/temp*.vcf*" ]; then
     rm /mnt/temp*.vcf*
   fi
-
-  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > fail.out
-  exit 100
 }
 
 # static paths
@@ -145,7 +148,8 @@ fi
 
 # Check to see if final vcf exists, if not report empty results and exit
 if [ ! -e "$TEMP_FINAL_VCF" ]; then
-  fail_and_exit "$SUBJECT_FILE" "${CONTROLS[@]}"
+  report_empty_results
+  clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
 fi
 
 # Get number of variants reported
@@ -166,7 +170,8 @@ fi
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
 if [ "$VARS_REPORTED" = "0" ]; then
-  fail_and_exit "$SUBJECT_FILE" "${CONTROLS[@]}"
+  report_empty_results
+  clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
 fi
 
 # Check for empty lines
@@ -264,12 +269,7 @@ rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
 cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
 rm ${SUPPLEMENTAL_DIR}*.HashList
 
-# TODO: hack for now to get rid of any lingering intermediate files 
-# TODO: this actually needs to be fixed with a graceful handling of no variants for certain windows
-rm /mnt/${SUBJECT_FILE}*.generator*
-for control in "${CONTROLS[@]}"; do
-	rm /mnt/${control}*.generator*
-done
+clean_up_early_intermeds() "$SUBJECT_FILE" "${CONTROLS[@]}"
 
 echo "Post-processing complete."
 end_time=$(date +"%s")
