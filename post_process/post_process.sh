@@ -60,7 +60,6 @@ clean_up_early_intermeds() {
   for chrom in "${chroms[@]}"; do
     echo "looking for echo /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
     if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
-    if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
       echo "found and trying to remove /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
       rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
     fi
