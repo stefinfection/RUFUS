@@ -12,10 +12,11 @@ usage() {
 	exit 1
 }
 
-report_empty_results() {
+report_empty_and_exit() {
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > results.out
+  exit 0
 }
 
 # Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
@@ -26,30 +27,30 @@ clean_up_early_intermeds() {
 
   # TODO: will need to not hard code eventually to accommodate other builds/species
   chroms=(
-    "chr1",
-    "chr2",
-    "chr3",
-    "chr4",
-    "chr5",
-    "chr6",
-    "chr7",
-    "chr8",
-    "chr9",
-    "chr10",
-    "chr11",
-    "chr12",
-    "chr13",
-    "chr14",
-    "chr15",
-    "chr16",
-    "chr17",
-    "chr18",
-    "chr19",
-    "chr20",
-    "chr21",
-    "chr22",
-    "chrX",
-    "chrY",
+    "chr1"
+    "chr2"
+    "chr3"
+    "chr4"
+    "chr5"
+    "chr6"
+    "chr7"
+    "chr8"
+    "chr9"
+    "chr10"
+    "chr11"
+    "chr12"
+    "chr13"
+    "chr14"
+    "chr15"
+    "chr16"
+    "chr17"
+    "chr18"
+    "chr19"
+    "chr20"
+    "chr21"
+    "chr22"
+    "chrX"
+    "chrY"
   )
 
   # Clean up intermediate files
@@ -59,6 +60,7 @@ clean_up_early_intermeds() {
   for chrom in "${chroms[@]}"; do
     echo "looking for echo /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
     if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
+    if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
       echo "found and trying to remove /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
       rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
     fi
@@ -148,8 +150,9 @@ fi
 
 # Check to see if final vcf exists, if not report empty results and exit
 if [ ! -e "$TEMP_FINAL_VCF" ]; then
-  report_empty_results
+  report_empty_and_exit
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+  exit 0
 fi
 
 # Get number of variants reported
@@ -170,7 +173,7 @@ fi
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
 if [ "$VARS_REPORTED" = "0" ]; then
-  report_empty_results
+  report_empty_and_exit
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
 fi
 
