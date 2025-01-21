@@ -42,7 +42,7 @@ clean_up_early_intermeds() {
   )
 
   # Clean up intermediate files
-  echo -n "Cleaning up early intermediates..." >&2
+  echo "Cleaning up early intermediates..." >&2
 
   # Have to do this piecemeal because too many files with windowed mode for single rm command
   for chrom in "${chroms[@]}"; do
