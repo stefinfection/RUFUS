@@ -54,23 +54,19 @@ clean_up_early_intermeds() {
   )
 
   # Clean up intermediate files
-  echo -n "Cleaning up intermediates..." >&2
+  echo -n "Cleaning up early intermediates..." >&2
 
   # Have to do this piecemeal because too many files with windowed mode for single rm command
   for chrom in "${chroms[@]}"; do
-    echo "looking for echo /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
     if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
-      echo "found and trying to remove /mnt/${SUBJECT_FILE}*${chrom}*.generator*" >&2
       rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
     fi
   done
 
   for control in "${CONTROLS[@]}"; do
-  echo -n "control $control" >&2
     # Have to do this piecemeal because too many files with windowed mode for single rm command
     for chrom in "${chroms[@]}"; do
         if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
-          echo "trying to remove /mnt/${control}*${chrom}*.generator*" >&2
           rm /mnt/${control}*${chrom}*.generator*
         fi
       done
