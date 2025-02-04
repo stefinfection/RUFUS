@@ -14,8 +14,9 @@ usage() {
   echo "Optional Arguments:"
   echo "-m kmer_depth_cutoff	The amount of kMers that must overlap the variant to be included in the final call set"
   echo "-w window_size	The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided"
-  echo "-f reference_hash: Jhash file containing reference kMer hash list"
-  echo "-x exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list"
+  echo "-f reference_hash   Jhash file containing reference kMer hash list"
+  echo "-x exclude_hash     Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list"
+  echo "-x1kg exclude 1000g population variants     Options are 10 or 100; excludes heterozygous and homozygous variants that are present in 10 or 100 individuals in version 3 of the 1000G project"
   echo "-y path_to_rufus_container   If not provided, will look in current directory for rufus.sif"
   echo "-z rufus_threads	Number of threads provided to RUFUS; defaults to 36"
   echo "-e email  The email address to notify with slurm updates"
@@ -43,6 +44,7 @@ SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
 EXCLUDE_HASH_LIST_RUFUS_ARG=()
+KG1_EXCLUSION_THRESHOLD=""
 REFERENCE_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
@@ -72,9 +74,9 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
         m)
             KMER_DEPTH_CUTOFF_RUFUS_ARG=$OPTARG
             ;;
-		    w)
-			      WINDOW_SIZE_RUFUS_ARG=$OPTARG
-			      ;;
+		w)
+			WINDOW_SIZE_RUFUS_ARG=$OPTARG
+			;;
         e)
             EMAIL_RUFUS_ARG=$OPTARG
             ;;
@@ -90,15 +92,18 @@ while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
         y)
             CONTAINER_PATH_RUFUS_ARG=$OPTARG
             ;;
-		    x)
+		x)
             IFS=',' read -r -a EXCLUDE_HASH_LIST_RUFUS_ARG <<< "$OPTARG"
-			      ;;
-		    f)
-			    REFERENCE_HASH_RUFUS_ARG=$OPTARG
-			    ;;
-		    z)
-			    THREAD_LIMIT_RUFUS_ARG=$OPTARG
-			    ;;
+			;;
+        x1kg)
+            KG1_EXCLUSION_THRESHOLD=$OPTARG
+            ;;
+		f)
+			REFERENCE_HASH_RUFUS_ARG=$OPTARG
+		    ;;
+		z)
+			THREAD_LIMIT_RUFUS_ARG=$OPTARG
+			;;
         h)
             usage
             ;;
@@ -164,6 +169,11 @@ else
 	fi
 fi
 
+# Check that 1000kg exclusion threshold is valid
+if [ "$KG1_EXCLUSION_THRESHOLD" -ne 10 ] && [ "$KG1_EXCLUSION_THRESHOLD" -ne 100 ]; then
+    echo "ERROR: 1000kg exclusion threshold must be either 10 or 100"
+fi
+
 # Check that if path to image not provided, it's in the current dir
 if [ -z $CONTAINER_PATH_RUFUS_ARG ]; then
 	if [ ! -f "rufus.sif" ]; then
@@ -189,4 +199,5 @@ export SLURM_TIME_LIMIT_RUFUS_ARG
 export CONTAINER_PATH_RUFUS_ARG
 export THREAD_LIMIT_RUFUS_ARG
 export EXCLUDE_HASH_LIST_RUFUS_ARG
+export 1KG_EXCLUSION_THRESHOLD
 export REFERENCE_HASH_RUFUS_ARG
