@@ -26,6 +26,17 @@ else
 	fi
 	mkfifo $GEN.fq
 	bash $GEN | $RDIR/bin/PassThroughSamCheck $GEN.Jelly.chr > $GEN.fq &
+
+	# -C is canonical ("Count both strand, canonical representation")
+	# -L is filtering out low frequency kmers ("Don't output k-mer with count < lower-count")
+	# For subject, we keep kmers with 2+ counts
+	# For controls, we keep kmers with 2+ counts OR the provided argument to rufus (_argParLowK)
+	# These arguments combined, I interpret this as keeping kmers with a single read
+	# --disk means hash will be written to disk if entire thing can't be held in memory
+	# -s (intial hash size) is G + Gcek (genome size * coverage * error * kmer length) ~228G for 300x, 22.8G for 30x, etc
+	# guessing this starting number is far too low and there's a lot of memory swapping happening here
+	# good area of parallelization and possible merging after - will neeed to think through
+	
 	$JELLYFISH count --disk -m $K -L $L -s 8G -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
 	rm $GEN.fq

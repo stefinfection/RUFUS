@@ -118,6 +118,8 @@ int main(int argc, char *argv[])
 	cout << "starting " << endl;
 	cout << "	Reading in MutHashFile" << endl;
 
+	// Iterate through hash list and add to Mutations hash table
+	// Adds both forward and reverse version of kMer
 	while (getline(MutHashFile, L1)) {
 		vector<string> temp;
 		temp = Util::Split(L1, ' ');
@@ -156,11 +158,12 @@ int main(int argc, char *argv[])
 	St = clock();
 	int found = 0;
 	lines = 0;
-	string BufferMate1[2400];
+	string BufferMate1[2400]; // TODO: why doesn't this match buffer size?
 	string BufferMate2[2400];
 
 	while (getline(MutFileM1, L1)) 
 	{
+		// Put first four lines from each file in array
 		lines++;
 		BufferMate1[0] = L1;
 		getline(MutFileM1, BufferMate1[1]);
@@ -184,6 +187,7 @@ int main(int argc, char *argv[])
 
 		int pos = 4;
 
+		// Put next lines in array until 10% of fastqs processed
 		while (getline(MutFileM1, BufferMate1[pos])) 
 		{
 			getline(MutFileM2, BufferMate2[pos]);
@@ -193,6 +197,9 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		// I wonder if this could be faster if we keep track of where the kMers came from (lines in fastq)
+		// And then just pulled them out that way
+		// Would have to do the N/lowQ checks on the front end when we build the kMer table
 		#pragma omp parallel for shared(MutOutFileM1, MutOutFileM2) num_threads(Threads)
 		for (int BuffCount = 0; BuffCount < pos; BuffCount += 4) 
 		{
@@ -212,14 +219,17 @@ int main(int argc, char *argv[])
 				else
 					streak++;
 
+				// HashSize is length of kMer (25)
 				if (streak >= HashSize ) 
 				{
-					if (Mutations.count(Util::HashToLong(	BufferMate1[BuffCount + 1].substr(i-HashSize+1, HashSize))) > 0) 
+					if (Mutations.count(Util::HashToLong(BufferMate1[BuffCount + 1].substr(i-HashSize+1, HashSize))) > 0) 
 					{
 						MutHashesFound++;
 					}
 				}
 			}
+			// HashCountThreshold default is 1
+			// So if a read matches a single kMer (where the matching section doesn't have Ns or bad quality bases)
 			if (MutHashesFound >= HashCountThreshold )
                         {
                                 #pragma omp critical(MutWrite)

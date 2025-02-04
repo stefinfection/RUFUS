@@ -31,6 +31,10 @@ using namespace std;
 
 bool FullOut = false;
 
+// Creates/updates Hashes map
+// Hashes is keys of hashed sequences/contigs and values of that sequence/contig's indexes in the sequenes array (i.e. an array of indexes)
+// Also creates Hashesize map
+// Hashesize is keys of hashed sequences/contigs and keys of the length of the index array
 int RebuildHashTable(vector<string>& sequenes, int Ai, int SearchHash, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long, int>& Hashesize) 
 {
 	cout << "\nDestrying HashTable\n";
@@ -51,6 +55,8 @@ int RebuildHashTable(vector<string>& sequenes, int Ai, int SearchHash, unordered
 		//pragma omp critical (sequenes)
 		{Sequence = sequenes[i];}
 		int LoopLimit = Sequence.size() - SearchHash;
+		// Iterate through sequences and create every possible hash
+		// If they aren't already in the table, add them
 		for (int j = 0; j < LoopLimit; j++) {
 			string hash = Sequence.substr(j, SearchHash);
 			size_t found = hash.find('N');
@@ -58,6 +64,8 @@ int RebuildHashTable(vector<string>& sequenes, int Ai, int SearchHash, unordered
 			if (found == std::string::npos) {
 				unsigned long LongHash = Util::HashToLong(hash);
 				unsigned long RevHash = Util::HashToLong(Util::RevComp(hash));
+
+				// Add sequene index to hash table
 				#pragma omp critical(updateHash)
 				{
 					Hashes[LongHash].push_back(i);
@@ -67,6 +75,8 @@ int RebuildHashTable(vector<string>& sequenes, int Ai, int SearchHash, unordered
 		} 
 	}
 	Hashesize.clear(); 
+
+	// Creates another hash map with same keys, but values are the length of the hash
 	for (auto it = Hashes.begin(); it != Hashes.end(); it++)
 	{
 		Hashesize[it->first] = it->second.size(); 
@@ -75,7 +85,9 @@ int RebuildHashTable(vector<string>& sequenes, int Ai, int SearchHash, unordered
 	return 0;
 }
 
-int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes,int SearchHash, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos,	int& NumberIndex , unordered_map<unsigned long, int>& Hashesize) 
+// Hashes read A, and looks to see if sliding window is in hash table and at what index(es)
+// 
+int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes,int SearchHash, int ACT, map<int, vector<int>>& array, bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos,	int& NumberIndex , unordered_map<unsigned long, int>& Hashesize) 
 {
 	int Alength = A.size();
 	map<int, int> Positions;
@@ -89,7 +101,10 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 			unsigned long LongHash = Util::HashToLong(hash);
 			int max=0; 
 			
-			#pragma omp atomic 
+			// Create Positions map
+			// Positions has keys of index of the sequenes array and values of the number of times that index has been found
+			// for the current sliding window
+			#pragma omp atomic
 				max += Hashesize[LongHash];
 			for (vector<int>::size_type i = 0; i < max; i++) 
 			{
@@ -99,13 +114,13 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 				if (holder > Ai ){//+ 1) {
 
 					if (Positions.count(holder) > 0) {
-			Positions[holder]++;
-			added++;
-		} else {
-			Positions[holder] = 1;
-			added++;
-		}
-				}
+						Positions[holder]++;
+						added++;
+					} else {
+						Positions[holder] = 1;
+						added++;
+					}
+							}
 
 				if (added > 100000) {
 					hitPosLimit = true;
@@ -124,6 +139,9 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	map<int, int>::iterator uspos;
 	multimap<int, int> SortedPositions;
 
+		// Iterate through each of the positions
+		// If the position has been found more than ACT times, add it to the SortedPositions map
+		// ACT seems to be hard set at 1 for now
         for (uspos = Positions.begin(); uspos != Positions.end(); ++uspos) {
                 if (uspos->second > ACT)
                 {
@@ -141,17 +159,18 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	int sanity = 0;
 	
 
+	// Iterate through the SortedPositions map in reverse order
+	// If we've matched this window to 1000 other hashes, stop and set hitIndexLimit to true
 	for (auto pos = SortedPositions.rbegin() ; pos !=  SortedPositions.rend(); pos++)
         {
 		if (pos->first >= ACT) {
-                	indexes.push_back(pos->second + 0);
-			sanity++;
-
-                        if (sanity > 1000) {
-                                hitIndexLimit = true;
-                                NumberIndex = sanity;
-                                break;
-                        }
+                indexes.push_back(pos->second + 0);
+				sanity++;
+					if (sanity > 1000) {
+							hitIndexLimit = true;
+							NumberIndex = sanity;
+							break;
+					}
                 }
 
         }
@@ -505,8 +524,10 @@ string TrimNends(string S, string& qual) {
 	
 	qual = NewQ;
 	return NewS;
-}
+} 
 
+// The reason this is done is because if a couple of contigs have a gap in them (because of illumina problem not haplotype)
+// we won't collapse them on the first round without trimming these ends
 string TrimLowCoverageEnds(string S, string& quals, string& depth, int cutoff) {
 	bool base = false;
 	string NewS = "";
@@ -603,6 +624,7 @@ void compresStrand(string S, int& F, int& R) {
 	return;
 }
 
+// $OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads
 int main(int argc, char* argv[]) {
 	int SearchHash = 30;
 	int ACT = 0;
@@ -640,7 +662,7 @@ int main(int argc, char* argv[]) {
 	temp = argv[6];
 	SearchHash = atoi(temp.c_str());
 	temp = argv[7];
-	ACT = atoi(temp.c_str());
+	ACT = atoi(temp.c_str()); // This is set to 1 for each PoC
 	temp = argv[9];
 	int TrimLCcuttoff = atoi(temp.c_str());
 	temp = argv[10];
@@ -714,6 +736,7 @@ int main(int argc, char* argv[]) {
 	string Fastqd = argv[1];
 	size_t found = Fastqd.find(".fastqd");
 
+	// Create sequenes array from fastq or fastqd file
 	if (found != string::npos) {
 		int counter = 0;
 		cout << "ATTENTION - Fastq+depth input detected, reading in FASTQD file \n";
@@ -748,6 +771,7 @@ int main(int argc, char* argv[]) {
 				L2 = TrimLowCoverageEnds(L2, L4, depths, TrimLCcuttoff);
 			}
 
+			// 15
 			if (L2.size() > SearchHash + 1) {
 				lines++;
 				sequenes.push_back(L2);
@@ -854,6 +878,8 @@ int main(int argc, char* argv[]) {
 			 << " duplicate reads detected for a total of " << goodlines
 			 << "good reads" << endl;
 
+	// Hash all of the contigs and sequences in sequenes (Hashes)
+	// Also create map with same keys but values are the length of the hash (Hashesize)
 	RebuildHashTable(sequenes, 0, SearchHash, Hashes, Threads, Hashesize);
 	clock_t St, Et;
 	int FoundMatch = 0;
@@ -964,6 +990,7 @@ int main(int argc, char* argv[]) {
 						 << " AvI= " << (AverageRSanity + AverageFSanity) / 2.0 << "\r";
 			}
 
+			// Try to align read to all other reads that had kmer hash matches (found in Forwards[i])
 			int booya =Align3(sequenes, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Forwards[i], Threads, NumReads);
 
 			if (FullOut) {

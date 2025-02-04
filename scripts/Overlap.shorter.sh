@@ -97,12 +97,13 @@ then
 	        echo "skipping sam assemble"
 	else
 		$OverlapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
-	        #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+	    #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	fi 
 	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
 	then 
 		echo "skipping second assemble"
 	else 
+		# This will fix the gaps and also do trans-chromosomal alignments
 		$OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads 
 	fi
 	
@@ -115,7 +116,7 @@ then
 	        $ConvertFASTqD ./$NameStub.overlap.fastqd > ./$NameStub.overlap.fastq
 	
 	        #echo "$AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq > ./$NameStub.overlap.hashcount.fastq"              
-	              $AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq > ./$NameStub.overlap.hashcount.fastq
+	        $AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq > ./$NameStub.overlap.hashcount.fastq
 	fi	
 else
 	echo "Running full assembly"; 
@@ -176,6 +177,7 @@ else
 	then
 	        echo "skipping fourth overlap"
 	else
+			# This is the original version - every read 
 	        $OverlapRebion2 ./TempOverlap/$NameStub.3.fastqd .98 50 $FinalCoverage  ./TempOverlap/$NameStub.4 $NameStub 1 $Threads 
 		# $OverlapHash ./TempOverlap/$NameStub.3.fastqd .98 25 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.4 1 $Threads #>>  $File.overlap.out
 	fi
@@ -209,7 +211,7 @@ then
 else
 #        $bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
 #	$bwa mem -t $Threads -Y -E 0,0 -O 6,6 -d 500 -w 500  -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-        $bwa mem -t $Threads -Y  $humanRefBwa ./$NameStub.overlap.hashcount.fastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+    $bwa mem -t $Threads -Y  $humanRefBwa ./$NameStub.overlap.hashcount.fastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
 	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 

@@ -539,7 +539,7 @@ make_jelly_hash ()
   local generator=$1
   local k=$2
   local threads=$3
-  local lowK=$4
+  local lowK=$4 # The minimum number of kmers to keep in count step
   local regionArg=$5
   local isControl=$6
   local controlCodeFile=$7
@@ -1011,7 +1011,9 @@ then
 	done
     make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_arg_region false $CONTROL_EXIT_CODES $SUBJECT_EXIT_CODES &
     #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
-    wait
+    
+	# wait here for all hashes to finish being made
+	wait
     check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
 
 else
@@ -1130,7 +1132,8 @@ else
 		echo "min coverage must be provided with an exome run"
 		return -1; 
 	else
-####TODO: check what im done here
+# NOTE: this is a placeholder because filter step needs the arg_min value in a certain order
+# The actual other values here are not(?) important or used
 		echo "3" > "$ProbandGenerator".Jhash.histo.7.7.model; 
 		echo "$_arg_min" >> "$ProbandGenerator".Jhash.histo.7.7.model;
 		echo "3.1392e+09" >> "$ProbandGenerator".Jhash.histo.7.7.model;
@@ -1171,6 +1174,11 @@ else
     	rm  "$ProbandGenerator".temp
     fi
     mkfifo "$ProbandGenerator".temp
+
+	# NOTE: the modifiedJelly merge is actually the opposite of a merge
+	# It intersects all of the provided Jhash files, and keeps only complements, or unique kmers
+	# These unique kmers are then queried from the subject Jhash and kept only if they are from the subject (and pass min/max thresholds)
+	# This was done because any attempt to simply filter the subject Jhash was prohibitively slow
     $modifiedJelly merge -o "${ProbandGenerator}.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "$ProbandGenerator".temp & 
     bash $PullSampleHashes $ProbandGenerator.Jhash "$ProbandGenerator".temp $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList 
     wait
@@ -1196,7 +1204,7 @@ then
         exit 1;
 fi
 ######################__RUFUS_FILTER__##################################################
-echo "Filtering unique kMers..."
+echo "Filtering unique reads containing unique kMers..."
 
 if [ $_pairedEnd == "true" ]
 then 
@@ -1206,17 +1214,19 @@ then
 	else
 		if [ -z $_arg_fastqA ]
 		then
+			# NOTE: this is the one usually run when starting with a bam file - extracts reads from PassThroughSamCheck.stranded and puts them into mate1 and 2 respectively, which go into filter
 		    if [ -e "$ProbandGenerator".temp.mate1.fastq ]; then 
 		    	rm  "$ProbandGenerator".temp.mate1.fastq
 		    fi
 		    if [ -e "$ProbandGenerator".temp.mate2.fastq ]; then
 	                rm  "$ProbandGenerator".temp.mate2.fastq
-	            fi
+	        fi
 		    if [ -e "$ProbandGenerator".temp ]; then 
 			    rm "$ProbandGenerator".temp 
-	            fi
-		    #echo "running this one " 
+	        fi
+		    #echo "running this one "
 		    mkfifo "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq
+			# TODO: what's going on here with this sleep?
 		    sleep 1
 		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
 		      $RUFUSfilterFASTQ  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
@@ -1250,16 +1260,19 @@ then
 		if [ $shortinsert = "false" ]
 		then
 			echo "skipping fastp fix"
+					# NOTE: this is the one run because shortinsert is hard coded - why?
 	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
 	                $samtools index "$ProbandGenerator".Mutations.fastq.bam	
 		else
-			echo "using fastp fix" 
+			echo "using fastp fix"
 			#cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq > "$ProbandGenerator".Mutations.fastq
-	        	#$bwa mem -t $Threads $_arg_ref_bwa <( cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq)  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
-	        	$fastp -i "$ProbandGenerator".Mutations.Mate1.fastq -I "$ProbandGenerator".Mutations.Mate2.fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
+	        #$bwa mem -t $Threads $_arg_ref_bwa <( cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq)  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
+	        
+			$fastp -i "$ProbandGenerator".Mutations.Mate1.fastq -I "$ProbandGenerator".Mutations.Mate2.fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
 			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
 			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
 			$samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
+			
 			#$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
 			$samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
 			$samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
