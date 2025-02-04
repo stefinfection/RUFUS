@@ -545,7 +545,14 @@ make_jelly_hash ()
   local controlCodeFile=$7
   local subjectCodeFile=$8
 
-  bash $RunJelly "$generator" "$k" "$threads" "$lowK"
+  # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
+  hash_size="8G"
+  if [ -n "$_argRegion" ]; then
+	echo "We're in windowed mode, use a smaller hash size to allow for 1kg comparison"
+	hash_size="1G"
+  fi
+
+  bash $RunJelly "$generator" "$k" "$threads" "$lowK" "$hash_size"
   local exitCode=$?
 
   echo "Jellyfish exit code: $exitCode"

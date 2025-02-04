@@ -4,6 +4,7 @@ GEN=$1
 K=$2
 T=$3
 L=$4
+HASH_SIZE=$5
 
 CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 RDIR=$CDIR/../
@@ -37,7 +38,7 @@ else
 	# guessing this starting number is far too low and there's a lot of memory swapping happening here
 	# good area of parallelization and possible merging after - will neeed to think through
 	
-	$JELLYFISH count --disk -m $K -L $L -s 8G -t $T -o $GEN.Jhash -C $GEN.fq
+	$JELLYFISH count --disk -m $K -L $L -s $HASH_SIZE -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
 	rm $GEN.fq
 
