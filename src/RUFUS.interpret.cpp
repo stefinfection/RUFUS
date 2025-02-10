@@ -7371,7 +7371,7 @@ options:\
 						//if (abs(positionAa - positionBa) < HashSize || abs(positionAb -  positionBb) < HashSize || abs(positionAa -  positionBb) < HashSize || abs(positionAb - positionBa) < HashSize )
 						
 						
-						if (abs(positionI - positionJ) < 1000000 && reads[i].SVeventid ==0 && reads[i+j].SVeventid == 0 && (reads[i].mapQual > 0 && reads[i+j].mapQual > 0))
+						if (abs(positionI - positionJ) < 1000 && reads[i].SVeventid ==0 && reads[i+j].SVeventid == 0 && (reads[i].mapQual > 0 && reads[i+j].mapQual > 0))
 						{
 	//						cout << "Found Large Insert" << endl; 
 	//						reads[i].write(); 
