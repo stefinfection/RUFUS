@@ -34,6 +34,7 @@ else
 	fi
 	mkfifo $GEN.fq
 	bash $GEN | $RDIR/bin/PassThroughSamCheck $GEN.Jelly.chr > $GEN.fq &
+	echo "$JELLYFISH count --disk -m $K -L $L -s "$hash_size" -t $T -o $GEN.Jhash -C $GEN.fq"
 	$JELLYFISH count --disk -m $K -L $L -s "$hash_size" -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
 	rm $GEN.fq
