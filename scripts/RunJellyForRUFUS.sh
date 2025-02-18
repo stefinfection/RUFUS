@@ -20,13 +20,6 @@ if [ "$reg_spec_hash" = "TRUE" ]; then
 	echo "Making smaller hash for region+"
 fi
 
-# If we're using a region-specific hash, adjust size accordingly (1MB hashes made w/ 1G)
-hash_size="8G"
-if [ "$reg_spec_hash" = "TRUE" ]; then
-	hash_size="1G"
-	echo "Making smaller hash for region+"
-fi
-
 if [ -e "$GEN.Jhash" ]
 then
 	echo "Skipping jelly, $GEN.Jhash alreads exists"
@@ -41,12 +34,7 @@ else
 	fi
 	mkfifo $GEN.fq
 	bash $GEN | $RDIR/bin/PassThroughSamCheck $GEN.Jelly.chr > $GEN.fq &
-	
-	hash_size="8G"
-	if [ "$reg_spec_hash" = "TRUE" ]; then
-		hash_size="1G"
-	fi
-
+	echo "$JELLYFISH count --disk -m $K -L $L -s $hash_size -t $T -o $GEN.Jhash -C $GEN.fq" >&2
 	$JELLYFISH count --disk -m $K -L $L -s $hash_size -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
 	rm $GEN.fq
