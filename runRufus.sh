@@ -72,6 +72,7 @@ _assemblySpeed="full"
 _parallel_jelly="no"
 _pairedEnd="true"
 _arg_region=
+_use_region_hash="FALSE"
 _arg_filterK=1
 _arg_ParLowK=2
 _filterMinQ=15
@@ -83,6 +84,7 @@ print_help ()
 	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multipe times)"
 	printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
+	printf "\t%s\n" "-eR, --exclude-region-hash: Region-specific Jhash file of kmers to exclude from mutation list; only support 1mb region sizes"
 	printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
 	printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
 	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
@@ -296,7 +298,11 @@ parse_commandline ()
 			exit 100
 		fi
 		shift
-		;;	
+		;;
+	-eR|--excludeRegionHash)
+		_use_region_hash="TRUE"
+		echo "INFO: Using hash specific to region"
+		;;
 	-i|--saliva)
 		_arg_saliva="TRUE"
 		echo "INFO: Saliva subject sample provided"
@@ -787,10 +793,10 @@ then
 	
 	for parent in "${ParentGenerators[@]}"
 	do
-	      bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
+	      bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $_use_region_hash  &
 	done
 	
-	bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  & 
+	bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_use_region_hash & 
 	wait
 else
         JThreads=$Threads
@@ -801,11 +807,11 @@ else
 
         for parent in "${ParentGenerators[@]}"
         do
-              bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  
+              bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $_use_region_hash
         done
 
         # bash $RunJelly $ProbandGenerator $K  $Threads 2
-         bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  
+         bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $_use_region_hash
 fi 	
 ##############################################################################
 
