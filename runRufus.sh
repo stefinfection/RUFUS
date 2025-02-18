@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "You are running the STOCK version of RUFUS: v0.3.0 non-deterministic"
+echo "You are running the STOCK version of RUFUS: v0.3.0 (N-D)"
 
 # Check for correct version of gcc
 gcc_expected="10.2.0"
