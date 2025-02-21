@@ -1016,17 +1016,17 @@ then
 		if [ $shortinsert = "false" ]
 		then
 			echo "skipping fastp fix"
-	                $bwa mem -t $Threads $_arg_ref_bwa $sortedMate1Fastq $sortedMate2Fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
-	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
+	                $bwa mem -t $Threads $_arg_ref_bwa $sortedMate1Fastq $sortedMate2Fastq | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
+	                $samtools index "$ProbandGenerator".Mutations.fastq.bam	
 		else
 			echo "using fastp fix" 
 	        $fastp -i $sortedMate1Fastq -I $sortedMate2Fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
-			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
-			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
-			samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
-			samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
-			samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
-			samtools index "$ProbandGenerator".Mutations.fastq.bam
+			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
+			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
+			$samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
+			$samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
+			$samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
+			$samtools index "$ProbandGenerator".Mutations.fastq.bam
 		fi
 	fi
 else
