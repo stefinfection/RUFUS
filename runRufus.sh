@@ -1,6 +1,8 @@
 #!/bin/bash
 #check this dev branch thing
 
+echo "You are running the stock version of RUFUS with updated container libraries"
+
 # Check for correct version of gcc
 gcc_expected="10.2.0"
 gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
