@@ -389,7 +389,9 @@ assign_positional_args ()
 	done
 }
 
-which samtools || die "ERROR, samtools not installed, exiting"
+samtools=/uufs/chpc.utah.edu/common/HIPAA/u0746015/bin/container_versions/samtools/samtools
+
+
 #which bamtools || die "ERROR, bamtools not installed, exiting"
 
 parse_commandline "$@"
@@ -605,7 +607,7 @@ elif [[ "$ProbandExtension" == "bam" ]]
 then
 #   echo "you provided the proband cram file" "$_arg_subject"
     ProbandGenerator="$ProbandFileName".generator
-    echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
+    echo "$samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" == "cram" ]]
 then
 #   echo "you provided the proband cram file" "$_arg_subject"
@@ -615,7 +617,7 @@ then
          echo "ERROR cram reference not provided for cram input";
         kill -9 $$  
      fi
-    echo "samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
+    echo "$samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" = "generator" ]]
 then
 #   echo "you provided the proband bam file" "$_arg_subject"
@@ -645,7 +647,7 @@ do
     then
 	    parentGenerator="$parentFileName".generator
 	    ParentGenerators+=("$parentGenerator")
-	    echo "samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
+	    echo "$samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
 #	    echo "You provided the control bam file" "$parent"
     elif [[ "$parentExtension" == "cram" ]] 
     then
@@ -656,7 +658,7 @@ do
 		echo "ERROR cram reference not provided for cram input"; 
 		 kill -9 $$ 
 	    fi
-            echo "samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
+            echo "$samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
  #           echo "You provided the control cram file" "$parent"    
     elif [[ "$parentExtension" = "generator" ]]
     then
@@ -1007,20 +1009,20 @@ then
 		if [ $shortinsert = "false" ]
 		then
 			echo "skipping fastp fix"
-	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
-	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
+	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
+	                $samtools index "$ProbandGenerator".Mutations.fastq.bam	
 		else
 			echo "using fastp fix" 
 			#cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq > "$ProbandGenerator".Mutations.fastq
 	        	#$bwa mem -t $Threads $_arg_ref_bwa <( cat "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq)  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
 	        	$fastp -i "$ProbandGenerator".Mutations.Mate1.fastq -I "$ProbandGenerator".Mutations.Mate2.fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
-			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
-			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
-			samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
+			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
+			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
+			$samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
 			#$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq "$ProbandGenerator".Mutations.Mate2.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
-			samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
-			samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
-			samtools index "$ProbandGenerator".Mutations.fastq.bam
+			$samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
+			$samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
+			$samtools index "$ProbandGenerator".Mutations.fastq.bam
 		fi
 	fi
 else
@@ -1061,8 +1063,8 @@ else
 	then 
 		echo "skipping mapping mates" 
 	else
-	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
-	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
+	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.fastq | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
+	                $samtools index "$ProbandGenerator".Mutations.fastq.bam	
 			
 	fi
 
@@ -1078,16 +1080,16 @@ then
 	else
 		
 		mv "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.FULL.bam 
-		samtools index "$ProbandGenerator".Mutations.fastq.FULL.bam
+		$samtools index "$ProbandGenerator".Mutations.fastq.FULL.bam
 		rm "$ProbandGenerator".Mutations.fastq.bam.bai
-		samtools view -F 12 -b "$ProbandGenerator".Mutations.fastq.FULL.bam > "$ProbandGenerator".Mutations.fastq.bam
-		samtools index "$ProbandGenerator".Mutations.fastq.bam
+		$samtools view -F 12 -b "$ProbandGenerator".Mutations.fastq.FULL.bam > "$ProbandGenerator".Mutations.fastq.bam
+		$samtools index "$ProbandGenerator".Mutations.fastq.bam
 	fi
 fi
 
 
 
-if [ $( samtools view "$ProbandGenerator".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
+if [ $( $samtools view "$ProbandGenerator".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
         echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq.  Either the files are exactly the same of something went wrong in previous step" 
         exit 100
 fi 
