@@ -53,6 +53,22 @@ function get_chunk_region() {
   echo "$chr:${chunkStart}-${chunkEnd}"
 }
 
+# Returns 1000g sub_dir/file_name for given region
+function get_1kg_file() {
+  local chunkNum=$1
+  local chunkSize=$2
+  local build=$3
+
+  reg=$(get_chunk_region $chunkNum $chunkSize $build)
+  fmtd_reg=$(echo $reg | sed 's/[:-]/_/g')
+
+  if [ "$chunkSize" = "1000" ]; then
+    echo "1mb/${fmtd_reg}.Jhash"
+  else
+    echo ""
+  fi
+}
+
 # Returns the number of chunks for the given genome build
 # Takes in 1) the chunk size and 2) the genome build
 function get_num_chunks() {
