@@ -44,15 +44,15 @@ SLURM_TIME_LIMIT_RUFUS_ARG=""
 CONTAINER_PATH_RUFUS_ARG=""
 THREAD_LIMIT_RUFUS_ARG="20"
 EXCLUDE_HASH_LIST_RUFUS_ARG=()
-KG1_EXCLUSION_THRESHOLD=""
+KG1_EXCLUSION_THRESHOLD="0"
 REFERENCE_HASH_RUFUS_ARG=""
 
 # Parse command line options using getopts
 while getopts ":d:s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h" opt; do
     case ${opt} in
-		    d)
-			      HOST_DATA_DIR_RUFUS_ARG=$OPTARG
-			      ;;
+        d)
+            HOST_DATA_DIR_RUFUS_ARG=$OPTARG
+            ;;
         s)
             SUBJECT_RUFUS_ARG=$OPTARG
             ;;
@@ -173,7 +173,7 @@ fi
 # Check that 1000kg exclusion threshold is valid
 if [ "$KG1_EXCLUSION_THRESHOLD" -ne 10 ] && [ "$KG1_EXCLUSION_THRESHOLD" -ne 100 ]; then
     echo "ERROR: 1000kg exclusion threshold must be either 10 or 100"
-elif [ "$KG1_EXCLUSION_THRESHOLD" -ne "" ] && ([ "$WINDOW_SIZE_RUFUS_ARG" -ne 1000 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]); then
+elif [ "$KG1_EXCLUSION_THRESHOLD" -ne 0 ] && ([ "$WINDOW_SIZE_RUFUS_ARG" -ne 1000 ]); then
     echo "ERROR: 1000kg exclusion hashes can only be used with full genome run or 1000kb window size"
 fi
 
