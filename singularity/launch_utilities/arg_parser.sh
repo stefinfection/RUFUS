@@ -169,9 +169,12 @@ else
 	fi
 fi
 
+# TODO: have to check that window size is either 0 or 1000 because no other mini-hashes supported yet
 # Check that 1000kg exclusion threshold is valid
 if [ "$KG1_EXCLUSION_THRESHOLD" -ne 10 ] && [ "$KG1_EXCLUSION_THRESHOLD" -ne 100 ]; then
     echo "ERROR: 1000kg exclusion threshold must be either 10 or 100"
+elif [ "$KG1_EXCLUSION_THRESHOLD" -ne "" ] && ([ "$WINDOW_SIZE_RUFUS_ARG" -ne 1000 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]); then
+    echo "ERROR: 1000kg exclusion hashes can only be used with full genome run or 1000kb window size"
 fi
 
 # Check that if path to image not provided, it's in the current dir
