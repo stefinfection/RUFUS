@@ -585,7 +585,7 @@ check_empty_hashes ()
 	if [[ $line == \#* ]]; then
 	  continue
     # Check if the line is "0"
-    else [[ "$line" -eq 0 ]]; then
+    elif [[ "$line" -eq 0 ]]; then
       found_zero=true
       break
     fi
