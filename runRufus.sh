@@ -557,6 +557,7 @@ make_jelly_hash ()
 
   echo "Jellyfish exit code: $exitCode"
 
+
   if [ "$isControl" = "TRUE" ]; then
     echo "$exitCode" >> "$controlCodeFile"
   else
@@ -577,11 +578,14 @@ check_empty_hashes ()
   local proband_file_name="$5"
   local region_postfix="$6"
 
-  # Check that at least one control has hashes
+  # Check that at least one control has hashes (i.e. has a zero exit code)
   found_zero=false
   while IFS= read -r line; do
+	# Skip header lines
+	if [[ $line == \#* ]]; then
+	  continue
     # Check if the line is "0"
-    if [[ "$line" -eq 0 ]]; then
+    else [[ "$line" -eq 0 ]]; then
       found_zero=true
       break
     fi
@@ -626,6 +630,9 @@ parse_commandline "$@"
 region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
 	formatted_region=$(echo "${_arg_region}" | tr : _ | tr - _)
+	region_postfix=".${formatted_region}"
+else
+	formatted_region="wg"
 	region_postfix=".${formatted_region}"
 fi
 
@@ -999,8 +1006,8 @@ done
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
 CONTROL_EXIT_CODES="jelly_exit_code_controls_$formatted_region.log"
 SUBJECT_EXIT_CODES="jelly_exit_code_subject_$formatted_region.log"
-touch $CONTROL_EXIT_CODES
-touch $SUBJECT_EXIT_CODES
+echo "#CONTROL_EXIT_CODES" > $CONTROL_EXIT_CODES
+echo "#SUBJECT_EXIT_CODES" > $SUBJECT_EXIT_CODES
 
 if [ $_parallel_jelly == "yes" ]
 then 
