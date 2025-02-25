@@ -56,11 +56,11 @@ function write_out_rest_of_rufus_args() {
     echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
 
     if [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]; then
-      echo -en "\$REGION_ARG" >> $RUFUS_SLURM_SCRIPT
-      echo -en "\$REGION_ARG" >> rufus.cmd
+      echo -en "\$REGION_ARG " >> $RUFUS_SLURM_SCRIPT
+      echo -en "\$REGION_ARG " >> rufus.cmd
     fi
 
-    if [ -n "$KG1_EXCLUSION_THRESHOLD" ]; then
+    if [ "$KG1_EXCLUSION_THRESHOLD" -ne 0 ]; then
       echo -en "\$KG1_REGION_FILE_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "\$KG1_REGION_FILE_ARG " >> rufus.cmd
     fi
@@ -154,7 +154,7 @@ else
     echo -e "    region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
     echo -e "    REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
     
-    if [ -n "$KG1_EXCLUSION_THRESHOLD" ]; then
+    if [ "$KG1_EXCLUSION_THRESHOLD" -ne 0 ]; then
       echo -e "    kg1_region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_1kg_region_file.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
       echo -e "    KG1_REGION_FILE_ARG=\"-xkg1 \$kg1_region_arg\"" >> $RUFUS_SLURM_SCRIPT
     fi
