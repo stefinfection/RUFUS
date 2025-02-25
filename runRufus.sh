@@ -545,22 +545,24 @@ make_jelly_hash ()
   local controlCodeFile="$7"
   local subjectCodeFile="$8"
 
-  echo "$args to make_jelly_hash" >&2
+  echo "args to make_jelly_hash" >&2
   echo "$generator $k $threads $lowK $regionArg $isControl $controlCodeFile $subjectCodeFile" >&2
 
   # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
   hash_size="8G"
-  if [ -n "$_argRegion" ]; then
+  if [ -n "$regionArg" ]; then
 	echo "We're in windowed mode, use a smaller hash size to allow for 1kg comparison"
 	hash_size="1G"
   fi
 
   bash $RunJelly "$generator" "$k" "$threads" "$lowK" "$hash_size"
   local exitCode=$?
+  echo "Jellyfish exit code: $exitCode" >&2
 
-  echo "Jellyfish exit code: $exitCode"
+  echo "repeating args to after RunJelly" >&2
+  echo "$generator $k $threads $lowK $regionArg $isControl $controlCodeFile $subjectCodeFile" >&2  
 
-  if [ "$isControl" = "TRUE" ]; then
+  if [ "$isControl" == "true" ]; then
     echo "$exitCode" >> "$controlCodeFile"
   else
 	echo "trying to print $exitCode to $subjectCodeFile" >&2
@@ -1009,8 +1011,8 @@ done
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
 CONTROL_EXIT_CODES="jelly_exit_code_controls_$formatted_region.log"
 SUBJECT_EXIT_CODES="jelly_exit_code_subject_$formatted_region.log"
-echo "#CONTROL_EXIT_CODES" > $CONTROL_EXIT_CODES
-echo "#SUBJECT_EXIT_CODES" > $SUBJECT_EXIT_CODES
+echo "#CONTROL_EXIT_CODES" > "$CONTROL_EXIT_CODES"
+echo "#SUBJECT_EXIT_CODES" > "$SUBJECT_EXIT_CODES"
 
 if [ $_parallel_jelly == "yes" ]
 then 
