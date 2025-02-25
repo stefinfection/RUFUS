@@ -542,11 +542,8 @@ make_jelly_hash ()
   local lowK="$4" # The minimum number of kmers to keep in count step
   local formRegionArg="$5"
   local isControl="$6"
-  controlCodeFile="$7"
-  subjectCodeFile="$8"
-
-  echo "args to make_jelly_hash" >&2
-  echo "$generator $k $threads $lowK $formRegionArg $isControl $controlCodeFile $subjectCodeFile" >&2
+  local controlCodeFile="$7"
+  local subjectCodeFile="$8"
 
   # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
   hash_size="8G"
@@ -557,15 +554,10 @@ make_jelly_hash ()
 
   bash $RunJelly "$generator" "$k" "$threads" "$lowK" "$hash_size"
   local exitCode=$?
-  echo "Jellyfish exit code: $exitCode" >&2
-
-  echo "repeating args to after RunJelly" >&2
-  echo "$generator $k $threads $lowK $formRegionArg $isControl $controlCodeFile $subjectCodeFile" >&2  
 
   if [[ "$isControl" == "true" ]]; then
     echo "$exitCode" >> "${controlCodeFile}"
   else
-	echo "trying to print $exitCode to ${subjectCodeFile} or ${controlCodeFile} or ${generator}" >&2
     echo "$exitCode" >> "${subjectCodeFile}" 
   fi
 
@@ -576,45 +568,40 @@ make_jelly_hash ()
 
 check_empty_hashes ()
 {
-  local region_arg="$1"
-  local control_code_file="$2"
-  local subject_code_file="$3"
-  local proband_generator="$4"
-  local proband_file_name="$5"
-  local region_postfix="$6"
+	local region_arg="$1"
+	local control_code_file="$2"
+	local subject_code_file="$3"
+	local proband_generator="$4"
+	local proband_file_name="$5"
+	local region_postfix="$6"
 
-  # Check that at least one control has hashes (i.e. has a zero exit code)
-  found_zero=false
-  while IFS= read -r line; do
-	# Skip header lines
-	if [[ $line == \#* ]]; then
-	  continue
-    # Check if the line is "0"
-    elif [[ "$line" -eq 0 ]]; then
-      found_zero=true
-      break
-    fi
-  done < "$control_code_file"
+	# Check that at least one control has hashes (i.e. has a zero exit code)
+	found_zero=false
+	while IFS= read -r line; do
+		if [[ "$line" -eq 0 ]]; then
+			found_zero=true
+			break
+		fi
+	done < "$control_code_file"
 
-  if [ "$found_zero" = false ]; then
-    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
-    echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
+	if [ "$found_zero" = false ]; then
+		echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
+		echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
 
-    rm "$control_code_file"
-    rm "$subject_code_file"
-    clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
-    exit 0
-  fi
+		rm "$control_code_file"
+		rm "$subject_code_file"
+		clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
+		exit 0
+	fi
 
-  # Check that the subject has hashes
-  found_zero=false
-    while IFS= read -r line; do
-      # Check if the line is "0"
-      if [[ "$line" -eq 0 ]]; then
-        found_zero=true
-        break
-      fi
-    done < "$subject_code_file"
+	# Check that the subject has hashes
+	found_zero=false
+	while IFS= read -r line; do
+		if [[ "$line" -eq 0 ]]; then
+			found_zero=true
+			break
+		fi
+	done < "$subject_code_file"
 
     if [ "$found_zero" = false ]; then
       echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
@@ -1011,8 +998,6 @@ done
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
 CONTROL_EXIT_CODES="jelly_exit_code_controls_$formatted_region.log"
 SUBJECT_EXIT_CODES="jelly_exit_code_subject_$formatted_region.log"
-echo "#CONTROL_EXIT_CODES" > "$CONTROL_EXIT_CODES"
-echo "#SUBJECT_EXIT_CODES" > "$SUBJECT_EXIT_CODES"
 
 if [ $_parallel_jelly == "yes" ]
 then 
