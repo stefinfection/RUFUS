@@ -545,6 +545,9 @@ make_jelly_hash ()
   local controlCodeFile="$7"
   local subjectCodeFile="$8"
 
+  echo "$args to make_jelly_hash" >&2
+  echo "$generator $k $threads $lowK $regionArg $isControl $controlCodeFile $subjectCodeFile" >&2
+
   # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
   hash_size="8G"
   if [ -n "$_argRegion" ]; then
@@ -557,10 +560,10 @@ make_jelly_hash ()
 
   echo "Jellyfish exit code: $exitCode"
 
-
   if [ "$isControl" = "TRUE" ]; then
     echo "$exitCode" >> "$controlCodeFile"
   else
+	echo "trying to print $exitCode to $subjectCodeFile" >&2
     echo "$exitCode" >> "$subjectCodeFile"
   fi
 
