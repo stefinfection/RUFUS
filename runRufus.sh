@@ -562,7 +562,7 @@ make_jelly_hash ()
   echo "repeating args to after RunJelly" >&2
   echo "$generator $k $threads $lowK $regionArg $isControl $controlCodeFile $subjectCodeFile" >&2  
 
-  if [ "$isControl" == "true" ]; then
+  if [[ "$isControl" == "true" ]]; then
     echo "$exitCode" >> "${controlCodeFile}"
   else
 	echo "trying to print $exitCode to ${subjectCodeFile} or ${controlCodeFile} or ${generator}" >&2
