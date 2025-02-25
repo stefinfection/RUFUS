@@ -542,8 +542,8 @@ make_jelly_hash ()
   local lowK="$4" # The minimum number of kmers to keep in count step
   local regionArg="$5"
   local isControl="$6"
-  local controlCodeFile="$7"
-  local subjectCodeFile="$8"
+  controlCodeFile="$7"
+  subjectCodeFile="$8"
 
   echo "args to make_jelly_hash" >&2
   echo "$generator $k $threads $lowK $regionArg $isControl $controlCodeFile $subjectCodeFile" >&2
@@ -563,10 +563,10 @@ make_jelly_hash ()
   echo "$generator $k $threads $lowK $regionArg $isControl $controlCodeFile $subjectCodeFile" >&2  
 
   if [ "$isControl" == "true" ]; then
-    echo "$exitCode" >> "$controlCodeFile"
+    echo "$exitCode" >> "${controlCodeFile}"
   else
-	echo "trying to print $exitCode to $subjectCodeFile" >&2
-    echo "$exitCode" >> "$subjectCodeFile"
+	echo "trying to print $exitCode to ${subjectCodeFile} or ${controlCodeFile} or ${generator}" >&2
+    echo "$exitCode" >> "${subjectCodeFile}" 
   fi
 
   if [[ $exitCode -ne 0 && -n "$regionArg" ]]; then
