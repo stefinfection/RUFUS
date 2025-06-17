@@ -84,9 +84,13 @@ MOBList=$RDIR/resources/primate_non-LTR_Retrotransposon.fasta
 if [ -s ./$File.bam ]; then
   echo "skipping align"
 else
-  # todo: sort fastq first
-  $bwa mem -t $Threads $humanRefBwa "$File" | samtools sort -T $File -O bam - >$File.bam
-  samtools index $File.bam
+    # Ensure fastq is sorted for reproducibility
+    # todo: this branch needs to be tested
+    sortedFastq="sorted."$File
+    cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
+    
+	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | samtools sort -T $File -O bam - > $File.bam
+	samtools index $File.bam 
 fi
 
 if [ $(samtools view $File.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
@@ -94,31 +98,34 @@ if [ $(samtools view $File.bam | head | wc -l | awk '{print $1}') -eq "0" ]; the
   exit 100
 fi
 
-if [ "$speed" == "veryfast" ]; then
-  echo "running very fast assembly"
-  if [ -s ./TempOverlap/$NameStub.sam.fastqd ]; then
-    echo "skipping sam assemble"
-  else
-    # Process substitution
-    # todo: this is hardcoded to 3
-    $OverlapSam <(samtools view -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 ') .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
-    #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
-  fi
-  if [ -s ./TempOverlap/$NameStub.final.fastqd ]; then
-    echo "skipping second assemble"
-  else
-    # todo: this is hardcoded to 5
-    $OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads
-  fi
-  if [ -s ./$NameStub.overlap.hashcount.fastq ]; then
-    echo "skipping final overlap work"
-  else
-    $ReplaceQwithDinFASTQD ./TempOverlap/$NameStub.final.fastqd >./$NameStub.overlap.fastqd
-    $ConvertFASTqD ./$NameStub.overlap.fastqd >./$NameStub.overlap.fastq
-
-    echo "$AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq > ./$NameStub.overlap.hashcount.fastq"
-    $AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq >./$NameStub.overlap.hashcount.fastq
-  fi
+if [ "$speed" == "veryfast" ]
+then
+	echo "running very fast assembly"; 
+	if [ -s ./TempOverlap/$NameStub.sam.fastqd ]
+	then
+	        echo "skipping sam assemble"
+	else
+		$OverlapSam <( samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 $FinalCoverage ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+	        #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+	fi 
+	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
+	then 
+		echo "skipping second assemble"
+	else 
+		$OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads 
+	fi
+	
+	if [ -s ./$NameStub.overlap.hashcount.fastq ]
+	then
+	        echo "skipping final overlap work"
+	else
+	
+	        $ReplaceQwithDinFASTQD ./TempOverlap/$NameStub.final.fastqd > ./$NameStub.overlap.fastqd
+	        $ConvertFASTqD ./$NameStub.overlap.fastqd > ./$NameStub.overlap.fastq
+	
+	        echo "$AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq > ./$NameStub.overlap.hashcount.fastq"              
+	              $AnnotateOverlap $HashList ./$NameStub.overlap.fastq TempOverlap/$NameStub.overlap.asembly.hash.fastq > ./$NameStub.overlap.hashcount.fastq
+	fi	
 else
   echo "Running full assembly"
   if [ -s ./TempOverlap/$NameStub.sam.fastqd ]; then
@@ -189,16 +196,30 @@ else
   fi
 fi
 
-if [ $(head ./$NameStub.overlap.hashcount.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
-  echo "ERROR Assembly produce output for ./$NameStub.overlap.hashcount.fastq"
-  exit 100
+if [ $( head ./$NameStub.overlap.hashcount.fastq | wc -l | awk '{print $1}') -eq "0" ]; then 
+        echo "ERROR Assembly produce output for ./$NameStub.overlap.hashcount.fastq"
+        exit 100
+fi
+
+# Sort fastq file used in subsequence bwa calls for reproducibility
+sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
+if [ -s ./$NameStub".overlap.hashcount.fastq" ]
+then
+    echo "Sorting hashcount fastq file"
+    cat ./$NameStub.overlap.hashcount.fastq | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > ./$sortedFastq
+else
+    echo $NameStub".overlap.hashcount.fastq does not exist, cannot sort"
+    echo "Exiting with failure"
+    exit 100
 fi
 
 if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]; then
   echo "skipping contig alignment"
 else
-  $bwa mem -t $Threads -Y $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - >./$NameStub.overlap.hashcount.fastq.bam
-  samtools index ./$NameStub.overlap.hashcount.fastq.bam
+#        $bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+#	$bwa mem -t $Threads -Y -E 0,0 -O 6,6 -d 500 -w 500  -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+        $bwa mem -t $Threads -Y  $humanRefBwa ./$sortedFastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+	samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
 if [ $(samtools view ./$NameStub.overlap.hashcount.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
@@ -208,12 +229,14 @@ fi
 
 echo "string hash lookup"
 #############################################################################################################
-echo "staring MOB check"
-if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam ]; then
-  echo "skipping MOB alignemnt check "
+echo "staring MOB check on sorted fastq"
+if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam ]
+then
+	echo "skipping MOB alignemnt check "
 else
-  $bwa mem -t $Threads -Y -E 0,0 -O 6,6 -d 500 -w 500 -L 0,0 $MOBList ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O sam - >./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
-fi
+	$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
+fi 
+
 
 echo "starting reference pull "
 if [ -e ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]; then
