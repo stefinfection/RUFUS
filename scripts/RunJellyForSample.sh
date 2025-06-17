@@ -6,6 +6,8 @@ Threads=$3
 Min=$4
 _arg_cramref=$5
 
+samtools=/uufs/chpc.utah.edu/common/HIPAA/u0746015/bin/container_versions/samtools/samtools
+
     sampleFileName=$(basename "$1")
     echo "file name is" "$sampleFileName"
     sampleExtension="${sampleFileName##*.}"
@@ -19,7 +21,7 @@ _arg_cramref=$5
     then
             sampleGenerator="$sampleFileName".generator
             ParentGenerators+=("$sampleGenerator")
-            echo "samtools view -F 3328 $sample" > "$sampleGenerator"
+            echo "$samtools view -F 3328 $sample" > "$sampleGenerator"
             echo "You provided the control bam file" "$sample"
     elif [[ "$sampleExtension" == "cram" ]]
     then
@@ -30,7 +32,7 @@ _arg_cramref=$5
                 echo "ERROR cram reference not provided for cram input";
                  kill -9 $$
             fi
-            echo "samtools view -F 3328 -T $_arg_cramref $sample" > "$sampleGenerator"
+            echo "$samtools view -F 3328 -T $_arg_cramref $sample" > "$sampleGenerator"
             echo "You provided the control cram file" "$sample"    
     elif [[ "$sampleExtension" = "generator" ]]
     then
