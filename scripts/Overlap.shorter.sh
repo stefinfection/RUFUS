@@ -25,7 +25,8 @@ FinalCoverage=$3 #todo: what is the difference between this and minOverlap
 NameStub=$4.V2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
 HashList=$5 # e.g. $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
 HashSize=$6
-Threads=$7
+//Threads=$7
+Threads=1 // todo: change back if not source of non-determinism
 MaxAlleleSize=$8
 speed=$9
 
@@ -88,7 +89,6 @@ if [ -s ./$File.bam ]; then
   echo "skipping align"
 else
     # Ensure fastq is sorted for reproducibility
-    # todo: this branch needs to be tested
     sortedFastq="sorted."$File
     cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
     
@@ -219,9 +219,7 @@ fi
 if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]; then
   echo "skipping contig alignment"
 else
-#        $bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-#	$bwa mem -t $Threads -Y -E 0,0 -O 6,6 -d 500 -w 500  -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-        $bwa mem -t $Threads -Y  $humanRefBwa ./$NameStub.overlap.hashcount.fastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+  $bwa mem -t $Threads -Y  $humanRefBwa ./$NameStub.overlap.hashcount.fastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
 	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
