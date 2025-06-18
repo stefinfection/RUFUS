@@ -25,8 +25,7 @@ FinalCoverage=$3 #todo: what is the difference between this and minOverlap
 NameStub=$4.V2 # e.g. WGS_IL_T_1.bwa.dedup.bam.generator.Mutations.fastq
 HashList=$5 # e.g. $ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
 HashSize=$6
-//Threads=$7
-Threads=1 // todo: change back if not source of non-determinism
+Threads=$7
 MaxAlleleSize=$8
 speed=$9
 
@@ -108,8 +107,9 @@ then
 	then
 	        echo "skipping sam assemble"
 	else
-		$OverlapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
-	        #$OverlapSam <( samtools view  -F 3328 $File.bam  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+  	$OvelapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList 1
+		# $OvelapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+	  # todo: comment back in after thread/determinism fix
 	fi 
 	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
 	then 
