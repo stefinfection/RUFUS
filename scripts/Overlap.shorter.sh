@@ -107,8 +107,8 @@ then
 	then
 	        echo "skipping sam assemble"
 	else
-  	$OvelapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList 1
-		# $OvelapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+  	$OverlapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList 1
+		# $OverlapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 3 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	  # todo: comment back in after thread/determinism fix
 	fi 
 	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
