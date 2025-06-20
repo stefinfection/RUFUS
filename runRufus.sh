@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "You are running the DEVELOPMENT version of RUFUS: v0.3.0"
+echo "You are running the STAGING version of RUFUS: v0.3.0"
 
 # Check for correct version of gcc
 gcc_expected="10.2.0"
@@ -16,7 +16,7 @@ set -e
 # Example taken from http://argbash.readthedocs.io/en/stable/example.html
 
 
-# ARG_OPTIONAL_SINGLE([subject],[s],[generator file containing the subject of interest])c
+# ARG_OPTIONAL_SINGLE([subject],[s],[generator file containing the subject of interest])
 # ARG_OPTIONAL_SINGLE([ref],[r],[file path to the desired reference file])
 # ARG_OPTIONAL_SINGLE([threads],[t],[number of threads to use])
 # ARG_OPTIONAL_SINGLE([kmersize],[k],[size of Khmer to use])
@@ -34,14 +34,6 @@ set -e
 # Generated online by https://argbash.io/generate
 MaxHashDepth=1200; #need to make this a passed option
 RDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-# Testing variables for individual steps
-ENABLE_JELLY="TRUE"
-ENABLE_MODEL="TRUE"
-ENABLE_HASH_FILTER="TRUE"
-ENABLE_FILTER="TRUE"
-ENABLE_OVERLAP="TRUE"
-ENABLE_CLEANUP="FALSE"
 
 die()
 {
@@ -135,7 +127,7 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequencing.  Distribution model is not used, -m = 20, saliva fix is set, max kmer depth set to 1 million (EXPERIMENTAL values used here have not been exhaustivly tested)"
 	printf "\t%s\n" "-q1,--fastq1: If starting from fastq files, a list of the mate1 fastq files to improve RUFUS.filter"
 	printf "\t%s\n" "-q2,--fastq2: If starting from fastq files, a list of the mate2 fastq files to improve RUFUS.filter"
-	printf "\t%s\n" "-vs, --Very_Short_Assembly: use very short assembly methods, recommended when you are expecting over 10,000 variants"
+	printf "\t%s\n" "-vs, --Very_Short_Assembly: use very short assembly methods, recommended when you are expecting over 10,000 variants "
 	printf "\t%s\n" "-pj, --Parallelize_Jelly: parallelize jellyfish step, only use if you have more than 96G of ram"
 	printf "\t%s\n" "-R, --Region: Run RUFUS only on a samtools style region"
 	printf "\t%s\n" "-fk, --filterK: kmer threshold for number of kmers required to keep a read during filtering (default = 1)"
@@ -402,9 +394,7 @@ assign_positional_args ()
 	done
 }
 
-samtools=/uufs/chpc.utah.edu/common/HIPAA/u0746015/bin/container_versions/samtools/samtools
-
-
+#which samtools || die "ERROR, samtools not installed, exiting"
 #which bamtools || die "ERROR, bamtools not installed, exiting"
 
 parse_commandline "$@"
@@ -622,7 +612,7 @@ elif [[ "$ProbandExtension" == "bam" ]]
 then
 #   echo "you provided the proband cram file" "$_arg_subject"
     ProbandGenerator="$ProbandFileName".generator
-    echo "$samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
+    echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" == "cram" ]]
 then
 #   echo "you provided the proband cram file" "$_arg_subject"
@@ -632,7 +622,7 @@ then
          echo "ERROR cram reference not provided for cram input";
         kill -9 $$  
      fi
-    echo "$samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
+    echo "samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" = "generator" ]]
 then
 #   echo "you provided the proband bam file" "$_arg_subject"
@@ -662,7 +652,7 @@ do
     then
 	    parentGenerator="$parentFileName".generator
 	    ParentGenerators+=("$parentGenerator")
-	    echo "$samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
+	    echo "samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
 #	    echo "You provided the control bam file" "$parent"
     elif [[ "$parentExtension" == "cram" ]] 
     then
@@ -673,7 +663,7 @@ do
 		echo "ERROR cram reference not provided for cram input"; 
 		 kill -9 $$ 
 	    fi
-            echo "$samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
+            echo "samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
  #           echo "You provided the control cram file" "$parent"    
     elif [[ "$parentExtension" = "generator" ]]
     then
@@ -773,6 +763,7 @@ done
 ##########################__SET_EXECUTABLE_PATHS__##############################
 # todo: make $RDIR optional argument for running on chpc
 RUFUSmodel=$RDIR/bin/ModelDist
+RUFUSfilter=$RDIR/bin/RUFUS.Filter
 RufAlu=$RDIR/bin/externals/rufalu/src/rufalu_project/src/aluDetect
 RUFUSOverlap=$RDIR/scripts/Overlap.shorter.sh
 RunJelly=$RDIR/scripts/RunJellyForRUFUS.sh
@@ -825,202 +816,183 @@ fi
 ##############################################################################
 
 
-    ###########################_EMPTY_JHASH_CHECK##############################
-    ########TODO just checking file size isn't a great idea, when jellyfish fails the fields arent zero size
-    for parent in "${ParentGenerators[@]}"
-    do
-        ## Check Jhash files are not empty
-         if [ ! -s "$parent".Jhash ]
-         then
-            echo "@@@@@@@@@@@__WARNING__@@@@@@@@@@@@@"
-            echo "$parent.Jhash  is empty"
-            echo "Killing run with exit status 1"
-            echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-            kill -9 $$
-         fi
-    done
-
-    if [ ! -s "$ProbandGenerator".Jhash ]
-    then
+###########################_EMPTY_JHASH_CHECK##############################
+########TODO just checking file size isn't a great idea, when jellyfish fails the fields arent zero size
+for parent in "${ParentGenerators[@]}"
+do
+    ## Check Jhash files are not empty
+     if [ ! -s "$parent".Jhash ]
+     then
         echo "@@@@@@@@@@@__WARNING__@@@@@@@@@@@@@"
-        echo "$ProbandGenerator.Jhash  is empty"
+        echo "$parent.Jhash  is empty"
         echo "Killing run with exit status 1"
         echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
         kill -9 $$
-    fi
-    ##############################################################################
+     fi
+done
 
-
-
-    ##################__GENERATE_JHASH_HISTOGRAMS__#################################
-    ######TODO I can probably get rid of this if I just make model read either tab or space
-    perl -ni -e 's/ /\t/;print' "$ProbandGenerator".Jhash.histo
-    for parent in "${ParentGenerators[@]}"
-    do
-      perl -ni -e 's/ /\t/;print' "$parent".Jhash.histo
-    done
-    ##############################################################################
-else
-    echo "Skipping Jellyfish for testing mode"
-    exit 0
-fi
-
-
-
-
-if [ "$ENABLE_MODEL" == "TRUE" ]
+if [ ! -s "$ProbandGenerator".Jhash ]
 then
-  #######################__RUFUS_Model__############################################
-  if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
-  then
-    echo "exome not set, assuming data is whole genome, building model" #echo "min not provided, building model"
-    if [ -e "$ProbandGenerator.Jhash.histo.7.7.model" ]
-    then
-      echo "skipping model"
-    else
-      echo "starting model"
-      "$RUFUSmodel" "$ProbandGenerator".Jhash.histo $K 150 $Threads > "$ProbandGenerator".Jhash.histo.7.7.out
-      for parent in "${ParentGenerators[@]}"
-      do
-        "$RUFUSmodel" "$parent".Jhash.histo $K 150 $Threads > "$parent".Jhash.histo.7.7.out &
-      done
-      echo "done with model"
-    fi
+    echo "@@@@@@@@@@@__WARNING__@@@@@@@@@@@@@"
+    echo "$ProbandGenerator.Jhash  is empty"
+    echo "Killing run with exit status 1"
+    echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+    kill -9 $$
+fi
+##############################################################################
 
-    if [ -z "$_arg_min" ]
-    then
-      if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
-      then
-        echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
-        MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
-        echo "INFO: mutant min coverage from generated model is $MutantMinCov"
 
-        MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
-        echo "INFO: mutant SC coverage from generated model is $MutantSC"
-        MaxHashDepth=$(echo "$MutantSC * 5" | bc)
-        echo "INFO: MaxHashDepth = $MaxHashDepth"
-      else
-        echo "ERROR Model didnt run correctly, exiting"
-        return 1
-      fi
-    else
-      echo "min coverage provided of $_arg_min, setting min kmer to that"
-      MutantMinCov="$_arg_min"
-    fi
 
-  else
-    if [	-z "$_arg_min" ]
-    then
-      echo "min coverage must be provided with an exome run"
-      return 1;
-    else
-  ####TODO: check what im dond here
-      echo "3" > "$ProbandGenerator".Jhash.histo.7.7.model;
-      echo "$_arg_min" >> "$ProbandGenerator".Jhash.histo.7.7.model;
-      echo "3.1392e+09" >> "$ProbandGenerator".Jhash.histo.7.7.model;
-      echo "1000000" >> "$ProbandGenerator".Jhash.histo.7.7.model;
-      echo "min was provided, min is $_arg_min"
-      MutantMinCov="$_arg_min"
-      #touch "$ProbandGenerator".Jhash.histo.7.7.model
-    fi
-  fi
+##################__GENERATE_JHASH_HISTOGRAMS__#################################
+######TODO I can probably get rid of this if I just make model read either tab or space
+perl -ni -e 's/ /\t/;print' "$ProbandGenerator".Jhash.histo
+for parent in "${ParentGenerators[@]}"
+do
+  perl -ni -e 's/ /\t/;print' "$parent".Jhash.histo
+done
+##############################################################################
 
-  ########################################################################################
-  if [ "$_arg_stop" = "jelly" ];
-  then
-          echo "-StJ used, stopping run";
-          exit 1;
-  fi
 
-  #######################################################################################
-  if [ -z $MutantMinCov ]; then
-  	echo "ERROR: No min coverage set, possible error in Model"
-  	exit 100
-  fi
-  if [ "$MutantMinCov" -lt "2" ]
-  then
-  	echo "ERROR, model couldn't pick a sensible lower cutoff, check your subject bam file"
-          exit
-  fi
-else
-  echo "Skipping Model for testing mode"
-  exit 0
+
+#######################__RUFUS_Model__############################################
+#if [ $_arg_exome == "FALSE" ] #[	-z "$_arg_min" ]
+if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
+then
+	echo "exome not set, assuming data is whole genome, building model" #echo "min not provided, building model"
+	if [ -e "$ProbandGenerator.Jhash.histo.7.7.model" ]
+	then
+	 	echo "skipping model"
+	else
+		echo "starting model"
+		"$RUFUSmodel" "$ProbandGenerator".Jhash.histo $K 150 $Threads > "$ProbandGenerator".Jhash.histo.7.7.out 
+		for parent in "${ParentGenerators[@]}"
+		do
+			"$RUFUSmodel" "$parent".Jhash.histo $K 150 $Threads > "$parent".Jhash.histo.7.7.out & 
+		done
+		echo "done with model"
+	fi 
+
+	if [ -z "$_arg_min" ]
+	then
+		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
+		then
+			echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
+			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
+			echo "INFO: mutant min coverage from generated model is $MutantMinCov"
+	 			
+			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
+			echo "INFO: mutant SC coverage from generated model is $MutantSC"
+			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
+			echo "INFO: MaxHashDepth = $MaxHashDepth"
+		else
+			echo "ERROR Model didnt run correctly, exiting"
+			return -1
+		fi
+	else
+		echo "min coverage provided of $_arg_min, setting min kmer to that"
+		MutantMinCov="$_arg_min"
+	fi 
+		
+else 
+	if [	-z "$_arg_min" ]
+	then 
+		echo "min coverage must be provided with an exome run"
+		return -1; 
+	else
+####TODO: check what im dond here
+		echo "3" > "$ProbandGenerator".Jhash.histo.7.7.model; 
+		echo "$_arg_min" >> "$ProbandGenerator".Jhash.histo.7.7.model;
+		echo "3.1392e+09" >> "$ProbandGenerator".Jhash.histo.7.7.model;
+		echo "1000000" >> "$ProbandGenerator".Jhash.histo.7.7.model; 
+		echo "min was provided, min is $_arg_min" 
+		MutantMinCov="$_arg_min" 
+		#touch "$ProbandGenerator".Jhash.histo.7.7.model
+	fi
+fi
+########################################################################################
+
+if [ "$_arg_stop" = "jelly" ];
+then
+        echo "-StJ used, stopping run";
+        exit 1;
+fi
+#######################################################################################
+
+if [ -z $MutantMinCov ]; then 
+	echo "ERROR: No min coverage set, possible error in Model"
+	exit 100
+fi
+if [ "$MutantMinCov" -lt "2" ]
+then
+	echo "ERROR, model couldn't pick a sensible lower cutoff, check your subject bam file"
+        exit
 fi
 #################################__HASH_LIST_FILTER__#####################################
 
-if [ "$ENABLE_HASH_FILTER" == "TRUE" ]
-then
-  echo "########### Running Mutant Hash Identification ##############"
+echo "########### Running Mutant Hash Identification ##############"
 
-  if [ -s "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList ]
-  then
-      echo "skipping $ProbandGenerator.HashList pull "
-  else
-      if [ -e "$ProbandGenerator".temp ]
-      then
-        rm  "$ProbandGenerator".temp
-      fi
-      mkfifo "$ProbandGenerator".temp
-      $modifiedJelly merge "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "$ProbandGenerator".temp &
-      bash $PullSampleHashes $ProbandGenerator.Jhash "$ProbandGenerator".temp $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList
-      wait
-  fi
-
-  ########################################################################################
-
-  if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
-  	echo "ERROR: No mutant hashes identified, either the files are exactly the same of something went wrong in previous step"
-  	exit 100
-  fi
-  ########################################################################################
-  if [ "$_arg_stop" = "hash" ];
-  then
-          echo "-StH used, stopping run";
-          exit 1;
-  fi
+if [ -s "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList ]
+then 
+    echo "skipping $ProbandGenerator.HashList pull "
 else
-  echo "Skipping Hash Filter for testing mode"
-  exit 0
+    if [ -e "$ProbandGenerator".temp ]
+    then 
+    	rm  "$ProbandGenerator".temp
+    fi
+    mkfifo "$ProbandGenerator".temp
+    $modifiedJelly merge "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "$ProbandGenerator".temp & 
+    bash $PullSampleHashes $ProbandGenerator.Jhash "$ProbandGenerator".temp $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList 
+    wait
+    
 fi
 
+########################################################################################
 
-if [ "$ENABLE_FILTER" == "TRUE" ]
+if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
+	echo "ERROR: No mutant hashes identified, either the files are exactly the same of something went wrong in previous step"
+	exit 100
+fi
+########################################################################################
+if [ "$_arg_stop" = "hash" ];
 then
-  ######################__RUFUS_FILTER__##################################################
-  echo "########### starting RUFUS filter ###########"
+        echo "-StH used, stopping run";
+        exit 1;
+fi
+######################__RUFUS_FILTER__##################################################
+echo "########### starting RUFUS filter ###########"
 
-  if [ $_pairedEnd == "true" ]
-  then
-  	if [ -e "$ProbandGenerator".Mutations.Mate1.fastq ]
-  	then
-  		echo "skipping filter"
-  	else
-  		if [ -z $_arg_fastqA ]
-  		then
-  		    if [ -e "$ProbandGenerator".temp.mate1.fastq ]; then
-  		    	rm  "$ProbandGenerator".temp.mate1.fastq
-  		    fi
-  		    if [ -e "$ProbandGenerator".temp.mate2.fastq ]; then
-  	                rm  "$ProbandGenerator".temp.mate2.fastq
-  	            fi
-  		    if [ -e "$ProbandGenerator".temp ]; then
-  			    rm "$ProbandGenerator".temp
-  	            fi
-  		    echo "running this one "
-  		    mkfifo "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq
-  		    sleep 1
-  		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
-  		       $RUFUSfilterFASTQ  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
-
-  		    wait
-  		else
-  			echo "Running RUFUS.filter from paired FASTQ files"
-  			FileName=$(basename $_arg_fastqA)
-  			Extension="${FileName##*.}"
-  			if [[ $Extension == 'gz' ]]
-  			then
-  				echo "Compressed fastq files found"
-  				$RUFUSfilterFASTQ "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList  <(zcat $_arg_fastqA) <(zcat $_arg_fastqB) "$ProbandGenerator" $K $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)"
+if [ $_pairedEnd == "true" ]
+then 
+	if [ -e "$ProbandGenerator".Mutations.Mate1.fastq ]
+	then
+		echo "skipping filter"
+	else
+		if [ -z $_arg_fastqA ]
+		then
+		    if [ -e "$ProbandGenerator".temp.mate1.fastq ]; then 
+		    	rm  "$ProbandGenerator".temp.mate1.fastq
+		    fi
+		    if [ -e "$ProbandGenerator".temp.mate2.fastq ]; then
+	                rm  "$ProbandGenerator".temp.mate2.fastq
+	            fi
+		    if [ -e "$ProbandGenerator".temp ]; then 
+			    rm "$ProbandGenerator".temp 
+	            fi
+		    echo "running this one " 
+		    mkfifo "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq
+		    sleep 1
+		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
+		       $RUFUSfilterFASTQ  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
+		    
+		    wait
+		else
+			echo "Running RUFUS.filter from paired FASTQ files"
+			FileName=$(basename $_arg_fastqA)
+			Extension="${FileName##*.}"
+			if [[ $Extension == 'gz' ]]
+			then
+				echo "Compressed fastq files found"
+				$RUFUSfilterFASTQ "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList  <(zcat $_arg_fastqA) <(zcat $_arg_fastqB) "$ProbandGenerator" $K $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)"
 
 			else
 				echo "Uncompressed fastq files found" 
@@ -1031,7 +1003,7 @@ then
 	fi
 	
     if [ $(head "$ProbandGenerator".Mutations.Mate1.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
-		echo "ERROR: No mutant fastq reads identified.  Either the files are exactly the same of something went wrong in previous step" 
+		echo "ERROR: No mutant fastq reads idenfied.  Either the files are exactly the same of something went wrong in previous step" 
 		exit 100
 	fi
 
@@ -1050,17 +1022,17 @@ then
 		if [ $shortinsert = "false" ]
 		then
 			echo "skipping fastp fix"
-	                $bwa mem -t $Threads $_arg_ref_bwa $sortedMate1Fastq $sortedMate2Fastq | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
-	                $samtools index "$ProbandGenerator".Mutations.fastq.bam	
+	                $bwa mem -t $Threads $_arg_ref_bwa $sortedMate1Fastq $sortedMate2Fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
+	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
 		else
 			echo "using fastp fix" 
 	        $fastp -i $sortedMate1Fastq -I $sortedMate2Fastq -m -o "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq -O "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq --merged_out "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq
-			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
-			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
-			$samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
-			$samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
-			$samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
-			$samtools index "$ProbandGenerator".Mutations.fastq.bam
+			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.fastp.fastq "$ProbandGenerator".Mutations.Mate2.fastq.fastp.fastq  | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.pared.bam
+			$bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.Mate1.fastq.merged.fastq  | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.merged.bam
+			samtools merge "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.merged.bam "$ProbandGenerator".Mutations.fastq.pared.bam 
+			samtools index "$ProbandGenerator".Mutations.fastq.merged.bam
+			samtools index "$ProbandGenerator".Mutations.fastq.pared.bam
+			samtools index "$ProbandGenerator".Mutations.fastq.bam
 		fi
 	fi
 else
@@ -1072,39 +1044,41 @@ else
 		if [ -z $_arg_fastqA ]
 		then
 
-  		    echo "running this one filer SE"
-  	            sleep 1
-  	            if [ -e "$ProbandGenerator".temp ]; then
-  	                            rm  "$ProbandGenerator".temp
-  	            fi
-  	                mkfifo "$ProbandGenerator".temp
-  	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
-  	               $RUFUSfilterFASTQse  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp  "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
-  		    wait
-  		else
-  			echo "Running RUFUS.filter from single FASTQ files"
-  			echo "havent written this yet EXITing"
-  			exit
-  			#########WRITE THIS##########
-  			wait
-  		fi
-  	fi
+		    echo "running this one filer SE" 
+	            sleep 1
+	            if [ -e "$ProbandGenerator".temp ]; then
+	                            rm  "$ProbandGenerator".temp
+	            fi
+	                mkfifo "$ProbandGenerator".temp
+	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
+	               $RUFUSfilterFASTQse  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp  "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
+		    wait
+		else
+			echo "Running RUFUS.filter from single FASTQ files"
+			echo "havent written this yet EXITing"
+			exit
+			#########WRITE THIS##########	
+			wait
+		fi
+	fi
+	
+	#if [ $(wc -l "$ProbandGenerator".Mutations.fastq | awk '{print $1}') -eq "0" ]; then
+	if [ $(head "$ProbandGenerator".Mutations.fastq | wc -l  | awk '{print $1}') -eq "0" ]; then
+		echo "ERROR: No mutant fastq reads idenfied.  Either the files are exactly the same of something went wrong in previous step" 
+		exit 100
+	fi
+	
+	shortinsert="false"
+	if [ -e "$ProbandGenerator".Mutations.fastq.bam ]
+	then 
+		echo "skipping mapping mates" 
+	else
+	                $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.fastq | $samblaster | samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam 
+	                samtools index "$ProbandGenerator".Mutations.fastq.bam	
+			
+	fi
 
-  	#if [ $(wc -l "$ProbandGenerator".Mutations.fastq | awk '{print $1}') -eq "0" ]; then
-  	if [ $(head "$ProbandGenerator".Mutations.fastq | wc -l  | awk '{print $1}') -eq "0" ]; then
-  		echo "ERROR: No mutant fastq reads identified.  Either the files are exactly the same of something went wrong in previous step"
-  		exit 100
-  	fi
-
-  	shortinsert="false"
-  	if [ -e "$ProbandGenerator".Mutations.fastq.bam ]
-  	then
-  		echo "skipping mapping mates"
-  	else
-      $bwa mem -t $Threads $_arg_ref_bwa "$ProbandGenerator".Mutations.fastq | $samblaster | $samtools sort -T "$ProbandGenerator".Mutations.fastq -O bam - > "$ProbandGenerator".Mutations.fastq.bam
-      $samtools index "$ProbandGenerator".Mutations.fastq.bam
-  	fi
-  fi
+fi 
 
 ########################################################################################
 if [ $_arg_saliva == "TRUE" ]
@@ -1116,16 +1090,16 @@ then
 	else
 		
 		mv "$ProbandGenerator".Mutations.fastq.bam "$ProbandGenerator".Mutations.fastq.FULL.bam 
-		$samtools index "$ProbandGenerator".Mutations.fastq.FULL.bam
+		samtools index "$ProbandGenerator".Mutations.fastq.FULL.bam
 		rm "$ProbandGenerator".Mutations.fastq.bam.bai
-		$samtools view -F 12 -b "$ProbandGenerator".Mutations.fastq.FULL.bam > "$ProbandGenerator".Mutations.fastq.bam
-		$samtools index "$ProbandGenerator".Mutations.fastq.bam
+		samtools view -F 12 -b "$ProbandGenerator".Mutations.fastq.FULL.bam > "$ProbandGenerator".Mutations.fastq.bam
+		samtools index "$ProbandGenerator".Mutations.fastq.bam
 	fi
 fi
 
 
 
-if [ $( $samtools view "$ProbandGenerator".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
+if [ $( samtools view "$ProbandGenerator".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
         echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq.  Either the files are exactly the same of something went wrong in previous step" 
         exit 100
 fi 
@@ -1185,13 +1159,6 @@ tabix "./${PREFINAL_VCF}.gz"
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string
 
-  echo "done with everything"
-  exit 0
-else
-  echo "Skipping final vcf cleanup for test mode"
-  exit 0
-
-  # Remove named pipes
-  find . -type p -delete
-fi
+echo "done with everything"
+exit 0
 # ] <-- needed because of Argbash
