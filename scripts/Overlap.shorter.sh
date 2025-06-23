@@ -275,8 +275,8 @@ else
 
 fi 
 
-# left off here
 echo "starting var hash generatrion" 
+# Jfish dump and md5sum the same for 1x threaded overlap ONLY
 if [ -e ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ]
 then 
 	echo "skipping var hash generationr"
@@ -288,6 +288,7 @@ else
 fi 
 
 echo "starting ref hash generation"
+# Jfish dump and md5sum the same for 1x threaded overlap ONLY
 if [ -s ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash ] 
 then 
 	echo "skipping ref hash generation"
@@ -297,6 +298,7 @@ else
 fi
  
  echo "pull hashes from sample" 
+ # Jfish dump and md5sum the same for 1x threaded overlap ONLY
 if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample ]
 then
         echo "skipping  Intermediates/$NameStub.overlap.asembly.hash.fastq.sample file already exitst"
@@ -309,6 +311,7 @@ fi
 echo "pull hashes from controls" 
 for parent in $ParentsJhash
         do
+			# Jfish dump and md5sum the same for 1x threaded overlap ONLY
             if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent ]
             then
                 echo "skiping Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent already exists"
@@ -320,6 +323,7 @@ done
 
 wait
 
+# Jfish dump and md5sum the same for 1x threaded overlap ONLY
 if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample ]	
 then 
 	echo "skipping Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample"
@@ -329,6 +333,7 @@ fi
 
 for parent in $ParentsJhash
 do
+	# Jfish dump and md5sum the same for 1x threaded overlap ONLY
     if [ -s ./Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.$parent ]
     then
         echo "skipping $NameStub.overlap.asembly.hash.fastq.Ref.$parent already exitst"
@@ -356,6 +361,7 @@ done
 #echo "final parent String is  $parentCRString"
 ##########################################################################################
 echo "here "
+# Have not tested determinism for this step
 if [ -s ./Intermediates/$NameStub.ref.RepRefHash ]
 then
         echo "Exclude already exists"
