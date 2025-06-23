@@ -5036,9 +5036,9 @@ int main(int argc, char *argv[]) {
     cout << "yaya finished mob " << endl;
 
 
-#pragma omp parallel sections
+    #pragma omp parallel sections
     {
-#pragma omp section
+        #pragma omp section
         {
             // Parse parent hash files into local data structures
             for (int i = 0; i < ParentHashFilePaths.size(); i++) {
@@ -5046,7 +5046,7 @@ int main(int argc, char *argv[]) {
                 unordered_map<unsigned long int, int> hl;
                 ParentHashes.push_back(hl);
             }
-#pragma omp parallel for shared(ParentHashes)
+            // #pragma omp parallel for shared(ParentHashes)
             for (int i = 0; i < ParentHashFilePaths.size(); i++) {
                 cout << " reading in parent " << i << " alt hashes" << endl;
                 ifstream reader;
@@ -5062,16 +5062,16 @@ int main(int argc, char *argv[]) {
                 }
                 // todo: technically ParentHashes might have race condition here
                 cout << "pushing back " << i << " size of parent hash is " << ParentHashes.size() << endl;
-#pragma omp critical
-                {
+                // #pragma omp critical
+                // {
                     ParentHashes[i] = hl;
                     cout << "done pushing back " << i << endl;
                     reader.close();
-                }
+                // }
             }
 
             cout << "done with parent Alt Hashes, starting Ref " << endl;
-#pragma omp parallel for
+            // #pragma omp parallel for
             for (int i = 0; i < ParentHashFilePathsReference.size(); i++) {
                 cout << " reading in parent " << i << " ref hashes" << endl;
                 ifstream reader;
@@ -5095,7 +5095,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-#pragma omp section
+        #pragma omp section
         {
             // Parse sample hash files into local data structures
             cout << "reading in mutant alt hashes" << endl;
@@ -5125,7 +5125,7 @@ int main(int argc, char *argv[]) {
             reader.close();
         }
 
-#pragma omp section
+        #pragma omp section
         {
             // Parse exclude hash into local data structure
             ifstream reader;
@@ -5145,6 +5145,7 @@ int main(int argc, char *argv[]) {
     //***********************************************
     //cout << "Call is Reference Contigs.fa OutStub HashList MaxVarientSize" << endl;
 
+    // Implicit boundary here for parallel sections to complete prior to executing
     double vm, rss, MAXvm, MAXrss;
     MAXvm = 0;
     MAXrss = 0;
