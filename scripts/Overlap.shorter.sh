@@ -125,7 +125,7 @@ then
 		echo "skipping second assemble"
 	else 
 		# Deterministic WITH multi-threading & single-threading Sam assembly step
-		$OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads 
+		$OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 1 
 	fi
 	
 	if [ -s ./$NameStub.overlap.hashcount.fastq ]
@@ -392,7 +392,6 @@ echo "$RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB
 
 echo "MD5s for intermediate files priot to RUFUS Interpret:"
 md5sum ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
-md5sum $dumbFix.Jhash.histo.7.7.dist
 md5sum $HashList
 echo $parentCRString
 md5sum Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample
