@@ -181,7 +181,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 		int AlengthL = A.size(); 
 		int j = indexes[booya]; 
 		
-		string B = sequences[j];
+		string B = sequenes[j];
 		float score = 0;
 		int Blength = B.size();
 
