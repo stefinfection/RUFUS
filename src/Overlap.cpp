@@ -39,6 +39,7 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 	cout << "Rebuilding HashTable - starting at " << Ai << endl;
 	int size = sequences.size();
 
+	// TODO: HARD CODED THREADS
 	#pragma omp parallel for num_threads(12) shared(Hashes)
 	for (int i = Ai; i < size; i++) {
 
@@ -260,6 +261,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 
 					if (score == window) 
 					{
+						// DEBUG TODO: make this a local copy and then lock when updating pointer
 						PerfectMatch = true;
 						break;
 					}
