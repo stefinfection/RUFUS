@@ -32,7 +32,7 @@ bool FullOut = false;
 unordered_map<string, bool> DupCheck; 
 int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aqp, int Ai, int& overlap, int& index, float minPercentpassed, bool& PerfectMatch, int MinOverlapPassed, int Threads) 
 {
-	int QualityOffset = 33; //=64; 
+	int QualityOffset = 33;
 	int MinQual = 20;
 	bool verbose = false;
 	int bestScore = 0;
@@ -43,9 +43,10 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 	{
 		end = sequenes.size();
 	}
+
 	if (FullOut == true ) {cout << "staring alignemtn from " << start << " to " << end<< endl;} 
+
 	#pragma omp parallel for shared(Ap, Aqp, index, overlap, bestScore) num_threads(Threads)
-	// DEBUG TODO: fix with private declaration of PerfectMatch instead of passing a pointer to a shared var...
 	for (int j = start; j < end; j++) 
 	{
 		int MinOverlap = MinOverlapPassed;
@@ -231,7 +232,10 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 				index = LocalIndex;
 				overlap = LocalOverlap;
 			}
-			PerfectMatch = LocalPerfectMatch;
+			// Only want to update this logic if we have found a perfect match
+			if (LocalPerfectMatch) {
+				PerfectMatch = true;
+			}
 		}
 	}
 	return bestScore;

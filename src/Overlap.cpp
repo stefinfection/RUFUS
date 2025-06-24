@@ -39,7 +39,7 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 	cout << "Rebuilding HashTable - starting at " << Ai << endl;
 	int size = sequences.size();
 
-	// TODO: HARD CODED THREADS
+	// THREADS TODO: pass in $Threads variable instead of hardcoding 12
 	#pragma omp parallel for num_threads(12) shared(Hashes)
 	for (int i = Ai; i < size; i++) {
 
@@ -167,7 +167,7 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	return 1;
 }
 
-int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,int& BestIndex, float minPercent, bool& PerfectMatch, int MinOverlap,vector<int>& indexes, int Threads, int NumReads) 
+int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap, int& BestIndex, float minPercent, bool& PerfectMatch, int MinOverlap,vector<int>& indexes, int Threads, int NumReads) 
 {
 	int QualityOffset = 33;
 	bool verbose = false;
@@ -177,22 +177,14 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 	#pragma omp parallel for num_threads(Threads) shared(BestIndex)
 	for (int booya = 0; booya < indexes.size(); booya++) 
 	{
-		string A; 
-		int AlengthL; 
-		int j; 
-		//pragma omp critical (A)
-		{
-			A = Ap;
-			AlengthL = A.size();
-			j = indexes[booya];
-		}
-		string B;
-		bool localcheck;
-		//pragma omp critical (sequenes)
-		{B = sequenes[j];}
+		string A = Ap; 
+		int AlengthL = A.size(); 
+		int j = indexes[booya]; 
+		
+		string B = sequences[j];
 		float score = 0;
 		int Blength = B.size();
-		int k;
+
 		int window = -1;
 		int longest = -1;
 		bool Asmaller = true;
@@ -216,6 +208,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 		int Loverlap = 0;
 		int Acount = 0;
 		int Bcount = 0;
+		int k;
 
 		for (int i = 0; i <= longest - window; i++) 
 		{
@@ -356,7 +349,10 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 				BestIndex = LBestIndex;
 				overlap = Loverlap;
 			}
-			PerfectMatch = LocalPerfectMatch;
+			// Only want to update this logic if we have found a perfect match
+			if (LocalPerfectMatch) {
+				PerfectMatch = true;
+			}
 		}
 	}
 	return bestScore;
