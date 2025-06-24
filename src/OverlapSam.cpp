@@ -45,6 +45,7 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 	}
 	if (FullOut == true ) {cout << "staring alignemtn from " << start << " to " << end<< endl;} 
 	#pragma omp parallel for shared(Ap, Aqp, index, overlap, bestScore) num_threads(Threads)
+	// DEBUG TODO: fix with private declaration of PerfectMatch instead of passing a pointer to a shared var...
 	for (int j = start; j < end; j++) 
 	{
 		int MinOverlap = MinOverlapPassed;
@@ -55,23 +56,18 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 		string A;
 		int Alen;
 		string Aq;
-		//#pragma omp critical
-		{
-			A = Ap;
-			Alen = A.length();
-			Aq = Aqp;
-		}
+		A = Ap;
+		Alen = A.length();
+		Aq = Aqp;
+
 		string B;
 		string Bq;
 		int Blength = -1;
 		int Alength = Alen;
 		int k;
-
-		//#pragma omp critical
-		{
-			B = sequenes[j];
-			Bq = quals[j];
-		}
+		B = sequenes[j];
+		Bq = quals[j];
+		
 		Blength = B.length();
 		int window = -1;
 		int longest = -1;
@@ -147,7 +143,7 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 				}
 			}
 		}
-
+		// DEBUG: Read after write! Race condition
 		if (PerfectMatch == false) 
 		{
 			for (int i = window - 1; i >= MinOverlap; i--) 
