@@ -85,18 +85,10 @@ OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
 MOBList=$RDIR/resources/primate_non-LTR_Retrotransposon.fasta
 
-#if [ -s $NameStub.overlap.hashcount.fastq ]
-#then 
-#	echo "Skipping Overlap"
-#else
-
-
 if [ -s ./$File.bam ] 
 then 
 	echo "skipping align"
 else
-    # Ensure fastq is sorted for reproducibility
-    # todo: this branch needs to be tested
     sortedFastq="sorted."$File
     cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
     
@@ -116,7 +108,6 @@ then
 	then
 	        echo "skipping sam assemble"
 	else
-		# TESTING: does new local var fix multi-threading
 		$OverlapSam <( samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 $FinalCoverage ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	fi 
 	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
@@ -217,7 +208,6 @@ if [ $( head ./$NameStub.overlap.hashcount.fastq | wc -l | awk '{print $1}') -eq
         exit 100
 fi
 
-# Sort fastq file used in subsequence bwa calls for reproducibility
 sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
 if [ -s ./$NameStub".overlap.hashcount.fastq" ]
 then
@@ -338,10 +328,7 @@ do
     parentCRString="$parentCRString -c ./Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent -cR ./Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.$parent "
 done
 
-#echo "final parent String is  $parentCRString"
 ##########################################################################################
-echo "here "
-# Have not tested determinism for this step
 if [ -s ./Intermediates/$NameStub.ref.RepRefHash ]
 then
         echo "Exclude already exists"
