@@ -44,13 +44,10 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 	for (int i = Ai; i < size; i++) {
 
 		if (i % 10000 > 1 && i % 10000 < Threads) {
-			//pragma omp critical (sequences)
-			{cout << "	 Hashed " << i << " of " << sequences.size() << "\r";}
-		
+			cout << "	 Hashed " << i << " of " << sequences.size() << "\r";
 		}
 		string Sequence; 
-		//pragma omp critical (sequences)
-		{Sequence = sequences[i];}
+		Sequence = sequences[i];
 		int LoopLimit = Sequence.size() - SearchHash;
 		for (int j = 0; j < LoopLimit; j++) {
 			string hash = Sequence.substr(j, SearchHash);
@@ -63,8 +60,8 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 				{
 					Hashes[LongHash].push_back(i);
 					Hashes[RevHash].push_back(i);
-				} //end pragma??
-			} //end if
+				}
+			}
 		} 
 	}
 	Hashesize.clear(); 
