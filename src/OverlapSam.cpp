@@ -53,6 +53,7 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 		int LocalBestScore = 0;
 		int LocalIndex = -1;
 		int LocalOverlap = 0;
+		bool LocalPerfectMatch = false;
 		string A;
 		int Alen;
 		string Aq;
@@ -138,13 +139,12 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 					}
 				}
 				if (score == window) {
-					PerfectMatch = true;
+					LocalPerfectMatch = true;
 					break;
 				}
 			}
 		}
-		// DEBUG: Read after write! Race condition
-		if (PerfectMatch == false) 
+		if (LocalPerfectMatch == false) 
 		{
 			for (int i = window - 1; i >= MinOverlap; i--) 
 			{
@@ -231,6 +231,7 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 				index = LocalIndex;
 				overlap = LocalOverlap;
 			}
+			PerfectMatch = LocalPerfectMatch;
 		}
 	}
 	return bestScore;

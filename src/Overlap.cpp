@@ -196,6 +196,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 		int window = -1;
 		int longest = -1;
 		bool Asmaller = true;
+		bool LocalPerfectMatch = false;
 
 		if (Blength > AlengthL) 
 		{
@@ -261,15 +262,14 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 
 					if (score == window) 
 					{
-						// DEBUG TODO: make this a local copy and then lock when updating pointer
-						PerfectMatch = true;
+						LocalPerfectMatch = true;
 						break;
 					}
 				}
 			}
 		}
 
-		if (PerfectMatch == false) 
+		if (LocalPerfectMatch == false) 
 		{
 			for (int i = window - 1; i >= MinOverlap; i--) 
 			{
@@ -356,6 +356,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 				BestIndex = LBestIndex;
 				overlap = Loverlap;
 			}
+			PerfectMatch = LocalPerfectMatch;
 		}
 	}
 	return bestScore;
