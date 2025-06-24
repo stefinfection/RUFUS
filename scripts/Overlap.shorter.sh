@@ -124,7 +124,7 @@ then
 	then 
 		echo "skipping second assemble"
 	else 
-		# Deterministic WITH multi-threading & single-threading Sam assembly step
+		# Deterministic with single threading
 		$OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 1 
 	fi
 	
@@ -132,7 +132,7 @@ then
 	then
 	        echo "skipping final overlap work"
 	else
-			# Deterministic WITH multi-threading & single-threading Sam assembly step
+			# Deterministic WITH single-threading both assembly steps
 	        $ReplaceQwithDinFASTQD ./TempOverlap/$NameStub.final.fastqd > ./$NameStub.overlap.fastqd
 	        $ConvertFASTqD ./$NameStub.overlap.fastqd > ./$NameStub.overlap.fastq
 	
@@ -228,7 +228,6 @@ fi
 sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
 if [ -s ./$NameStub".overlap.hashcount.fastq" ]
 then
-	# Deterministic with single threaded Sam overlap step
     echo "Sorting hashcount fastq file"
     cat ./$NameStub.overlap.hashcount.fastq | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > ./$sortedFastq
 else
@@ -237,7 +236,7 @@ else
     exit 100
 fi
 
-# Only deterministic with single threaded Sam overlap step
+# Only deterministic with single threaded overlap steps
 if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]
 then 
 	echo "skipping contig alignment" 
