@@ -227,7 +227,8 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 		}
 		#pragma omp critical(updateCounts)
 		{
-			if (bestScore < LocalBestScore) {
+		if (bestScore < LocalBestScore || 
+        	(bestScore == LocalBestScore && LocalIndex < index)) {  // Tie-breaker to ensure consistent results		
 				bestScore = LocalBestScore;
 				index = LocalIndex;
 				overlap = LocalOverlap;

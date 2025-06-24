@@ -262,6 +262,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 			}
 		}
 
+		// If we haven't found a perfect match, continue searching for overlaps
 		if (LocalPerfectMatch == false) 
 		{
 			for (int i = window - 1; i >= MinOverlap; i--) 
@@ -344,10 +345,11 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 		}
 		#pragma omp critical (best)
 		{
-			if (LbestScore > bestScore) {
-				bestScore = LbestScore;
-				BestIndex = LBestIndex;
-				overlap = Loverlap;
+			if (LbestScore > bestScore ||
+				(LbestScore == bestScore && LBestIndex < BestIndex)) { // Must have tie breaker to ensure consistent results
+					bestScore = LbestScore;
+					BestIndex = LBestIndex;
+					overlap = Loverlap;
 			}
 			// Only want to update this logic if we have found a perfect match
 			if (LocalPerfectMatch) {
