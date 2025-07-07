@@ -1,4 +1,4 @@
-/*By ANDREW FARRELL
+/*By ANDREW FARRELL; updated by SJG Jul2025
  * Overlap.cpp
  * --------------------------------------------------
  * Assembles k-mers containing variation into contigs
@@ -81,50 +81,49 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordere
 }
 
 /*
-	This function is called within a parallel section from main
+	For a single sequence, iterates through each kmer of hashLength and looks to see what sequences it is obtained within (i.e. the indexes of those sequences in sequences).
+	This function is called within a parallel section from main, hence the critical sections.
 	A: sequence to search
-	Ai: the index of the sequence in the original list which is not passed here - todo: what is this used for?
+	Ai: the index of the sequence in the original list which is not passed here
+	hashLength: the window for creating kmers
+	ACT: the alignment count threshold (how many times a kmer must be found in the sequences to be considered for alignment)
+	Hashes: the hash table containing the kmer as key and a vector of indexes of sequences containing that kmer as value
 */
-int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex , unordered_map<unsigned long, int>& HashListLength) 
+int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex , unordered_map<unsigned long, int>& HashListLength) 
 {
 	int Alength = A.size();
 	map<int, int> Positions;
 	int added = 0;
 
-	// Find N in sequence A
 	for (int i = 0; i < Alength - hashLength; i++) {
 		string hash = A.substr(i, hashLength);
 		size_t found = hash.find('N');
 
 		if (found == std::string::npos) {
 			unsigned long LongHash = Util::HashToLong(hash);
-			int max=0; 
+			#pragma omp critical(updateHash) {
+				int numMatches = HashListLength[LongHash];
 			
-			// atomic is not going to work for complex data structure - HashListLength could be wiped/written to in rebuild while checking
-			#pragma omp critical(updateHashSize) {
-				max += HashListLength[LongHash];
-			}
-
-			for (vector<int>::size_type i = 0; i < max; i++) 
-			{
-				int holder = 0; 
-				#pragma omp critical(updateHash) {
-					holder += Hashes[LongHash][i];
-				}
-				if (holder > Ai ){
-					if (Positions.count(holder) > 0) {
-						Positions[holder]++;
-						added++;
-					} else {
-						Positions[holder] = 1;
-						added++;
+				// Iterate through all matches this kmer has in Hashes
+				for (vector<int>::size_type i = 0; i < numMatches; i++) {
+					int holder = Hashes[LongHash][i];
+									
+					// For any index that is greater than our starting point, add a count to the Positions map
+					if (holder > Ai ){
+						if (Positions.count(holder) > 0) {
+							Positions[holder]++;
+							added++;
+						} else {
+							Positions[holder] = 1;
+							added++;
+						}
 					}
-				}
 
-				if (added > 100000) {
-					hitPosLimit = true;
-					NumberPos = added;
-					break;
+					if (added > 100000) {
+						hitPosLimit = true;
+						NumberPos = added;
+						break;
+					}
 				}
 			}
 		}
@@ -140,12 +139,12 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	map<int, int>::iterator uspos;
 	multimap<int, int> SortedPositions;
 
-        for (uspos = Positions.begin(); uspos != Positions.end(); ++uspos) {
-                if (uspos->second > ACT)
-                {
-                    SortedPositions.insert(std::make_pair(uspos->second,uspos->first));
-                }
-        }
+	for (uspos = Positions.begin(); uspos != Positions.end(); ++uspos) {
+			if (uspos->second > ACT)
+			{
+				SortedPositions.insert(std::make_pair(uspos->second,uspos->first));
+			}
+	}
 
 
 	if (FullOut) {
@@ -157,19 +156,18 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	map<double, int>::iterator pos;
 	vector<int> indexes;
 	int sanity = 0;
-	
 
 	for (auto pos = SortedPositions.rbegin() ; pos !=  SortedPositions.rend(); pos++)
         {
 		if (pos->first >= ACT) {
-                	indexes.push_back(pos->second + 0);
+            indexes.push_back(pos->second + 0);
 			sanity++;
 
-                        if (sanity > 1000) {
-                                hitIndexLimit = true;
-                                NumberIndex = sanity;
-                                break;
-                        }
+			if (sanity > 1000) {
+					hitIndexLimit = true;
+					NumberIndex = sanity;
+					break;
+			}
                 }
 
         }
@@ -195,11 +193,11 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 	int bestScore = 0;
 
 	#pragma omp parallel for num_threads(Threads) shared(BestIndex, overlap, bestScore, PerfectMatch, sequenes)
-	for (int booya = 0; booya < indexes.size(); booya++) 
+	for (int i = 0; i < indexes.size(); i++) 
 	{
 		string A = Ap; 
 		int AlengthL = A.size(); 
-		int j = indexes[booya]; 
+		int j = indexes[i]; 
 		
 		string B = sequenes[j];
 		float score = 0;
@@ -886,7 +884,7 @@ int main(int argc, char* argv[]) {
 	double AverageRPos = 0.0;
 	double AverageRSanity = 0.0;
 
-	// Iterate through every sequence 
+	// Outer loop iterating through every sequence in chunks of Buffer size
 	for (std::vector<string>::size_type b = 0; b < sequenes.size(); b += Buffer) {
 		LinesSinceLastBuild += Buffer;
 
@@ -910,7 +908,7 @@ int main(int argc, char* argv[]) {
 			cout << "Bulding list to align" << endl;
 		}
 
-		// For each sequence, sending thread to PrepairSearchList
+		// For each sequence in chunk, prepare list of potential alignment matches by comparing kmers
 		#pragma omp parallel for num_threads(Threads) shared(Hashes, Forwards)
 		for (int i = b; i < max; i++) 
 		{
@@ -919,7 +917,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepairSearchList(A, i, Hashes, hashLength, ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, HashListLength);
+			PrepareSearchList(A, i, Hashes, hashLength, ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, HashListLength);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -938,7 +936,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepairSearchList(A, i, Hashes, hashLength, ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, HashListLength);
+			PrepareSearchList(A, i, Hashes, hashLength, ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, HashListLength);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -953,6 +951,7 @@ int main(int argc, char* argv[]) {
 			cout << "Done Bulding List" << endl;
 		}
 
+		// Serially iterate through this chunk of sequences
 		for (int i = b; i < max; i++) {
 			string A, Aqual, Adep, Astr;
 			A = sequenes[i];
@@ -985,13 +984,15 @@ int main(int argc, char* argv[]) {
 						 << " AvI= " << (AverageRSanity + AverageFSanity) / 2.0 << "\r";
 			}
 
-			int booya = Align3(sequenes, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Forwards[i], Threads, NumReads);
+			// Align the current sequence with the possible options in Forwards
+			int bestScore = Align3(sequenes, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Forwards[i], Threads, NumReads);
 
 			if (FullOut) {
-				cout << "best forward score is " << booya << " k is " << k
+				cout << "best forward score is " << bestScore << " k is " << k
 						 << " index = " << bestIndex << endl;
 			}
 
+			// If we don't have a perfect match, align the current sequence with the possible options in Revs
 			if (!(PerfectMatch)) {
 				string revA = Util::RevComp(A);
 				string revAqual = Util::RevQual(Aqual);
@@ -1004,20 +1005,20 @@ int main(int argc, char* argv[]) {
 					cout << "Checking Reverse\n";
 				}
 
-				int revbooya =	Align3(sequenes, revA, revAqual, i, revk, revbestIndex, MinPercent, PerfectMatch, MinOverlap, Revs[i], Threads, NumReads);
+				int revBestScore =	Align3(sequenes, revA, revAqual, i, revk, revbestIndex, MinPercent, PerfectMatch, MinOverlap, Revs[i], Threads, NumReads);
 				if (FullOut) {
-					cout << "best reverse score is " << revbooya << " k is " << revk
+					cout << "best reverse score is " << revBestScore << " k is " << revk
 							 << " index = " << revbestIndex << endl;
 				}
 
-				// TODO: here is one part where we need to keep revbooya AND booya if they have equal alignment scores
-				if (revbooya > booya) {
+				// TODO: here is one part where we need to keep revBestScore AND booya if they have equal alignment scores
+				if (revBestScore > bestScore) {
 					A = revA;
 					Aqual = revAqual;
 					Adep = revAdep;
 					Astr = revAstr;
 					k = revk;
-					booya = revbooya;
+					bestScore = revBestScore;
 					bestIndex = revbestIndex;
 				}
 			} else {
@@ -1026,7 +1027,8 @@ int main(int argc, char* argv[]) {
 				}
 			}
 
-			if (booya < MinOverlap) {
+			// Check that we meet our minimum overlap requirement
+			if (bestScore < MinOverlap) {
 				if (FullOut) {
 					cout << "No good match found, skipping" << endl;
 				}
@@ -1090,56 +1092,41 @@ int main(int argc, char* argv[]) {
 				strand[bestIndex] = Bstr;
 				sequenes[i] = "moved";
 
-				// Now iterate through chunk of sequences in Hashes table that don't have Ns
-				// If we find one, iterate through all 
-
-				// LEFT OFF HERE - trying to understand what is happening in this section - why are we adding the bestIndex to the 
+				// Update hash table Hashes with updated collapsed info
 				#pragma omp parallel for num_threads(Threads) shared(Hashes)
 				for (int j = 0; j < A.size() - hashLength; j++) {
 					string hash = A.substr(j, hashLength);
 					size_t foundIdx = hash.find('N');
-
+					
 					if (foundIdx == std::string::npos) {
-						bool foundForwardMatch = false;
-						bool foundReverseMatch = false;
-						int k = 0;
-
-						vector<int> &currKmerList;
-						#pragma omp critical (Hashes) {
-							currKmerList = Hashes[Util::HashToLong(hash)];
-						}
-						// I think what's happening here is that the hash table might be rebuilding, so the size could increase
-						// If that's the case, the loop could be extended/continued relative to where it first thought it should stop
-						// Is there a better way to do this? 
-
-						for (k = 0; k < currKmerList.size(); k++) {
-							if (currKmerList[k] == bestIndex) {
-								foundForwardMatch = true;
-								break;
-							} else {
-								#pragma omp critical (Hashes) {
-									currKmerList = Hashes[Util::HashToLong(hash)];
+						unsigned long forwardHash = Util::HashToLong(hash);
+						unsigned long reverseHash = Util::HashToLong(Util::RevComp(hash));
+						
+						#pragma omp critical(updateHash) {
+							
+							bool foundForwardMatch = false;
+							vector<int>& forwardList = Hashes[forwardHash];
+							for (int k = 0; k < forwardList.size(); k++) {
+								if (forwardList[k] == bestIndex) {
+									foundForwardMatch = true;
+									break;
 								}
 							}
-						}
-
-						if (foundForwardMatch == false) {
-							#pragma omp critical (Hashes) {
-								Hashes[Util::HashToLong(hash)].push_back(bestIndex);
+							if (!foundForwardMatch) {
+								Hashes[forwardHash].push_back(bestIndex);
 							}
-						}
-
-						// Search reverse strings with same size limit?
-						for (k = 0; k < currKmerList.size(); k++) {
-							if (currKmerList[k] == bestIndex) {
-								foundReverseMatch = true;
-								break;
+							
+							
+							bool foundReverseMatch = false;
+							vector<int>& reverseList = Hashes[reverseHash];
+							for (int k = 0; k < reverseList.size(); k++) {
+								if (reverseList[k] == bestIndex) {
+									foundReverseMatch = true;
+									break;
+								}
 							}
-						}
-						if (foundReverseMatch == false) {
-							#pragma omp critical (Hashes)
-							{
-								Hashes[Util::HashToLong(Util::RevComp(hash))].push_back(bestIndex);
+							if (!foundReverseMatch) {
+								Hashes[reverseHash].push_back(bestIndex);
 							}
 						}
 					}
@@ -1193,13 +1180,13 @@ int main(int argc, char* argv[]) {
 				DepReport << qual[i] << endl;
 				DepReport << strand[i] << endl;
 				unsigned char C = depth[i].c_str()[0];
-				int booya = C;
-				DepReport << booya;
+				int bestScore = C;
+				DepReport << bestScore;
 
 				for (int w = 1; w < depth[i].size(); w++) {
 					C = depth[i].c_str()[w];
-					booya = C;
-					DepReport << ' ' << booya;
+					bestScore = C;
+					DepReport << ' ' << bestScore;
 				}
 
 				DepReport << endl;
