@@ -40,14 +40,15 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 	int size = sequences.size();
 
 	// THREADS TODO: pass in $Threads variable instead of hardcoding 12
-	#pragma omp parallel for num_threads(12) shared(Hashes)
+	#pragma omp parallel for num_threads(12) shared(Hashes, sequences, SearchHash)
 	for (int i = Ai; i < size; i++) {
 
 		if (i % 10000 > 1 && i % 10000 < Threads) {
-			cout << "	 Hashed " << i << " of " << sequences.size() << "\r";
+			#pragma omp critical(progressOut) {
+				cout << "	 Hashed " << i << " of " << sequences.size() << "\r";
+			}
 		}
-		string Sequence; 
-		Sequence = sequences[i];
+		string Sequence = sequences[i];
 		int LoopLimit = Sequence.size() - SearchHash;
 		for (int j = 0; j < LoopLimit; j++) {
 			string hash = Sequence.substr(j, SearchHash);
@@ -64,6 +65,8 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 			}
 		} 
 	}
+
+	// Not parallelized - could it be?
 	Hashesize.clear(); 
 	for (auto it = Hashes.begin(); it != Hashes.end(); it++)
 	{
@@ -73,12 +76,20 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 	return 0;
 }
 
-int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes,int SearchHash, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos,	int& NumberIndex , unordered_map<unsigned long, int>& Hashesize) 
+/*
+	This function is called within a parallel section
+	A: sequence to search
+	Ai: the index of the sequence in the original list which is not passed here - todo: what is this used for?
+
+	SearchHash: size of hash 
+*/
+int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int SearchHash, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos,	int& NumberIndex , unordered_map<unsigned long, int>& Hashesize) 
 {
 	int Alength = A.size();
 	map<int, int> Positions;
 	int added = 0;
 
+	// Find N in sequence A
 	for (int i = 0; i < Alength - SearchHash; i++) {
 		string hash = A.substr(i, SearchHash);
 		size_t found = hash.find('N');
@@ -87,22 +98,25 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 			unsigned long LongHash = Util::HashToLong(hash);
 			int max=0; 
 			
-			#pragma omp atomic 
+			// atomic is not going to work for complex data structure - Hashesize could be wiped/written to in rebuild while checking
+			#pragma omp critical(updateHashSize) {
 				max += Hashesize[LongHash];
+			}
+
 			for (vector<int>::size_type i = 0; i < max; i++) 
 			{
 				int holder = 0; 
-				#pragma omp atomic 
-				holder += Hashes[LongHash][i];
-				if (holder > Ai ){//+ 1) {
-
+				#pragma omp critical(updateHash) {
+					holder += Hashes[LongHash][i];
+				}
+				if (holder > Ai ){
 					if (Positions.count(holder) > 0) {
-			Positions[holder]++;
-			added++;
-		} else {
-			Positions[holder] = 1;
-			added++;
-		}
+						Positions[holder]++;
+						added++;
+					} else {
+						Positions[holder] = 1;
+						added++;
+					}
 				}
 
 				if (added > 100000) {
@@ -875,8 +889,8 @@ int main(int argc, char* argv[]) {
 			cout << "Bulding list to align" << endl;
 		}
 
-		
-#pragma omp parallel for num_threads(Threads) shared(Hashes, Forwards)
+		// For each sequence, sending thread to PrepairSearchList
+		#pragma omp parallel for num_threads(Threads) shared(Hashes, Forwards)
 		for (int i = b; i < max; i++) 
 		{
 			string A = sequenes[i];
@@ -884,7 +898,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepairSearchList(A, i, Hashes, SearchHash, ACT, Forwards, posLimit,sanityLimit, NumPos, NumSanity, Hashesize);
+			PrepairSearchList(A, i, Hashes, SearchHash, ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, Hashesize);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -895,7 +909,7 @@ int main(int argc, char* argv[]) {
 			AverageFSanity = ((AverageFSanity * (double)b) + (double)NumSanity) /((double)b + 1.0);
 		}
 
-#pragma omp parallel for num_threads(Threads) shared(Hashes, Revs)
+		#pragma omp parallel for num_threads(Threads) shared(Hashes, Revs)
 		for (int i = b; i < max; i++) 
 		{
 			string A = Util::RevComp(sequenes[i]);
@@ -1071,7 +1085,7 @@ int main(int argc, char* argv[]) {
 							}
 						}
 
-						if (found = false) {
+						if (found == false) {
 							#pragma omp critical (Hashes)
 							{
 								Hashes[Util::HashToLong(hash)].push_back(bestIndex);
