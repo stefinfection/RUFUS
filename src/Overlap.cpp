@@ -31,16 +31,19 @@ using namespace std;
 
 bool FullOut = false;
 
-int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long, int>& Hashesize)
+/*
+	Completely clears and builds the Hashes hash table, which has (numeric hash of) kmer as keys and a vector as the value, which contains
+	all indices of full-length reads in sequences that contain that kmer.
+*/
+int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long, int>& HashListLength)
 {
-	cout << "\nDestrying HashTable\n";
+	cout << "\nDestroying HashTable\n";
 	Hashes.clear();
 	cout << "HashTable destroyed\n";
 	cout << "Rebuilding HashTable - starting at " << Ai << endl;
 	int size = sequences.size();
 
-	// THREADS TODO: pass in $Threads variable instead of hardcoding 12
-	#pragma omp parallel for num_threads(12) shared(Hashes, sequences, SearchHash)
+	#pragma omp parallel for num_threads(Threads) shared(Hashes, sequences)
 	for (int i = Ai; i < size; i++) {
 
 		if (i % 10000 > 1 && i % 10000 < Threads) {
@@ -48,13 +51,15 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 				cout << "	 Hashed " << i << " of " << sequences.size() << "\r";
 			}
 		}
+		// Iterate through the sequence and get hashLength sized chunks
+		// If the chunk does NOT have an 'N' in it, add it to the hash table
 		string Sequence = sequences[i];
-		int LoopLimit = Sequence.size() - SearchHash;
+		int LoopLimit = Sequence.size() - hashLength;
 		for (int j = 0; j < LoopLimit; j++) {
-			string hash = Sequence.substr(j, SearchHash);
+			string hash = Sequence.substr(j, hashLength);
 			size_t found = hash.find('N');
 			
-			if (found == std::string::npos) {
+			if (found == std::string::npos) {	// npos is a constant for "not found"
 				unsigned long LongHash = Util::HashToLong(hash);
 				unsigned long RevHash = Util::HashToLong(Util::RevComp(hash));
 				#pragma omp critical(updateHash)
@@ -63,44 +68,41 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int SearchHash, unordere
 					Hashes[RevHash].push_back(i);
 				}
 			}
-		} 
+		}
 	}
 
-	// Not parallelized - could it be?
-	Hashesize.clear(); 
+	HashListLength.clear(); 
 	for (auto it = Hashes.begin(); it != Hashes.end(); it++)
 	{
-		Hashesize[it->first] = it->second.size(); 
+		HashListLength[it->first] = it->second.size(); 
 	}
 	cout << "\nDone Rebulding HashTable size is " << Hashes.size() << endl;
 	return 0;
 }
 
 /*
-	This function is called within a parallel section
+	This function is called within a parallel section from main
 	A: sequence to search
 	Ai: the index of the sequence in the original list which is not passed here - todo: what is this used for?
-
-	SearchHash: size of hash 
 */
-int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int SearchHash, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos,	int& NumberIndex , unordered_map<unsigned long, int>& Hashesize) 
+int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex , unordered_map<unsigned long, int>& HashListLength) 
 {
 	int Alength = A.size();
 	map<int, int> Positions;
 	int added = 0;
 
 	// Find N in sequence A
-	for (int i = 0; i < Alength - SearchHash; i++) {
-		string hash = A.substr(i, SearchHash);
+	for (int i = 0; i < Alength - hashLength; i++) {
+		string hash = A.substr(i, hashLength);
 		size_t found = hash.find('N');
 
 		if (found == std::string::npos) {
 			unsigned long LongHash = Util::HashToLong(hash);
 			int max=0; 
 			
-			// atomic is not going to work for complex data structure - Hashesize could be wiped/written to in rebuild while checking
+			// atomic is not going to work for complex data structure - HashListLength could be wiped/written to in rebuild while checking
 			#pragma omp critical(updateHashSize) {
-				max += Hashesize[LongHash];
+				max += HashListLength[LongHash];
 			}
 
 			for (vector<int>::size_type i = 0; i < max; i++) 
@@ -129,7 +131,9 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	}
 
 	if (FullOut) {
-		cout << "done Hashing read" << endl;
+		#pragma omp critical(progressOut) { 
+			cout << "done Hashing read" << endl;
+		}
 	}
 
 	NumberPos = added;
@@ -139,13 +143,15 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
         for (uspos = Positions.begin(); uspos != Positions.end(); ++uspos) {
                 if (uspos->second > ACT)
                 {
-                        SortedPositions.insert(std::make_pair(uspos->second,uspos->first));
+                    SortedPositions.insert(std::make_pair(uspos->second,uspos->first));
                 }
         }
 
 
 	if (FullOut) {
-		cout << "found - " << Positions.size() << " possible locations" << endl;
+		#pragma omp critical(progressOut) { 
+			cout << "found - " << Positions.size() << " possible locations" << endl;
+		}
 	}
 
 	map<double, int>::iterator pos;
@@ -169,11 +175,14 @@ int PrepairSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
         }
 
 	NumberIndex = sanity;
-	#pragma omp critical (array)
-	{ array[Ai] = indexes; }
+	#pragma omp critical (array) { 
+		array[Ai] = indexes; 
+	}
 
 	if (FullOut) {
-		cout << "			 " << indexes.size() << " locations passed filter" << endl;
+		#pragma omp critical(progressOut) { 
+			cout << "			 " << indexes.size() << " locations passed filter" << endl;
+		}
 	}
 	return 1;
 }
@@ -185,7 +194,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 	int Alength = Ap.size();
 	int bestScore = 0;
 
-	#pragma omp parallel for num_threads(Threads) shared(BestIndex)
+	#pragma omp parallel for num_threads(Threads) shared(BestIndex, overlap, bestScore, PerfectMatch, sequenes)
 	for (int booya = 0; booya < indexes.size(); booya++) 
 	{
 		string A = Ap; 
@@ -340,7 +349,7 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 
 				float percent = score / (k);
 
-				if (percent > minPercent) 
+				if (percent >= minPercent) 
 				{
 					if (LbestScore < score) 
 					{
@@ -619,16 +628,18 @@ int main(int argc, char* argv[]) {
     float MinPercent = stof(argv[2]);
     long int MinOverlap = strtol(argv[3], nullptr, 0);
     long int MinCoverage = strtol(argv[4], nullptr, 0);
-    long int SearchHash = strtol(argv[6], nullptr, 0); // if doesn't exist set to 30?
+    long int hashLength = strtol(argv[6], nullptr, 0); // if doesn't exist set to 30?
     long int ACT = strtol(argv[7], nullptr, 0);
     long int TrimLCcuttoff = strtol(argv[9], nullptr, 0);
     long int Threads = strtol(argv[10], nullptr, 0);
     long int Buffer = 100 * Threads;
 
+
+	// Input checking until line ~703
     cout << "you gave " << argc << " Arguments" << endl;
 	if (argc != 11) {
 		cout << "ERROR, wrong number of arguments \n Call is: FASTQ, MinPercent, "
-						"MinOverlap, MinCoverage, ReportStub, SearchHashSize, ACT, OutFile "
+						"MinOverlap, MinCoverage, ReportStub, hashLengthSize, ACT, OutFile "
 						"LCendTrimLength Threads"
 				 << endl;
 		return 0;
@@ -695,12 +706,12 @@ int main(int argc, char* argv[]) {
 	}
 
 	string line;
-	vector<string> sequenes;	// = new vector<string>;
-	vector<string> qual;			//= new vector<string>;
-	vector<string> depth;		 // = new vector<string>;
-	vector<string> strand;
-	std::unordered_map<unsigned long, vector<int>> Hashes;
-	std::unordered_map<unsigned long, int> Hashesize; 
+	vector<string> sequenes;	// The array of full-length sequences extracted from the input fastq file
+	vector<string> qual;		// An array of the per-nucleotide qualities corresponding to the sequences
+	vector<string> depth;		// An array of the per-nucleotide kmer-depths corresponding to the sequences
+	vector<string> strand;		// An array of the strands each sequence is located on
+	std::unordered_map<unsigned long, vector<int>> Hashes;	// The hash table of kmer hashes to indices of sequences containing that kmer
+	std::unordered_map<unsigned long, int> HashListLength; 		// The hash table of kmer hashes to the number of sequences containing that kmer
 	int lines = -1;
 	int goodlines = 0;
 	int dup = 0;
@@ -714,6 +725,8 @@ int main(int argc, char* argv[]) {
 	string Fastqd = argv[1];
 	size_t found = Fastqd.find(".fastqd");
 
+	// READ IN FASTQs UNTIL LINE @ ~869
+	// If we're reading in a fastq+depth file, we simply trim off the low coverage ends before starting to process the reads
 	if (found != string::npos) {
 		int counter = 0;
 		cout << "ATTENTION - Fastq+depth input detected, reading in FASTQD file \n";
@@ -743,12 +756,11 @@ int main(int argc, char* argv[]) {
 				}
 			}
 
-			//Multiple = false;
 			if (Multiple == true) {
 				L2 = TrimLowCoverageEnds(L2, L4, depths, TrimLCcuttoff);
 			}
 
-			if (L2.size() > SearchHash + 1) {
+			if (L2.size() > hashLength + 1) {
 				lines++;
 				sequenes.push_back(L2);
 				qual.push_back(L4);
@@ -760,6 +772,7 @@ int main(int argc, char* argv[]) {
 				bad << L1 << endl << L2 << endl << L3 << endl << L4 << endl;
 			}
 		}
+	// If we have a fastq file, we (should be) check for duplicates, trim Ns, and adjust bases based on quality values before processing reads
 	} else {
 		vector<string> DupCheck;
 		cout << "Reading in raw fastq \n";
@@ -791,7 +804,9 @@ int main(int argc, char* argv[]) {
 
 			if (RunDupCheck) {
 
-#pragma omp parallel for num_threads(Threads) shared(DupCheck, L2, found)
+				// BUG FIX NEEDED
+				// NOTE: this is currently NEVER run because nothing added to DupCheck until we've already run the loop
+				#pragma omp parallel for num_threads(Threads) shared(DupCheck, L2, found)
 				for (int i = 0; i < DupCheck.size(); i++) {
 					if (L2.size() == DupCheck[i].size()) {
 						bool AllBasesMatch = true;
@@ -806,8 +821,9 @@ int main(int argc, char* argv[]) {
 						}
 
 						if (AllBasesMatch) {
-							#pragma omp critical (found)
-							{ found = true; }
+							#pragma omp critical (found) { 
+								found = true; 
+							}
 						}
 					}
 				}
@@ -845,6 +861,7 @@ int main(int argc, char* argv[]) {
 		DupCheck.clear();
 	}
 
+
 	good.close();
 	bad.close();
 	cout << "done reading " << endl;
@@ -854,7 +871,9 @@ int main(int argc, char* argv[]) {
 			 << " duplicate reads detected for a total of " << goodlines
 			 << "good reads" << endl;
 
-	RebuildHashTable(sequenes, 0, SearchHash, Hashes, Threads, Hashesize);
+
+	// First kmer table build after reading in all of the fastq/d reads
+	RebuildHashTable(sequenes, 0, hashLength, Hashes, Threads, HashListLength);
 	clock_t St, Et;
 	int FoundMatch = 0;
 	struct timeval start, end;
@@ -871,7 +890,7 @@ int main(int argc, char* argv[]) {
 		LinesSinceLastBuild += Buffer;
 
 		if (LinesSinceLastBuild > 1000000) {
-			RebuildHashTable(sequenes, b, SearchHash, Hashes, Threads, Hashesize);
+			RebuildHashTable(sequenes, b, hashLength, Hashes, Threads, HashListLength);
 			LinesSinceLastBuild = 0;
 		}
 
@@ -898,7 +917,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepairSearchList(A, i, Hashes, SearchHash, ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, Hashesize);
+			PrepairSearchList(A, i, Hashes, hashLength, ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, HashListLength);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -917,7 +936,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepairSearchList(A, i, Hashes, SearchHash, ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, Hashesize);
+			PrepairSearchList(A, i, Hashes, hashLength, ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, HashListLength);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -964,7 +983,7 @@ int main(int argc, char* argv[]) {
 						 << " AvI= " << (AverageRSanity + AverageFSanity) / 2.0 << "\r";
 			}
 
-			int booya =Align3(sequenes, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Forwards[i], Threads, NumReads);
+			int booya = Align3(sequenes, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Forwards[i], Threads, NumReads);
 
 			if (FullOut) {
 				cout << "best forward score is " << booya << " k is " << k
@@ -1021,8 +1040,8 @@ int main(int argc, char* argv[]) {
 						cout << "found match at " << k << endl;
 
 						for (int z = 0; z < k; z++) {
-				cout << "+";
-			}
+							cout << "+";
+						}
 
 						cout << A << endl << B << endl;
 
@@ -1038,12 +1057,12 @@ int main(int argc, char* argv[]) {
 						cout << A << endl;
 
 						for (int z = 0; z < abs(k); z++) {
-				cout << "-";
-			}
+							cout << "-";
+						}
 						cout << B << endl;
 						for (int z = 0; z < abs(k); z++) {
-				cout << "-"; 
-			}
+							cout << "-"; 
+						}
 						for (int z = 0; z < Bdep.size(); z++) {
 							int bam = Bdep.c_str()[z];
 							cout << bam;
@@ -1053,9 +1072,7 @@ int main(int argc, char* argv[]) {
 					}
 				}
 
-				string combined =
-		ColapsContigs(A, B, k, Aqual, Bqual, Adep, Bdep, Astr, Bstr);
-
+				string combined = ColapsContigs(A, B, k, Aqual, Bqual, Adep, Bdep, Astr, Bstr);
 				if (Bqual.size() != combined.size()) {
 					cout << "ERRRORRR "
 									"^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
@@ -1069,40 +1086,51 @@ int main(int argc, char* argv[]) {
 				strand[bestIndex] = Bstr;
 				sequenes[i] = "moved";
 
-#pragma omp parallel for num_threads(Threads) shared(Hashes)
-				for (int j = 0; j < A.size() - SearchHash; j++) {
-					string hash = A.substr(j, SearchHash);
-					size_t found = hash.find('N');
+				// Now iterate through chunk of sequences in Hashes table & check each for Ns
+				// If we find one, iterate through all 
+				#pragma omp parallel for num_threads(Threads) shared(Hashes)
+				for (int j = 0; j < A.size() - hashLength; j++) {
+					string hash = A.substr(j, hashLength);
+					size_t foundIdx = hash.find('N');
 
-					if (found == std::string::npos) {
-						bool found = false;
+					if (foundIdx == std::string::npos) {
+						bool foundForwardMatch = false;
+						bool foundReverseMatch = false;
 						int k = 0;
 
-						for (k = 0; k < Hashes[Util::HashToLong(hash)].size(); k++) {
-							if (Hashes[Util::HashToLong(hash)][k] == bestIndex) {
-								found = true;
+						long currHashSize = 0;
+						#pragma omp critical (Hashes) {
+							currHashBucket = Hashes[Util::HashToLong(hash)];
+						}
+						// I think what's happening here is that the hash table might be rebuilding, so the size could increase
+						// If that's the case, the loop could be extended/continued relative to where it first thought it should stop
+						// Is there a better way to do this? 
+
+						for (k = 0; k < currHashBucket.size(); k++) {
+							if (currHashBucket[k] == bestIndex) {
+								foundForwardMatch = true;
 								break;
+							} else {
+								#pragma omp critical (Hashes) {
+									currHashBucket = Hashes[Util::HashToLong(hash)];
+								}
 							}
 						}
 
-						if (found == false) {
-							#pragma omp critical (Hashes)
-							{
+						if (foundForwardMatch == false) {
+							#pragma omp critical (Hashes) {
 								Hashes[Util::HashToLong(hash)].push_back(bestIndex);
 							}
 						}
-						found = false;
 
-						for (k = 0;
-								 k < Hashes[Util::HashToLong(Util::RevComp(hash))].size();
-								 k++) {
-							if (Hashes[Util::HashToLong(Util::RevComp(hash))][k] ==	bestIndex) {
-								found = true;
+						// Search reverse strings with same size limit?
+						for (k = 0; k < currHashBucket.size(); k++) {
+							if (currHashBucket[k] == bestIndex) {
+								foundReverseMatch = true;
 								break;
 							}
 						}
-
-						if (found = false) {
+						if (foundReverseMatch == false) {
 							#pragma omp critical (Hashes)
 							{
 								Hashes[Util::HashToLong(Util::RevComp(hash))].push_back(bestIndex);
