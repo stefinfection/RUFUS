@@ -886,9 +886,11 @@ int main(int argc, char* argv[]) {
 	double AverageRPos = 0.0;
 	double AverageRSanity = 0.0;
 
+	// Iterate through every sequence 
 	for (std::vector<string>::size_type b = 0; b < sequenes.size(); b += Buffer) {
 		LinesSinceLastBuild += Buffer;
 
+		// Rebuild hash table every million lines
 		if (LinesSinceLastBuild > 1000000) {
 			RebuildHashTable(sequenes, b, hashLength, Hashes, Threads, HashListLength);
 			LinesSinceLastBuild = 0;
@@ -1008,6 +1010,7 @@ int main(int argc, char* argv[]) {
 							 << " index = " << revbestIndex << endl;
 				}
 
+				// TODO: here is one part where we need to keep revbooya AND booya if they have equal alignment scores
 				if (revbooya > booya) {
 					A = revA;
 					Aqual = revAqual;
@@ -1072,6 +1075,7 @@ int main(int argc, char* argv[]) {
 					}
 				}
 
+				// Collapse the sequences for the best match - again TODO: will need to make this work for multiple equal matches
 				string combined = ColapsContigs(A, B, k, Aqual, Bqual, Adep, Bdep, Astr, Bstr);
 				if (Bqual.size() != combined.size()) {
 					cout << "ERRRORRR "
@@ -1086,8 +1090,10 @@ int main(int argc, char* argv[]) {
 				strand[bestIndex] = Bstr;
 				sequenes[i] = "moved";
 
-				// Now iterate through chunk of sequences in Hashes table & check each for Ns
+				// Now iterate through chunk of sequences in Hashes table that don't have Ns
 				// If we find one, iterate through all 
+
+				// LEFT OFF HERE - trying to understand what is happening in this section - why are we adding the bestIndex to the 
 				#pragma omp parallel for num_threads(Threads) shared(Hashes)
 				for (int j = 0; j < A.size() - hashLength; j++) {
 					string hash = A.substr(j, hashLength);
@@ -1098,21 +1104,21 @@ int main(int argc, char* argv[]) {
 						bool foundReverseMatch = false;
 						int k = 0;
 
-						long currHashSize = 0;
+						vector<int> &currKmerList;
 						#pragma omp critical (Hashes) {
-							currHashBucket = Hashes[Util::HashToLong(hash)];
+							currKmerList = Hashes[Util::HashToLong(hash)];
 						}
 						// I think what's happening here is that the hash table might be rebuilding, so the size could increase
 						// If that's the case, the loop could be extended/continued relative to where it first thought it should stop
 						// Is there a better way to do this? 
 
-						for (k = 0; k < currHashBucket.size(); k++) {
-							if (currHashBucket[k] == bestIndex) {
+						for (k = 0; k < currKmerList.size(); k++) {
+							if (currKmerList[k] == bestIndex) {
 								foundForwardMatch = true;
 								break;
 							} else {
 								#pragma omp critical (Hashes) {
-									currHashBucket = Hashes[Util::HashToLong(hash)];
+									currKmerList = Hashes[Util::HashToLong(hash)];
 								}
 							}
 						}
@@ -1124,8 +1130,8 @@ int main(int argc, char* argv[]) {
 						}
 
 						// Search reverse strings with same size limit?
-						for (k = 0; k < currHashBucket.size(); k++) {
-							if (currHashBucket[k] == bestIndex) {
+						for (k = 0; k < currKmerList.size(); k++) {
+							if (currKmerList[k] == bestIndex) {
 								foundReverseMatch = true;
 								break;
 							}
