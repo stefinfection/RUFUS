@@ -718,7 +718,6 @@ fi
 #  echo " $parent"
 #done
 #echo "Value of K is: $K"
-#echo "Value of Threads is: $Threads"
 #echo "value of ref is: $ref"
 #echo "value of min is: $_arg_min" 
 #echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
