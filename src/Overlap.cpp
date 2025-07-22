@@ -6,6 +6,8 @@
  * --------------------------------------------------
  */
 
+// LEFT OFF: does not compile
+
 #include <algorithm>
 #include <bitset>
 #include <fstream>
@@ -47,7 +49,8 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordere
 	for (int i = Ai; i < size; i++) {
 
 		if (i % 10000 > 1 && i % 10000 < Threads) {
-			#pragma omp critical(progressOut) {
+			#pragma omp critical (progressOut) 
+			{
 				cout << "	 Hashed " << i << " of " << sequences.size() << "\r";
 			}
 		}
@@ -101,7 +104,8 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 
 		if (found == std::string::npos) {
 			unsigned long LongHash = Util::HashToLong(hash);
-			#pragma omp critical(updateHash) {
+			#pragma omp critical(updateHash) 
+			{
 				int numMatches = HashListLength[LongHash];
 			
 				// Iterate through all matches this kmer has in Hashes
@@ -130,7 +134,8 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	}
 
 	if (FullOut) {
-		#pragma omp critical(progressOut) { 
+		#pragma omp critical(progressOut) 
+		{ 
 			cout << "done Hashing read" << endl;
 		}
 	}
@@ -148,7 +153,8 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 
 
 	if (FullOut) {
-		#pragma omp critical(progressOut) { 
+		#pragma omp critical(progressOut) 
+		{ 
 			cout << "found - " << Positions.size() << " possible locations" << endl;
 		}
 	}
@@ -173,12 +179,14 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
         }
 
 	NumberIndex = sanity;
-	#pragma omp critical (array) { 
+	#pragma omp critical (array) 
+	{ 
 		array[Ai] = indexes; 
 	}
 
 	if (FullOut) {
-		#pragma omp critical(progressOut) { 
+		#pragma omp critical(progressOut) 
+		{ 
 			cout << "			 " << indexes.size() << " locations passed filter" << endl;
 		}
 	}
@@ -583,10 +591,7 @@ string AdjustBases(string sequence, string qual) {
 			NewString += sequence.c_str()[i];
 		}
 	}
-	
-	if (NewString != sequence) {
-		return NewString; 
-	}
+	return NewString; 
 }
 
 bool replace(std::string& str, const std::string& from, const std::string& to) {
@@ -819,7 +824,8 @@ int main(int argc, char* argv[]) {
 						}
 
 						if (AllBasesMatch) {
-							#pragma omp critical (found) { 
+							#pragma omp critical (found) 
+							{ 
 								found = true; 
 							}
 						}
@@ -1102,8 +1108,8 @@ int main(int argc, char* argv[]) {
 						unsigned long forwardHash = Util::HashToLong(hash);
 						unsigned long reverseHash = Util::HashToLong(Util::RevComp(hash));
 						
-						#pragma omp critical(updateHash) {
-							
+						#pragma omp critical(updateHash) 
+						{	
 							bool foundForwardMatch = false;
 							vector<int>& forwardList = Hashes[forwardHash];
 							for (int k = 0; k < forwardList.size(); k++) {
