@@ -25,13 +25,28 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
-#include <omp.h> 
+#include <omp.h>
+#include <optional>
 
 #include "Util.h"
 
 using namespace std;
 
 bool FullOut = false;
+
+struct OverlapArgs {
+	string FastqIn;
+	float MinPercent;
+    long int MinOverlap;
+    long int MinCoverage;
+	string NameStub;
+    long int hashLength;
+    long int ACT; 
+	string OverlapStub;
+    long int TrimLCcuttoff;
+    long int Threads;
+	bool verbose = false;
+};
 
 /*
 	Completely clears and builds the Hashes hash table, which has (numeric hash of) kmer as keys and a vector as the value, which contains
@@ -626,87 +641,89 @@ void compressStrand(string S, int& F, int& R) {
 	}
 }
 
+bool parse_args(int argc, char* argv[], OverlapArgs& args) {
+
+	// todo: test if this is correct number logic
+	if (argc < 10) {
+		cerr << "Usage: " << argv[0] << " <fastq_file> <MinPercent> <MinOverlap> "
+						"<MinCoverage> <ReportStub> <hashLengthSize> <ACT> <OutFile> "
+						"<LCendTrimLength> <Threads> [--verbose]\n";
+		return 1;
+	}
+
+	args.FastqIn = argv[1];
+	args.MinPercent = stof(argv[2]);
+	args.MinOverlap = strtol(argv[3], nullptr, 0);
+	args.MinCoverage = strtol(argv[4], nullptr, 0);
+	args.NameStub = argv[5];
+	args.hashLength = strtol(argv[6], nullptr, 0);
+	args.ACT = strtol(argv[7], nullptr, 0);
+	args.OverlapStub = argv[8];
+	args.TrimLCcuttoff = strtol(argv[9], nullptr, 0);
+	args.Threads = strtol(argv[10], nullptr, 0);
+
+	return 0;
+}
+
 
 int main(int argc, char* argv[]) {
-    float MinPercent = stof(argv[2]);
-    long int MinOverlap = strtol(argv[3], nullptr, 0);
-    long int MinCoverage = strtol(argv[4], nullptr, 0);
-    long int hashLength = strtol(argv[6], nullptr, 0); // if doesn't exist set to 30?
-    long int ACT = strtol(argv[7], nullptr, 0);
-    long int TrimLCcuttoff = strtol(argv[9], nullptr, 0);
-    long int Threads = strtol(argv[10], nullptr, 0);
-    long int Buffer = 100 * Threads;
 
-
-	// Input checking until line ~703
-    cout << "you gave " << argc << " Arguments" << endl;
-	if (argc != 11) {
-		cout << "ERROR, wrong number of arguments \n Call is: FASTQ, MinPercent, "
-						"MinOverlap, MinCoverage, ReportStub, hashLengthSize, ACT, OutFile "
-						"LCendTrimLength Threads"
-				 << endl;
-		return 0;
+	OverlapArgs args;
+	if (!parse_args(argc, argv, args)) {
+		return 1; // Error in argument parsing
 	}
+	long int Buffer = 100 * args.Threads;
 
+	// Check & open file streams
 	ifstream fastq;
-	fastq.open(argv[1]);
-
-    // todo: put a bunch of try-catch blocks here instead of manual if/else
-	if (fastq.is_open()) {
-		cout << "Parent File open - " << argv[1] << endl;
-	}
-	else {
-		cout << "Error, ParentHashFile could not be opened";
-		return 0;
+	fastq.open(args.FastqIn.c_str());
+	if (!fastq.is_open()) {
+		cerr << "Error, Fastq file could not be opened - " << args.FastqIn << endl;
+		return -1;
 	}
 
 	ofstream report;
 	std::stringstream ss;
-	string FirstPassFile = argv[1];
-	ss << argv[8] << ".fastq";
+	string FirstPassFile = args.FastqIn;
+	ss << args.OverlapStub << ".fastq";
 	FirstPassFile = ss.str();
 	report.open(FirstPassFile.c_str());
-
-	if (report.is_open()) {
-	} else {
-		cout << "ERROR, Mut-Output file could not be opened - " << FirstPassFile
+	if (!report.is_open()) {
+		cerr << "Error, Mut-Output file could not be opened - " << FirstPassFile
 				 << endl;
-		return 0;
+		return -1;
 	}
 
 	ofstream DepReport;
 	FirstPassFile += "d";
     DepReport.open(FirstPassFile.c_str());
-	if (report.is_open()) {
-	} else {
-		cout << "ERROR, Mut-Output file could not be opened - " << FirstPassFile
+	if (!report.is_open()) {
+		cerr << "Error, Mut-Output depth file could not be opened - " << FirstPassFile
 				 << endl;
-		return 0;
+		return -1;
 	}
 
 	ofstream good;
 	FirstPassFile = ss.str();
 	FirstPassFile += "good.fastq";
 	good.open(FirstPassFile.c_str());
-
-	if (good.is_open()) {
-	} else {
-		cout << "ERROR, Mut-Output file could not be opened - " << FirstPassFile
+	if (!good.is_open()) {
+		cerr << "Error, Mut-Output good file could not be opened - " << FirstPassFile
 				 << endl;
-		return 0;
+		return -1;
 	}
 
 	ofstream bad;
 	FirstPassFile = ss.str();
 	FirstPassFile += "bad.fastq";
 	bad.open(FirstPassFile.c_str());
-
-	if (bad.is_open()) {
-	} else {
-		cout << "ERROR, Mut-Output file could not be opened - " << FirstPassFile
+	if (!bad.is_open()) {
+		cerr << "Error, Mut-Output bad file could not be opened - " << FirstPassFile
 				 << endl;
 		return 0;
 	}
+
+	// todo: left off here - see if we compile with new fxn
 
 	string line;
 	vector<string> sequenes;	// The array of full-length sequences extracted from the input fastq file
@@ -725,7 +742,7 @@ int main(int argc, char* argv[]) {
 	string L5;
 	string L6;
 	int Rejects = 0;
-	string Fastqd = argv[1];
+	string Fastqd = args.FastqIn;
 	size_t found = Fastqd.find(".fastqd");
 
 	// READ IN FASTQs UNTIL LINE @ ~869
@@ -760,10 +777,10 @@ int main(int argc, char* argv[]) {
 			}
 
 			if (Multiple == true) {
-				L2 = TrimLowCoverageEnds(L2, L4, depths, TrimLCcuttoff);
+				L2 = TrimLowCoverageEnds(L2, L4, depths, args.TrimLCcuttoff);
 			}
 
-			if (L2.size() > hashLength + 1) {
+			if (L2.size() > args.hashLength + 1) {
 				lines++;
 				sequenes.push_back(L2);
 				qual.push_back(L4);
@@ -809,7 +826,7 @@ int main(int argc, char* argv[]) {
 
 				// BUG FIX NEEDED
 				// NOTE: this is currently NEVER run because nothing added to DupCheck until we've already run the loop
-				#pragma omp parallel for num_threads(Threads) shared(DupCheck, L2, found)
+				#pragma omp parallel for num_threads(args.Threads) shared(DupCheck, L2, found)
 				for (int i = 0; i < DupCheck.size(); i++) {
 					if (L2.size() == DupCheck[i].size()) {
 						bool AllBasesMatch = true;
@@ -877,7 +894,7 @@ int main(int argc, char* argv[]) {
 
 
 	// First kmer table build after reading in all of the fastq/d reads
-	RebuildHashTable(sequenes, 0, hashLength, Hashes, Threads, HashListLength);
+	RebuildHashTable(sequenes, 0, args.hashLength, Hashes, args.Threads, HashListLength);
 	clock_t St, Et;
 	int FoundMatch = 0;
 	struct timeval start, end;
@@ -896,7 +913,7 @@ int main(int argc, char* argv[]) {
 
 		// Rebuild hash table every million lines
 		if (LinesSinceLastBuild > 1000000) {
-			RebuildHashTable(sequenes, b, hashLength, Hashes, Threads, HashListLength);
+			RebuildHashTable(sequenes, b, args.hashLength, Hashes, args.Threads, HashListLength);
 			LinesSinceLastBuild = 0;
 		}
 
@@ -915,7 +932,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		// For each sequence in chunk, prepare list of potential alignment matches by comparing kmers
-		#pragma omp parallel for num_threads(Threads) shared(Hashes, Forwards)
+		#pragma omp parallel for num_threads(args.Threads) shared(Hashes, Forwards)
 		for (int i = b; i < max; i++) 
 		{
 			string A = sequenes[i];
@@ -923,7 +940,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepareSearchList(A, i, Hashes, hashLength, ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, HashListLength);
+			PrepareSearchList(A, i, Hashes, args.hashLength, args.ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, HashListLength);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -934,7 +951,7 @@ int main(int argc, char* argv[]) {
 			AverageFSanity = ((AverageFSanity * (double)b) + (double)NumSanity) /((double)b + 1.0);
 		}
 
-		#pragma omp parallel for num_threads(Threads) shared(Hashes, Revs)
+		#pragma omp parallel for num_threads(args.Threads) shared(Hashes, Revs)
 		for (int i = b; i < max; i++) 
 		{
 			string A = Util::RevComp(sequenes[i]);
@@ -942,7 +959,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepareSearchList(A, i, Hashes, hashLength, ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, HashListLength);
+			PrepareSearchList(A, i, Hashes, args.hashLength, args.ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, HashListLength);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -991,7 +1008,7 @@ int main(int argc, char* argv[]) {
 			}
 
 			// Align the current sequence with the possible options in Forwards
-			int bestScore = Align3(sequenes, A, Aqual, i, k, bestIndex, MinPercent, PerfectMatch, MinOverlap, Forwards[i], Threads, NumReads);
+			int bestScore = Align3(sequenes, A, Aqual, i, k, bestIndex, args.MinPercent, PerfectMatch, args.MinOverlap, Forwards[i], args.Threads, NumReads);
 
 			if (FullOut) {
 				cout << "best forward score is " << bestScore << " k is " << k
@@ -1011,7 +1028,7 @@ int main(int argc, char* argv[]) {
 					cout << "Checking Reverse\n";
 				}
 
-				int revBestScore =	Align3(sequenes, revA, revAqual, i, revk, revbestIndex, MinPercent, PerfectMatch, MinOverlap, Revs[i], Threads, NumReads);
+				int revBestScore =	Align3(sequenes, revA, revAqual, i, revk, revbestIndex, args.MinPercent, PerfectMatch, args.MinOverlap, Revs[i], args.Threads, NumReads);
 				if (FullOut) {
 					cout << "best reverse score is " << revBestScore << " k is " << revk
 							 << " index = " << revbestIndex << endl;
@@ -1034,7 +1051,7 @@ int main(int argc, char* argv[]) {
 			}
 
 			// Check that we meet our minimum overlap requirement
-			if (bestScore < MinOverlap) {
+			if (bestScore < args.MinOverlap) {
 				if (FullOut) {
 					cout << "No good match found, skipping" << endl;
 				}
@@ -1099,9 +1116,9 @@ int main(int argc, char* argv[]) {
 				sequenes[i] = "moved";
 
 				// Update hash table Hashes with updated collapsed info
-				#pragma omp parallel for num_threads(Threads) shared(Hashes)
-				for (int j = 0; j < A.size() - hashLength; j++) {
-					string hash = A.substr(j, hashLength);
+				#pragma omp parallel for num_threads(args.Threads) shared(Hashes)
+				for (int j = 0; j < A.size() - args.hashLength; j++) {
+					string hash = A.substr(j, args.hashLength);
 					size_t foundIdx = hash.find('N');
 					
 					if (foundIdx == std::string::npos) {
@@ -1169,18 +1186,17 @@ int main(int argc, char* argv[]) {
 				}
 			}
 
-			if (maxDep >= MinCoverage) {
+			if (maxDep >= args.MinCoverage) {
 				count++;
 			 	int F = 0;
 				int R = 0;
 				compressStrand(strand[i], F, R);
-	//report << "@NODE_" << i << "_L=" << sequenes[i].size()			 << "_D=" << maxDep << endl;
-	report << "@NODE_" << argv[6] << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
+				report << "@NODE_" << args.hashLength << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
 				report << sequenes[i] << endl;
 				report << "+" << endl;
 				report << qual[i] << endl;
 
-				DepReport << "@NODE_" << argv[6] << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
+				DepReport << "@NODE_" << args.hashLength << "_" << i << "_L" << sequenes[i].size()<< "_D" << maxDep << ":" << F << ":" << R << ":" << endl;
 				DepReport << sequenes[i] << endl;
 				DepReport << "+" << endl;
 				DepReport << qual[i] << endl;
