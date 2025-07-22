@@ -41,7 +41,7 @@ struct OverlapArgs {
     long int MinCoverage;
 	string NameStub;
     long int hashLength;
-    long int ACT; 
+    long int ACT;  // the alignment count threshold (how many times a kmer must be found in the sequences to be considered for alignment)
 	string OverlapStub;
     long int TrimLCcuttoff;
     long int Threads;
@@ -66,7 +66,7 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordere
 		if (i % 10000 > 1 && i % 10000 < Threads) {
 			#pragma omp critical (progressOut) 
 			{
-				cout << "	 Hashed " << i << " of " << sequences.size() << "\r";
+				cout << "Hashed " << i << " of " << sequences.size() << "\r";
 			}
 		}
 		// Iterate through the sequence and get hashLength sized chunks
@@ -401,6 +401,21 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 	return bestScore;
 }
 
+/* Combines sequences A and B into a single contiguous string. 
+ * k is the offset between A and B, where positive k means A is upstream of B.
+ * Aq, Bq, Ad, Bd, As, Bs are the quality strings, depth strings, and strand strings for A and B respectively.
+ * Returns the combined string.
+ * 
+ * Merges sequences based on the following logic:
+ * 1. If both sequences have the same base at a position → use that base, take the higher quality score, 
+ * and sum the depths (capped at 250)
+ * 2. If only one sequence has a base at that position → use that sequence's data
+ * 3. If sequences disagree → prefer the base with higher depth, or if depths are equal, prefer the one with higher quality
+ * 
+ * Updates the reference parameters (Bq, Bd, Bs) with the merged quality scores, depth data, and combined sequence information
+ */
+
+*/
 string ColapsContigs(string A, string B, int k, string Aq, string& Bq,string Ad, string& Bd, string As, string& Bs) {
 	bool verbose = false;
 	if (verbose) {cout << "Combining; \n" << A << endl << B << endl;}
@@ -670,6 +685,7 @@ int main(int argc, char* argv[]) {
 
 	OverlapArgs args;
 	if (!parse_args(argc, argv, args)) {
+		cout << "Error overlap parsing arguments. Please check the usage." << endl;
 		return 1; // Error in argument parsing
 	}
 	long int Buffer = 100 * args.Threads;
@@ -722,8 +738,6 @@ int main(int argc, char* argv[]) {
 				 << endl;
 		return 0;
 	}
-
-	// todo: left off here - see if we compile with new fxn
 
 	string line;
 	vector<string> sequenes;	// The array of full-length sequences extracted from the input fastq file
@@ -792,7 +806,8 @@ int main(int argc, char* argv[]) {
 				bad << L1 << endl << L2 << endl << L3 << endl << L4 << endl;
 			}
 		}
-	// If we have a fastq file, we (should be) check for duplicates, trim Ns, and adjust bases based on quality values before processing reads
+	// If we have a fastq file, we (should be) checking for duplicates, trimming Ns, and adjustung
+	//  bases based on quality values before processing reads
 	} else {
 		vector<string> DupCheck;
 		cout << "Reading in raw fastq \n";
@@ -1103,10 +1118,7 @@ int main(int argc, char* argv[]) {
 				// Collapse the sequences for the best match - again TODO: will need to make this work for multiple equal matches
 				string combined = ColapsContigs(A, B, k, Aqual, Bqual, Adep, Bdep, Astr, Bstr);
 				if (Bqual.size() != combined.size()) {
-					cout << "ERRRORRR "
-									"^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
-									"^^^^"
-							 << endl;
+					cerr << "Error: something went wrong combining sequences into contigs" << endl;
 				}
 
 				qual[bestIndex] = Bqual;
@@ -1116,6 +1128,7 @@ int main(int argc, char* argv[]) {
 				sequenes[i] = "moved";
 
 				// Update hash table Hashes with updated collapsed info
+				// Iterate through each hashLength chunk of seq A
 				#pragma omp parallel for num_threads(args.Threads) shared(Hashes)
 				for (int j = 0; j < A.size() - args.hashLength; j++) {
 					string hash = A.substr(j, args.hashLength);
@@ -1173,6 +1186,9 @@ int main(int argc, char* argv[]) {
 	cout << "\nRESULTS\n";
 	int count = 0;
 
+	// Iterate through each sequence from fastq in order of receipt
+	// If the sequence is not "moved" and has sufficient length and coverage, write it to the report files
+	// I don't think the index here should change between runs, since the sequences array is serially populated
 	for (int i = 0; i < sequenes.size(); i++) {
 
 		if (sequenes[i] != "moved" && sequenes[i].size() >= 95) {
