@@ -698,7 +698,8 @@ int main(int argc, char* argv[]) {
 		cout << "Error overlap parsing arguments. Please check the usage." << endl;
 		return 1; // Error in argument parsing
 	}
-	long int Buffer = 100 * args.Threads;
+	long int Buffer = 100;
+	// long int Buffer = 100 * args.Threads; - THIS LEADS TO NON-DETERMINISM
 
 	// Check & open file streams
 	ifstream fastq;
@@ -846,37 +847,37 @@ int main(int argc, char* argv[]) {
 			bool found = false;
 			bool RunDupCheck = true;
 
-			if (RunDupCheck) {
+			// if (RunDupCheck) {
 
-				// BUG FIX NEEDED
-				// NOTE: this is currently NEVER run because nothing added to DupCheck until we've already run the loop
-				#pragma omp parallel for num_threads(args.Threads) shared(DupCheck, L2, found)
-				for (int i = 0; i < DupCheck.size(); i++) {
-					if (L2.size() == DupCheck[i].size()) {
-						bool AllBasesMatch = true;
+			// 	// BUG FIX NEEDED
+			// 	// NOTE: this is currently NEVER run because nothing added to DupCheck until we've already run the loop
+			// 	#pragma omp parallel for num_threads(args.Threads) shared(DupCheck, L2, found)
+			// 	for (int i = 0; i < DupCheck.size(); i++) {
+			// 		if (L2.size() == DupCheck[i].size()) {
+			// 			bool AllBasesMatch = true;
 
-						for (int k = 0; k < L2.size(); k++) {
-							if (L2.c_str()[k] == 'N' or DupCheck[i].c_str()[k] == 'N') {
-							} else if (L2.c_str()[k] == DupCheck[i].c_str()[k]) {
-							} else {
-								AllBasesMatch = false;
-								break;
-							}
-						}
+			// 			for (int k = 0; k < L2.size(); k++) {
+			// 				if (L2.c_str()[k] == 'N' or DupCheck[i].c_str()[k] == 'N') {
+			// 				} else if (L2.c_str()[k] == DupCheck[i].c_str()[k]) {
+			// 				} else {
+			// 					AllBasesMatch = false;
+			// 					break;
+			// 				}
+			// 			}
 
-						if (AllBasesMatch) {
-							#pragma omp critical (found) 
-							{ 
-								found = true; 
-							}
-						}
-					}
-				}
+			// 			if (AllBasesMatch) {
+			// 				#pragma omp critical (found) 
+			// 				{ 
+			// 					found = true; 
+			// 				}
+			// 			}
+			// 		}
+			// 	}
 
-				if ((double)Ns / (double)L2.size() < 0.20) {
-					DupCheck.push_back(L2);
-				}
-			}
+			// 	if ((double)Ns / (double)L2.size() < 0.20) {
+			// 		DupCheck.push_back(L2);
+			// 	}
+			// }
 
 			if (found == false) {
 				L2 = AdjustBases(L2, L4);
@@ -910,7 +911,7 @@ int main(int argc, char* argv[]) {
 	good.close();
 	bad.close();
 	cout << "done reading " << endl;
-	int NumReads = sequenes.size();
+	int NumReads = sequenes.size(); 
 	cout << "\nDone reading in \n		 Read in a total of " << lines
 			 << " and rejected " << Rejects << " with " << dup
 			 << " duplicate reads detected for a total of " << goodlines
@@ -919,6 +920,7 @@ int main(int argc, char* argv[]) {
 
 	// First kmer table build after reading in all of the fastq/d reads
 	RebuildHashTable(sequenes, 0, args.hashLength, Hashes, args.Threads);
+
 	clock_t St, Et;
 	int FoundMatch = 0;
 	struct timeval start, end;
@@ -1053,6 +1055,7 @@ int main(int argc, char* argv[]) {
 				}
 
 				int revBestScore =	Align3(sequenes, revA, revAqual, i, revk, revbestIndex, args.MinPercent, PerfectMatch, args.MinOverlap, Revs[i], args.Threads, NumReads);
+				
 				if (FullOut) {
 					cout << "best reverse score is " << revBestScore << " k is " << revk
 							 << " index = " << revbestIndex << endl;
@@ -1138,44 +1141,44 @@ int main(int argc, char* argv[]) {
 
 				// Update hash table Hashes with updated collapsed info
 				// We might have new hashes here from combined sequence
-				#pragma omp parallel for num_threads(args.Threads) shared(Hashes)
-				for (int j = 0; j < combined.size() - args.hashLength; j++) {
-					string hash = combined.substr(j, args.hashLength);
-					size_t foundIdx = hash.find('N');
+				// #pragma omp parallel for num_threads(1) shared(Hashes)
+				// for (int j = 0; j < combined.size() - args.hashLength; j++) {
+				// 	string hash = combined.substr(j, args.hashLength);
+				// 	size_t foundIdx = hash.find('N');
 					
-					if (foundIdx == std::string::npos) {
-						unsigned long forwardHash = Util::HashToLong(hash);
-						unsigned long reverseHash = Util::HashToLong(Util::RevComp(hash));
+				// 	if (foundIdx == std::string::npos) {
+				// 		unsigned long forwardHash = Util::HashToLong(hash);
+				// 		unsigned long reverseHash = Util::HashToLong(Util::RevComp(hash));
 						
-						#pragma omp critical(updateHash) 
-						{	
-							bool foundForwardMatch = false;
-							vector<int>& forwardList = Hashes[forwardHash];
-							for (int k = 0; k < forwardList.size(); k++) {
-								if (forwardList[k] == bestIndex) {
-									foundForwardMatch = true;
-									break;
-								}
-							}
-							if (!foundForwardMatch) {
-								Hashes[forwardHash].push_back(bestIndex);
-							}
+				// 		#pragma omp critical(updateHash) 
+				// 		{	
+				// 			bool foundForwardMatch = false;
+				// 			vector<int>& forwardList = Hashes[forwardHash];
+				// 			for (int k = 0; k < forwardList.size(); k++) {
+				// 				if (forwardList[k] == bestIndex) {
+				// 					foundForwardMatch = true;
+				// 					break;
+				// 				}
+				// 			}
+				// 			if (!foundForwardMatch) {
+				// 				Hashes[forwardHash].push_back(bestIndex);
+				// 			}
 							
 							
-							bool foundReverseMatch = false;
-							vector<int>& reverseList = Hashes[reverseHash];
-							for (int k = 0; k < reverseList.size(); k++) {
-								if (reverseList[k] == bestIndex) {
-									foundReverseMatch = true;
-									break;
-								}
-							}
-							if (!foundReverseMatch) {
-								Hashes[reverseHash].push_back(bestIndex);
-							}
-						}
-					}
-				}
+				// 			bool foundReverseMatch = false;
+				// 			vector<int>& reverseList = Hashes[reverseHash];
+				// 			for (int k = 0; k < reverseList.size(); k++) {
+				// 				if (reverseList[k] == bestIndex) {
+				// 					foundReverseMatch = true;
+				// 					break;
+				// 				}
+				// 			}
+				// 			if (!foundReverseMatch) {
+				// 				Hashes[reverseHash].push_back(bestIndex);
+				// 			}
+				// 		}
+				// 	}
+				// }
 
 				if (FullOut) {
 					cout << combined << endl;
