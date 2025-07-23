@@ -50,7 +50,7 @@ struct OverlapArgs {
 	all indices of full-length reads in "sequences" array that contain that kmer. This needs to be re-populated occassionally to 
 	ensure that the hash table is up to date with the latest sequences after some have been collapsed and moved.
 */
-int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long)
+int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordered_map<unsigned long, vector<int>>& Hashes, int Threads)
 {
 	cout << "\nDestroying HashTable\n";
 	Hashes.clear();
@@ -393,7 +393,8 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
 		#pragma omp critical (best)
 		{
 			if (LbestScore > bestScore ||
-				(LbestScore == bestScore && LBestIndex < BestIndex)) { // Must have tie breaker to ensure consistent results
+        		(LbestScore == bestScore && LBestIndex < BestIndex) ||
+        		(LbestScore == bestScore && LBestIndex == BestIndex && Loverlap < overlap)) {
 					bestScore = LbestScore;
 					BestIndex = LBestIndex;
 					overlap = Loverlap;
@@ -935,7 +936,7 @@ int main(int argc, char* argv[]) {
 		LinesSinceLastBuild += Buffer;
 
 		// Rebuild hash table every million lines
-		if (LinesSinceLastBuild > 1000000) {
+		if (LinesSinceLastBuild > 1000000) { 
 			RebuildHashTable(sequenes, b, args.hashLength, Hashes, args.Threads);
 			LinesSinceLastBuild = 0;
 		}
@@ -1136,10 +1137,10 @@ int main(int argc, char* argv[]) {
 				sequenes[i] = "moved";
 
 				// Update hash table Hashes with updated collapsed info
-				// Iterate through each hashLength chunk of seq A
+				// We might have new hashes here from combined sequence
 				#pragma omp parallel for num_threads(args.Threads) shared(Hashes)
-				for (int j = 0; j < A.size() - args.hashLength; j++) {
-					string hash = A.substr(j, args.hashLength);
+				for (int j = 0; j < combined.size() - args.hashLength; j++) {
+					string hash = combined.substr(j, args.hashLength);
 					size_t foundIdx = hash.find('N');
 					
 					if (foundIdx == std::string::npos) {
