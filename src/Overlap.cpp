@@ -6,8 +6,6 @@
  * --------------------------------------------------
  */
 
-// LEFT OFF: does not compile
-
 #include <algorithm>
 #include <bitset>
 #include <fstream>
@@ -26,7 +24,6 @@
 #include <unordered_map>
 #include <vector>
 #include <omp.h>
-#include <optional>
 
 #include "Util.h"
 
@@ -94,36 +91,47 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordere
 }
 
 /*
-	For a single sequence, iterates through each kmer of hashLength and looks to see what sequences it is obtained within (i.e. the indexes of those sequences in sequences).
-	This function is called within a parallel section from main, hence the critical sections.
+	For a single sequence, iterates through each kmer of hashLength N and looks to see what sequences it is 
+	contained within (i.e. the indexes of those sequences in "sequences" array).
+	Counts how many times each kmer is found in the sequences, and if it is found more than ACT times,
+	it is considered a candidate for alignment.
+	Stores the results in the array map, which has the index of the sequence as key and a vector of indexes of sequences
+	that contain that kmer as value.
+
+	Note: This function is called within a parallel section from main, hence the critical sections.
+
+	Parameters:
 	A: sequence to search
 	Ai: the index of the sequence in the original list which is not passed here
 	hashLength: the window for creating kmers
 	ACT: the alignment count threshold (how many times a kmer must be found in the sequences to be considered for alignment)
 	Hashes: the hash table containing the kmer as key and a vector of indexes of sequences containing that kmer as value
 */
-int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex , unordered_map<unsigned long) 
+int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex) 
 {
 	int Alength = A.size();
 	map<int, int> Positions;
 	int added = 0;
 
+	// Iterate through each kmer in sequence A
 	for (int i = 0; i < Alength - hashLength; i++) {
 		string hash = A.substr(i, hashLength);
 		size_t found = hash.find('N');
 
 		if (found == std::string::npos) {
+			// Pull out list of sequences that contain this kmer from hash table
 			unsigned long LongHash = Util::HashToLong(hash);
 			#pragma omp critical(updateHash) 
 			{
 				int numMatches = Hashes[LongHash].size();
 			
-				// Iterate through all matches this kmer has in Hashes
-				for (vector<int>::size_type i = 0; i < numMatches; i++) {
-					int holder = Hashes[LongHash][i];
+				// Iterate through sequences that contain this kmer
+				for (vector<int>::size_type j = 0; j < numMatches; j++) {
+					int holder = Hashes[LongHash][j];	// Index of sequence which "holds" this kmer
 									
-					// For any index that is greater than our starting point, add a count to the Positions map
-					if (holder > Ai ){
+					// Avoid redundant comparisons by only looking at sequences that are after the current sequence A
+					// I.e. we've already processed any sequences before us in the 'sequences' array
+					if (holder > Ai){
 						if (Positions.count(holder) > 0) {
 							Positions[holder]++;
 							added++;
@@ -150,6 +158,8 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 		}
 	}
 
+	// Sort our postions by the number of times a kmer was found in the sequence at that position
+	// i.e. the highest value of the Positions map to the lowest value
 	NumberPos = added;
 	map<int, int>::iterator uspos;
 	multimap<int, int> SortedPositions;
@@ -173,8 +183,9 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 	vector<int> indexes;
 	int sanity = 0;
 
+	// Check to make sure that we are meeting our minimum alignment count threshold (ACT)
 	for (auto pos = SortedPositions.rbegin() ; pos !=  SortedPositions.rend(); pos++)
-        {
+    {
 		if (pos->first >= ACT) {
             indexes.push_back(pos->second + 0);
 			sanity++;
@@ -184,9 +195,9 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 					NumberIndex = sanity;
 					break;
 			}
-                }
-
         }
+
+    }
 
 	NumberIndex = sanity;
 	#pragma omp critical (array) 
@@ -1046,7 +1057,7 @@ int main(int argc, char* argv[]) {
 							 << " index = " << revbestIndex << endl;
 				}
 
-				// TODO: here is one part where we need to keep revBestScore AND booya if they have equal alignment scores
+				// TODO: here is one part where we need to keep revBestScore AND bestScore if they have equal alignment scores
 				if (revBestScore > bestScore) {
 					A = revA;
 					Aqual = revAqual;
