@@ -50,9 +50,10 @@ struct OverlapArgs {
 
 /*
 	Completely clears and builds the Hashes hash table, which has (numeric hash of) kmer as keys and a vector as the value, which contains
-	all indices of full-length reads in sequences that contain that kmer.
+	all indices of full-length reads in "sequences" array that contain that kmer. This needs to be re-populated occassionally to 
+	ensure that the hash table is up to date with the latest sequences after some have been collapsed and moved.
 */
-int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long, int>& HashListLength)
+int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordered_map<unsigned long, vector<int>>& Hashes, int Threads, unordered_map<unsigned long)
 {
 	cout << "\nDestroying HashTable\n";
 	Hashes.clear();
@@ -88,12 +89,6 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordere
 			}
 		}
 	}
-
-	HashListLength.clear(); 
-	for (auto it = Hashes.begin(); it != Hashes.end(); it++)
-	{
-		HashListLength[it->first] = it->second.size(); 
-	}
 	cout << "\nDone Rebulding HashTable size is " << Hashes.size() << endl;
 	return 0;
 }
@@ -107,7 +102,7 @@ int RebuildHashTable(vector<string>& sequences, int Ai, int hashLength, unordere
 	ACT: the alignment count threshold (how many times a kmer must be found in the sequences to be considered for alignment)
 	Hashes: the hash table containing the kmer as key and a vector of indexes of sequences containing that kmer as value
 */
-int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex , unordered_map<unsigned long, int>& HashListLength) 
+int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>>& Hashes, int hashLength, int ACT, map<int, vector<int>>& array,bool& hitPosLimit, bool& hitIndexLimit, int& NumberPos, int& NumberIndex , unordered_map<unsigned long) 
 {
 	int Alength = A.size();
 	map<int, int> Positions;
@@ -121,7 +116,7 @@ int PrepareSearchList(string A, int Ai,	unordered_map<unsigned long, vector<int>
 			unsigned long LongHash = Util::HashToLong(hash);
 			#pragma omp critical(updateHash) 
 			{
-				int numMatches = HashListLength[LongHash];
+				int numMatches = Hashes[LongHash].size();
 			
 				// Iterate through all matches this kmer has in Hashes
 				for (vector<int>::size_type i = 0; i < numMatches; i++) {
@@ -414,8 +409,6 @@ int Align3(vector<string>& sequenes, string Ap, string Aq, int Ai, int& overlap,
  * 
  * Updates the reference parameters (Bq, Bd, Bs) with the merged quality scores, depth data, and combined sequence information
  */
-
-*/
 string ColapsContigs(string A, string B, int k, string Aq, string& Bq,string Ad, string& Bd, string As, string& Bs) {
 	bool verbose = false;
 	if (verbose) {cout << "Combining; \n" << A << endl << B << endl;}
@@ -660,10 +653,14 @@ bool parse_args(int argc, char* argv[], OverlapArgs& args) {
 
 	// todo: test if this is correct number logic
 	if (argc < 10) {
-		cerr << "Usage: " << argv[0] << " <fastq_file> <MinPercent> <MinOverlap> "
+		cout << argc << " arguments provided, but at least 10 are required.\n";
+		for (int i = 0; i < argc; i++) {
+			cout << "Arg " << i << ": " << argv[i] << endl;
+		}
+		cout << "Usage: " << argv[0] << " <fastq_file> <MinPercent> <MinOverlap> "
 						"<MinCoverage> <ReportStub> <hashLengthSize> <ACT> <OutFile> "
 						"<LCendTrimLength> <Threads> [--verbose]\n";
-		return 1;
+		return false;
 	}
 
 	args.FastqIn = argv[1];
@@ -677,7 +674,8 @@ bool parse_args(int argc, char* argv[], OverlapArgs& args) {
 	args.TrimLCcuttoff = strtol(argv[9], nullptr, 0);
 	args.Threads = strtol(argv[10], nullptr, 0);
 
-	return 0;
+	cout << "There were at least 10 args" << endl;
+	return true;
 }
 
 
@@ -694,7 +692,7 @@ int main(int argc, char* argv[]) {
 	ifstream fastq;
 	fastq.open(args.FastqIn.c_str());
 	if (!fastq.is_open()) {
-		cerr << "Error, Fastq file could not be opened - " << args.FastqIn << endl;
+		cout << "Error, Fastq file could not be opened - " << args.FastqIn << endl;
 		return -1;
 	}
 
@@ -705,7 +703,7 @@ int main(int argc, char* argv[]) {
 	FirstPassFile = ss.str();
 	report.open(FirstPassFile.c_str());
 	if (!report.is_open()) {
-		cerr << "Error, Mut-Output file could not be opened - " << FirstPassFile
+		cout << "Error, Mut-Output file could not be opened - " << FirstPassFile
 				 << endl;
 		return -1;
 	}
@@ -714,7 +712,7 @@ int main(int argc, char* argv[]) {
 	FirstPassFile += "d";
     DepReport.open(FirstPassFile.c_str());
 	if (!report.is_open()) {
-		cerr << "Error, Mut-Output depth file could not be opened - " << FirstPassFile
+		cout << "Error, Mut-Output depth file could not be opened - " << FirstPassFile
 				 << endl;
 		return -1;
 	}
@@ -724,7 +722,7 @@ int main(int argc, char* argv[]) {
 	FirstPassFile += "good.fastq";
 	good.open(FirstPassFile.c_str());
 	if (!good.is_open()) {
-		cerr << "Error, Mut-Output good file could not be opened - " << FirstPassFile
+		cout << "Error, Mut-Output good file could not be opened - " << FirstPassFile
 				 << endl;
 		return -1;
 	}
@@ -734,7 +732,7 @@ int main(int argc, char* argv[]) {
 	FirstPassFile += "bad.fastq";
 	bad.open(FirstPassFile.c_str());
 	if (!bad.is_open()) {
-		cerr << "Error, Mut-Output bad file could not be opened - " << FirstPassFile
+		cout << "Error, Mut-Output bad file could not be opened - " << FirstPassFile
 				 << endl;
 		return 0;
 	}
@@ -745,7 +743,6 @@ int main(int argc, char* argv[]) {
 	vector<string> depth;		// An array of the per-nucleotide kmer-depths corresponding to the sequences
 	vector<string> strand;		// An array of the strands each sequence is located on
 	std::unordered_map<unsigned long, vector<int>> Hashes;	// The hash table of kmer hashes to indices of sequences containing that kmer
-	std::unordered_map<unsigned long, int> HashListLength; 		// The hash table of kmer hashes to the number of sequences containing that kmer
 	int lines = -1;
 	int goodlines = 0;
 	int dup = 0;
@@ -759,7 +756,7 @@ int main(int argc, char* argv[]) {
 	string Fastqd = args.FastqIn;
 	size_t found = Fastqd.find(".fastqd");
 
-	// READ IN FASTQs UNTIL LINE @ ~869
+	// Read in entire fastq file, 6 lines at a time
 	// If we're reading in a fastq+depth file, we simply trim off the low coverage ends before starting to process the reads
 	if (found != string::npos) {
 		int counter = 0;
@@ -909,7 +906,7 @@ int main(int argc, char* argv[]) {
 
 
 	// First kmer table build after reading in all of the fastq/d reads
-	RebuildHashTable(sequenes, 0, args.hashLength, Hashes, args.Threads, HashListLength);
+	RebuildHashTable(sequenes, 0, args.hashLength, Hashes, args.Threads);
 	clock_t St, Et;
 	int FoundMatch = 0;
 	struct timeval start, end;
@@ -928,7 +925,7 @@ int main(int argc, char* argv[]) {
 
 		// Rebuild hash table every million lines
 		if (LinesSinceLastBuild > 1000000) {
-			RebuildHashTable(sequenes, b, args.hashLength, Hashes, args.Threads, HashListLength);
+			RebuildHashTable(sequenes, b, args.hashLength, Hashes, args.Threads);
 			LinesSinceLastBuild = 0;
 		}
 
@@ -955,7 +952,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepareSearchList(A, i, Hashes, args.hashLength, args.ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity, HashListLength);
+			PrepareSearchList(A, i, Hashes, args.hashLength, args.ACT, Forwards, posLimit, sanityLimit, NumPos, NumSanity);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
@@ -974,7 +971,7 @@ int main(int argc, char* argv[]) {
 			bool sanityLimit = false;
 			int NumPos = 0;
 			int NumSanity = 0;
-			PrepareSearchList(A, i, Hashes, args.hashLength, args.ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity, HashListLength);
+			PrepareSearchList(A, i, Hashes, args.hashLength, args.ACT, Revs, posLimit,sanityLimit, NumPos, NumSanity);
 			if (posLimit) {
 				NumberHitPosLimit++;
 			}
