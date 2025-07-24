@@ -115,7 +115,6 @@ then
 		echo "skipping second assemble"
 	else
 		$OverlapHash ./TempOverlap/$NameStub.sam.fastqd .99 75 $FinalCoverage $NameStub 15 1 ./TempOverlap/$NameStub.final 1 $Threads
-		echo "returned from overlap hash"
 	fi
 	
 	if [ -s ./$NameStub.overlap.hashcount.fastq ]
