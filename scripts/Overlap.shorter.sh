@@ -110,6 +110,7 @@ then
 	else
 		$OverlapSam <( samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 $FinalCoverage ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	fi 
+	# todo: instead of hash here, first do overlapRegion looking at next 5 reads
 	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
 	then 
 		echo "skipping second assemble"
