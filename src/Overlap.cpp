@@ -947,7 +947,7 @@ int main(int argc, char* argv[]) {
 		vector<int> ToAddPos;
 		map<int, vector<int>> Forwards;
 		map<int, vector<int>> Revs;
-		int max = b + Buffer;
+		int max = b + Buffer; // todo: check off by one errors here
 
 		if (max > sequenes.size()) {
 			max = sequenes.size();
@@ -1145,6 +1145,7 @@ int main(int argc, char* argv[]) {
 				// for (int j = 0; j < combined.size() - args.hashLength; j++) {
 				// 	string hash = combined.substr(j, args.hashLength);
 				// 	size_t foundIdx = hash.find('N');
+				// TODO: change this back, this was correct logic
 					
 				// 	if (foundIdx == std::string::npos) {
 				// 		unsigned long forwardHash = Util::HashToLong(hash);
