@@ -35,7 +35,7 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap,string Aqp
 	int bestScore = 0;
 	int NumReads = sequenes.size();
 	int start = Ai + 1;
-	int end = sequenes.size();
+	int end = sequenes.size(); // todo: instead of all sequences here, only do next 5 reads
 
 	#pragma omp parallel for shared(index, overlap, bestScore) num_threads(Threads)
 	for (int j = start; j < end; j++) 
