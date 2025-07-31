@@ -34,12 +34,14 @@
 
 using namespace std;
 
+// Globals
 bool IsExome = false;
 vector <vector<double>> DistGlobal;
 vector <vector<int>> DistLimitsGlobal;
 int Dist1XCutoff = -1;
 vector<double> GenPrior; // todo: what is this - priors used to determine CN which influences genotyping + AO counts
 vector <string> ParNames;
+string vcfHeaderFilePath = "~/resources/vcf_header.txt";
 vector <unordered_map<unsigned long int, int>> ParentHashes;
 unordered_map<unsigned long int, int> MutantHashes; // todo: this is a data structure of kmers that were either in the contigs from the sample, or in the reference fasta and their respective counts; translated into a long; long_kmer: count
 unordered_map<unsigned long int, int> ExcludeHashes;
@@ -62,7 +64,7 @@ ofstream Invertions;
 ofstream Translocations;
 ofstream Translocationsbed;
 ofstream Unaligned;
-map<string, int> Hash;  // todo: this is hash data structure of e.g. COLO829T_Ill_200X.bam.generator.k25_c5.HashList (hash seq: count)
+map<string, int> Hash;  // note: this is hash data structure of e.g. COLO829T_Ill_200X.bam.generator.k25_c5.HashList (hash seq: count)
 /////////////////////////
 
 const vector <string> Split(const string &line, const char delim) {
@@ -5265,88 +5267,25 @@ int main(int argc, char *argv[]) {
     Unaligned.open(boom + "vcf.Unaligned");
 
     //write VCF header
+    // TODO: update the VCF formate to 4.3
     VCFOutFile << "##fileformat=VCFv4.1" << endl;
     VCFOutFile << "##fileDate=" << time(0) << endl;
-    // TODO: put in rufus command line invocation
 
-    VCFOutFile << "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">" << endl;
-    VCFOutFile << "##FORMAT=<ID=AK,Number=1,Type=Integer,Description=\"Alternate Kmer Count\">" << endl;
-    VCFOutFile << "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total Kmer depth across the variant\">" << endl;
-    VCFOutFile << "##FORMAT=<ID=RO,Number=1,Type=Integer,Description=\"Mode of reference kmer counts\">" << endl;
-    VCFOutFile << "##FORMAT=<ID=AO,Number=1,Type=Integer,Description=\"Mode of alt kmer counts\">" << endl;
-    VCFOutFile
-            << "##INFO=<ID=PH,Number=1,Type=String,Description=\"If read backed phasing is possible, the name of the sample that the variant was inherited from\">"
-            << endl;
-    VCFOutFile << "##INFO=<ID=CP,Number=1,Type=String,Description=\"position of the call within the assembled contig\">"
-               << endl;
-    VCFOutFile << "##INFO=<ID=EN,Number=1,Type=String,Description=\"in development, something to do with entropy\">"
-               << endl;
-    VCFOutFile << "##INFO=<ID=FEX,Number=1,Type=String,Description=\"Filters failed and value\">" << endl;
-    VCFOutFile << "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Strand Bias of the assembled contig\">" << endl;
-    VCFOutFile << "##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of SV detected\">" << endl;
-    VCFOutFile << "##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of SV detected\">" << endl;
-    VCFOutFile << "##INFO=<ID=END,Number=1,Type=Integer,Description=\"END of SV detected\">" << endl;
-    VCFOutFile
-            << "##INFO=<ID=AO,Number=1,Type=Integer,Description=\"Alternate allele observations, with partial observations recorded fractionally\">"
-            << endl;
-    VCFOutFile
-            << "##INFO=<ID=HD,Number=.,Type=String,Description=\"Hash counts for each k-mer overlapping the vareint, -1 indicates no info\">"
-            << endl;
-    VCFOutFile << "##INFO=<ID=RN,Number=1,Type=String,Description=\"Name of contig that produced the call\">" << endl;
-    VCFOutFile
-            << "##INFO=<ID=FS,Number=1,Type=String,Description=\"Full score, supporting kmers possible varient kmers based on sequence\">"
-            << endl;
-    VCFOutFile
-            << "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Mapping quality of the contig that created the call\">"
-            << endl;
-    VCFOutFile
-            << "##INFO=<ID=cigar,Number=1,Type=String,Description=\"Cigar string for the contig that created the call\">"
-            << endl;
-    VCFOutFile << "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant Type\">" << endl;
-    VCFOutFile << "##INFO=<ID=CVT,Number=1,Type=String,Description=\"Compressed Variant Type\">" << endl;
-    VCFOutFile << "##INFO=<ID=NR,Number=1,Type=Integer,Description=\"Number of total reads in target region\">"
-               << std::endl;
-    VCFOutFile << "##INFO=<ID=NH,Number=1,Type=Integer,Description=\"Number of alu heads in target region\">"
-               << std::endl;
-    VCFOutFile << "##INFO=<ID=NT,Number=1,Type=Integer,Description=\"Number of polyA tails in target region\">"
-               << std::endl;
-    VCFOutFile << "##INFO=<ID=LT,Number=1,Type=Integer,Description=\"Longest polyA tail in target region\">"
-               << std::endl;
-    VCFOutFile
-            << "##INFO=<ID=TB,Number=1,Type=Integer,Description=\"Is tail left bound, right bound, or double bound\">"
-            << std::endl;
-    VCFOutFile << "##INFO=<ID=AS,Number=1,Type=Integer,Description=\"Number of alignment segments in the contig\">"
-               << std::endl;
-    VCFOutFile << "##INFO=<ID=MT,Number=1,Type=String,Description=\"Mobil element sequence inserted\">" << endl;
-    VCFOutFile
-            << "##INFO=<ID=SVID,Number=1,Type=String,Description=\"Unique ID given to an SV event with multiple break-ends so it can be quickly identified\">"
-            << endl;
-    VCFOutFile
-            << "##INFO=<ID=SOURCE,Number=1,Type=String,Description=\"Location in the genome where the inserted sequence came from\">"
-            << endl;
-    VCFOutFile
-            << "##INFO=<ID=SVDES,Number=1,Type=String,Description=\"If available RUFUS will interpret the SV type for you\">"
-            << endl;
-    VCFOutFile
-            << "##INFO=<ID=MATEID,Number=1,Type=String,Description=\"If available, the id of the call that is the mate of this one\">"
-            << endl;
-    VCFOutFile << "##FILTER=<ID=PA,Description=\"PoorAlignment\">" << std::endl;
-    VCFOutFile
-            << "##FILTER=<ID=PLC,Description=\"Parents are at low coverage in this region, can't be sure of genotype\">"
-            << std::endl;
-    VCFOutFile
-            << "##FILTER=<ID=LCH,Description=\"Parents have hashes showing variant at low coverage, likely inherited\">"
-            << std::endl;
-    VCFOutFile << "##FILTER=<ID=SB,Description=\"Contig fails string bias filter\">" << std::endl;
-    VCFOutFile << "##ALT=<ID=INS:ME:ALU,Description=\"Insertion of ALU element\">" << std::endl;
-    VCFOutFile << "##ALT=<ID=INS:ME:L1,Description=\"Insertion of L1 element\">" << std::endl;
-    VCFOutFile << "##ALT=<ID=INS:ME:MOB,Description=\"Insertion of ALU or L1element\">" << std::endl;
-
+    ifstream vcfHeader;
+    vcfHeader.open(vcfHeaderFilePath);
+    if (!vcfHeader.is_open()) { 
+        cout << "ERROR: Could not open vcf header text file; vcf file may be corrupted" << endl;
+    }
+    while (getline(vcfHeader, line)) {
+        VCFOutFile << line << endl;
+    }
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
+    // Write out final header line with sample names
+    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
+    // TODO: don't pull generator - actually pass samples into this module
     string samplename = outStub.substr(0, outStub.find(".generator"));
     VCFOutFile << samplename;
-    //VCFOutFile << outStub;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
         string ParPath = argv[ParentHashFilePaths[i]];
         int startpos = ParPath.find("overlap.asembly.hash.fastq.");
@@ -5354,7 +5293,6 @@ int main(int argc, char *argv[]) {
         string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
         ParNames.push_back(Par);
         VCFOutFile << "\t" << Par;
-        //VCFOutFile << "\tParent" << i; //argv[ParentHashFilePaths[i]];
     }
     VCFOutFile << endl;
 
@@ -5525,6 +5463,8 @@ int main(int argc, char *argv[]) {
                                                << reads[i + j].SVCheckParentsForLowCov(reads[i + j].sigBreakPoint())
                                                << "-";
                                         Format << reads[i].MobAS;
+                                        // TODO: is this where the REF base obtained? i.e. what is the bug
+                                        // I'm guessing just an off-by-one error here
                                         string ref = Reff.getSubSequence(reads[i].chr, reads[i].pos + bp - 1, 1);
 
                                         stringstream alt;
