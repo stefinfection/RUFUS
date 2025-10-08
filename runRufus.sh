@@ -515,7 +515,84 @@ Parents=("${_arg_controls[@]}")
 _arg_ref_cat="${_arg_ref%.*}"
 
 
+#########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
+ProbandFileName=$(basename "$_arg_subject")
+ProbandExtension="${ProbandFileName##*.}"
+#echo "proband extension is $ProbandExtension"
 
+
+######## checking proband extension, FASTQ is not handled, need to add that, for the meantime generator dumping to SAM needs to be used #############
+if [[ "$ProbandExtension" != "cram" ]] && [[ "$ProbandExtension" != "bam" ]] || [[ ! -e "$_arg_subject" ]] && [[ "$ProbandExtension" != "generator" ]]
+then 
+    echo "The proband bam/generator file" "$_arg_subject" " was not provided or does not exist; killing run with non-zero exit status"
+    kill -9 $$
+elif [[ "$ProbandExtension" == "bam" ]]
+then
+#   echo "you provided the proband cram file" "$_arg_subject"
+    ProbandGenerator="$ProbandFileName".generator
+    echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
+elif [[ "$ProbandExtension" == "cram" ]]
+then
+#   echo "you provided the proband cram file" "$_arg_subject"
+    ProbandGenerator="$ProbandFileName".generator
+    if [ "$_arg_cramref" == "" ]
+    then
+         echo "ERROR cram reference not provided for cram input";
+        kill -9 $$  
+     fi
+    echo "samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
+elif [[ "$ProbandExtension" = "generator" ]]
+then
+#   echo "you provided the proband bam file" "$_arg_subject"
+    ProbandGenerator="$ProbandFileName"
+else 
+    echo "unknown error during generator generation, killing run with non-zero exit status"
+fi
+
+ParentGenerators=()
+ParentJhash=()
+ParentFileNames=""
+space=" "
+
+for parent in "${Parents[@]}"
+do 
+    parentFileName=$(basename "$parent")
+    ParentFileNames=$ParentFileNames$space$parent
+#    echo "parent file name is" "$parentFileName"
+    parentExtension="${parentFileName##*.}"
+#    echo "parent file extension name is" "$parentExtension"
+
+    if  [[ "$parentExtension" != "cram" ]] && [[ "$parentExtension" != "bam" ]]  && [[ "$parentExtension" != "generator" ]] 
+    then
+	echo "The control bam/generator file" "$parent" " was not provided, or does not exist; killing run with non-zero exit status"
+	kill -9 $$
+    elif [[ "$parentExtension" == "bam" ]]
+    then
+	    parentGenerator="$parentFileName".generator
+	    ParentGenerators+=("$parentGenerator")
+	    echo "samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
+#	    echo "You provided the control bam file" "$parent"
+    elif [[ "$parentExtension" == "cram" ]] 
+    then
+            parentGenerator="$parentFileName".generator
+            ParentGenerators+=("$parentGenerator")
+	    if [ "$_arg_cramref" == "" ]
+	    then 
+		echo "ERROR cram reference not provided for cram input"; 
+		 kill -9 $$ 
+	    fi
+		echo "samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
+		_arg_ref="$_arg_cramref"
+    elif [[ "$parentExtension" = "generator" ]]
+    then
+	parentGenerator="$parentFileName"
+        ParentGenerators+=("$parentGenerator")
+#	echo "You provided the control bam file" "$parent"
+    fi
+done
+#################################################################
+
+# Note: have to do reference checks AFTER file type determination
 ###############__CHECK_IF_ALL_REFERENCE_FILES_EXIST__#####################
 if [[ ! -e "$_arg_ref".sa ]] && [[ ! -e "$_arg_ref_cat".sa ]]
 then
@@ -594,85 +671,6 @@ echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 echo "Final reference path being used is" "$_arg_ref"
 echo "Final bwa reference path being used is" "$_arg_ref_bwa"
 echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-
-
-
-#########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
-ProbandFileName=$(basename "$_arg_subject")
-ProbandExtension="${ProbandFileName##*.}"
-#echo "proband extension is $ProbandExtension"
-
-
-######## checking proband extension, FASTQ is not handled, need to add that, for the meantime generator dumping to SAM needs to be used #############
-if [[ "$ProbandExtension" != "cram" ]] && [[ "$ProbandExtension" != "bam" ]] || [[ ! -e "$_arg_subject" ]] && [[ "$ProbandExtension" != "generator" ]]
-then 
-    echo "The proband bam/generator file" "$_arg_subject" " was not provided or does not exist; killing run with non-zero exit status"
-    kill -9 $$
-elif [[ "$ProbandExtension" == "bam" ]]
-then
-#   echo "you provided the proband cram file" "$_arg_subject"
-    ProbandGenerator="$ProbandFileName".generator
-    echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
-elif [[ "$ProbandExtension" == "cram" ]]
-then
-#   echo "you provided the proband cram file" "$_arg_subject"
-    ProbandGenerator="$ProbandFileName".generator
-    if [ "$_arg_cramref" == "" ]
-    then
-         echo "ERROR cram reference not provided for cram input";
-        kill -9 $$  
-     fi
-    echo "samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
-elif [[ "$ProbandExtension" = "generator" ]]
-then
-#   echo "you provided the proband bam file" "$_arg_subject"
-    ProbandGenerator="$ProbandFileName"
-else 
-    echo "unknown error during generator generation, killing run with non-zero exit status"
-fi
-
-ParentGenerators=()
-ParentJhash=()
-ParentFileNames=""
-space=" "
-
-for parent in "${Parents[@]}"
-do 
-    parentFileName=$(basename "$parent")
-    ParentFileNames=$ParentFileNames$space$parent
-#    echo "parent file name is" "$parentFileName"
-    parentExtension="${parentFileName##*.}"
-#    echo "parent file extension name is" "$parentExtension"
-
-    if  [[ "$parentExtension" != "cram" ]] && [[ "$parentExtension" != "bam" ]]  && [[ "$parentExtension" != "generator" ]] 
-    then
-	echo "The control bam/generator file" "$parent" " was not provided, or does not exist; killing run with non-zero exit status"
-	kill -9 $$
-    elif [[ "$parentExtension" == "bam" ]]
-    then
-	    parentGenerator="$parentFileName".generator
-	    ParentGenerators+=("$parentGenerator")
-	    echo "samtools view -F 3328 $parent  $_arg_region" > "$parentGenerator"
-#	    echo "You provided the control bam file" "$parent"
-    elif [[ "$parentExtension" == "cram" ]] 
-    then
-            parentGenerator="$parentFileName".generator
-            ParentGenerators+=("$parentGenerator")
-	    if [ "$_arg_cramref" == "" ]
-	    then 
-		echo "ERROR cram reference not provided for cram input"; 
-		 kill -9 $$ 
-	    fi
-            echo "samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
- #           echo "You provided the control cram file" "$parent"    
-    elif [[ "$parentExtension" = "generator" ]]
-    then
-	parentGenerator="$parentFileName"
-        ParentGenerators+=("$parentGenerator")
-#	echo "You provided the control bam file" "$parent"
-    fi
-done
-#################################################################
 
 
 ################__COPY_ARG_BASH_VARIABLES_TO_SCRIPT_VARIABLES__##################
