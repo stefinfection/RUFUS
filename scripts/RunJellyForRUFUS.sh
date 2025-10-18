@@ -4,6 +4,7 @@ GEN=$1
 K=$2
 T=$3
 L=$4
+reg_spec_hash=$5
 
 CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 RDIR=$CDIR/../
@@ -12,6 +13,7 @@ RDIR=$CDIR/../
 JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
 SORT="$RDIR/scripts/sort"
 
+# If we're using a region-specific hash, adjust size accordingly (1MB hashes made w/ 1G)
 if [ -e "$GEN.Jhash" ]
 then
 	echo "Skipping jelly, $GEN.Jhash alreads exists"
@@ -26,7 +28,13 @@ else
 	fi
 	mkfifo $GEN.fq
 	bash $GEN | $RDIR/bin/PassThroughSamCheck $GEN.Jelly.chr > $GEN.fq &
-	$JELLYFISH count --disk -m $K -L $L -s 8G -t $T -o $GEN.Jhash -C $GEN.fq
+	
+	hash_size="8G"
+	if [ "$reg_spec_hash" = "TRUE" ]; then
+		hash_size="1G"
+	fi
+
+	$JELLYFISH count --disk -m $K -L $L -s $hash_size -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
 	rm $GEN.fq
 
