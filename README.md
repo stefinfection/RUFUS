@@ -1,1 +1,1 @@
-This branch of RUFUS is specific to the staging environment for the University of Utah's CHPC version of RUFUS.
+This branch is specific to the University of Utah's CHPC instance and contains environmental checks relevant only for that environment.
