@@ -5267,7 +5267,7 @@ int main(int argc, char *argv[]) {
     Unaligned.open(boom + "vcf.Unaligned");
 
     //write VCF header
-    // TODO: update the VCF formate to 4.3
+    // TODO: update to v4.3
     VCFOutFile << "##fileformat=VCFv4.1" << endl;
     VCFOutFile << "##fileDate=" << time(0) << endl;
 
@@ -5279,11 +5279,29 @@ int main(int argc, char *argv[]) {
     while (getline(vcfHeader, line)) {
         VCFOutFile << line << endl;
     }
+
+    string rufusVersion = ""
+    string rufusCommandLineInvco = ""
+    ArgFile.open("rufus_command.txt");
+    if (ArgFile.is_open()) { 
+        int lineIdx = 0;
+        while(getline(ArgFile, line)) {
+            if (lineIdx == 0) {
+                rufusVersion = line;
+            } else if (lineIdx == 1) {
+                rufusCommandLineInvoc = line;
+            }
+            lineIdx++;
+        }
+    }
+    else {
+        cout << "Error, ArgFile could not be opened";
+    }
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus,Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">"
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-    // TODO: don't pull generator - actually pass samples into this module
     string samplename = outStub.substr(0, outStub.find(".generator"));
     VCFOutFile << samplename;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
