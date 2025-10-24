@@ -1,5 +1,4 @@
 // TODO: put in rufus command line invocation
-// TODO: put LMQ in here
 
 ##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">
 ##FORMAT=<ID=AK,Number=1,Type=Integer,Description=\"Alternate Kmer Count\">

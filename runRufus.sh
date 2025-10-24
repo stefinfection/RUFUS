@@ -1,6 +1,12 @@
 #!/bin/bash
 
-echo "You are running the DEV version of RUFUS: v0.3.0"
+rufus_branch="DEV"
+rufus_version="v.0.3.0"
+rufus_invoc_file="rufus_command.txt"
+
+echo -n "You are running the $rufus_branch"
+echo -n "version of RUFUS: $rufus_version"
+echo -n "$rufus_version" > $rufus_invoc_file
 
 # Check for correct version of gcc
 gcc_expected="10.2.0"
@@ -398,6 +404,7 @@ assign_positional_args ()
 #which bamtools || die "ERROR, bamtools not installed, exiting"
 
 parse_commandline "$@"
+echo "$@" >> $rufus_invoc_file
 
 # [ <-- needed because of Argbash
 
