@@ -34,6 +34,9 @@ ParentsJhash=${11}
 
 humanRefBwa=${12}
 refHash=${13}
+
+rufusPath=${14}
+
 MaxCov=100000
 echo " you gave
 File=$2
@@ -366,4 +369,4 @@ md5sum Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample
 md5sum Intermediates/$NameStub.overlap.asembly.hash.fastq.sample
 md5sum ./Intermediates/$NameStub.ref.RepRefHash
 
-samtools view ./$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn  | $RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
+samtools view ./$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn  | $RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash -rp $rufusPath 

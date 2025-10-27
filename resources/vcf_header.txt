@@ -1,5 +1,3 @@
-// TODO: put in rufus command line invocation
-
 ##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">
 ##FORMAT=<ID=AK,Number=1,Type=Integer,Description=\"Alternate Kmer Count\">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Total Kmer depth across the variant\">

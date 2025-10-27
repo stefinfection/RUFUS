@@ -41,7 +41,6 @@ vector <vector<int>> DistLimitsGlobal;
 int Dist1XCutoff = -1;
 vector<double> GenPrior; // todo: what is this - priors used to determine CN which influences genotyping + AO counts
 vector <string> ParNames;
-string vcfHeaderFilePath = "~/resources/vcf_header.txt";
 vector <unordered_map<unsigned long int, int>> ParentHashes;
 unordered_map<unsigned long int, int> MutantHashes; // todo: this is a data structure of kmers that were either in the contigs from the sample, or in the reference fasta and their respective counts; translated into a long; long_kmer: count
 unordered_map<unsigned long int, int> ExcludeHashes;
@@ -4878,7 +4877,8 @@ int main(int argc, char *argv[]) {
                       "-mod  arg  Path to the model file from RUFUS.model\n"
                       "-e    arg  Path to Kmer file to exclude from LowCov check\n"
                       "-mob  arg  Path to a bam file of the aligned contigs to a mobil element list\n"
-                      "-as   arg  alignment segments threshold (default: 10)\n";
+                      "-as   arg  alignment segments threshold (default: 10)\n"
+                      "-rp   arg  Path to rufus run directory\n";
 
     string MutHashFilePath = "";
     string MutHashFilePathReference = "";
@@ -4889,6 +4889,7 @@ int main(int argc, char *argv[]) {
     string ModelFilePath = "";
     string ExcludeFilePath = "";
     string MobBam = "";
+    string rufusPath = "";
     SegThreshold = 10;
     int MinMapQual = 40;
     for (int i = 1; i < argc; i++) {
@@ -4960,6 +4961,10 @@ int main(int argc, char *argv[]) {
         } else if (p == "-mob") {
             cout << "Mobil Eelement aligned sam file = " << argv[i + 1] << endl;
             MobBam = argv[i + 1];
+            i += 1;
+        } else if (p == "-rp") {
+            cout << "RUFUS parent path = " << argv[i + 1] << endl;
+            rufusPath = argv[i + 1];
             i += 1;
         } else {
             cout << "ERROR: unkown command line paramater -" << argv[i] << "-" << endl;
@@ -5271,6 +5276,7 @@ int main(int argc, char *argv[]) {
     VCFOutFile << "##fileformat=VCFv4.1" << endl;
     VCFOutFile << "##fileDate=" << time(0) << endl;
 
+    string vcfHeaderFilePath = rufusPath + "/resources/vcf_header.txt";
     ifstream vcfHeader;
     vcfHeader.open(vcfHeaderFilePath);
     if (!vcfHeader.is_open()) { 
@@ -5280,8 +5286,9 @@ int main(int argc, char *argv[]) {
         VCFOutFile << line << endl;
     }
 
-    string rufusVersion = ""
-    string rufusCommandLineInvco = ""
+    string rufusVersion = "";
+    string rufusCommandLineInvoc = "";
+    ifstream ArgFile;
     ArgFile.open("rufus_command.txt");
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
@@ -5297,7 +5304,7 @@ int main(int argc, char *argv[]) {
     else {
         cout << "Error, ArgFile could not be opened";
     }
-    VCFOutFile << "##RUFUSCommandLine=<ID=rufus,Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">"
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
     // Write out final header line with sample names
