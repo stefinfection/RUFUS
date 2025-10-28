@@ -1,7 +1,7 @@
 RUFUS Singularity Container
 =====
 
-K-mer based variant detection. v1.0.0-gamma. 
+K-mer based variant detection. v0.1.0-epsilon. 
 
 Developed by Stephanie Georges, MS\
 Based on the thesis project of Andrew Farrell, PhD\
