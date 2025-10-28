@@ -253,31 +253,35 @@ parse_commandline ()
 		;;
 	-c|--controls)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-		#echo "checking parent count $#"
-		FileName=$(basename "$2")
-		Extension="${FileName##*.}"
-		genName=$FileName
-		if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then 
-			echo "" > "$FileName".generator
-			_arg_controls+=("$FileName".generator)
-		fi 
-		while [[ $2 != -* ]]; do
+
+		if [ "$2" == "single_sample_mode"]; then
+			_arg_controls="$2"
+		else
 			FileName=$(basename "$2")
-		        Extension="${FileName##*.}"
-			if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
-			then 
-				echo "fastq file identified"
-				if [[ $Extension == 'gz' ]]
+			Extension="${FileName##*.}"
+			genName=$FileName
+			if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then 
+				echo "" > "$FileName".generator
+				_arg_controls+=("$FileName".generator)
+			fi 
+			while [[ $2 != -* ]]; do
+				FileName=$(basename "$2")
+					Extension="${FileName##*.}"
+				if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
 				then 
-					echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
+					echo "fastq file identified"
+					if [[ $Extension == 'gz' ]]
+					then 
+						echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
+					else
+						echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
+					fi
 				else
-					echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
+					_arg_controls+=("$2")
 				fi
-			else
-				_arg_controls+=("$2")
-			fi
-			shift
-		done
+				shift
+			done
+		fi
 		;;
 	-e|--exclude)
 		test $# -lt 2 && die "Missing value for the optional argument '$key'." 1
@@ -634,6 +638,19 @@ check_empty_hashes ()
     rm "$control_code_file"
     rm "$subject_code_file"
 }
+
+get_internal_control() {
+	local region=$1
+	local WG_HASH=""
+
+	if [ "$region" == "" ]; then
+		echo "Running whole genome mode with internal control hash"
+	else
+		echo "Running $region with internal control hash"
+	fi
+
+}
+
 parse_commandline "$@"
 echo "$@" >> $rufus_invoc_file
 
