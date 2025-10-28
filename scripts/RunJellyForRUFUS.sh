@@ -11,8 +11,8 @@ RDIR=$CDIR/../
 
 
 JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
-SORT="$RDIR/scripts/sort"
 
+# If we're using a region-specific hash, adjust size accordingly (1MB hashes made w/ 1G)
 if [ -e "$GEN.Jhash" ]
 then
 	echo "Skipping jelly, $GEN.Jhash alreads exists"

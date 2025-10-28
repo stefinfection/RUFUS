@@ -36,7 +36,7 @@ unordered_map<string, bool> DupCheck;
 // Score is simply +1 for each base that matches and has a qual > 5 on both strands (and is not N)
 int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aqp, int Ai, int& overlap, int& index, float minPercentpassed, bool& PerfectMatch, int MinOverlapPassed, int Threads) 
 {
-	int QualityOffset = 33; //=64; 
+	int QualityOffset = 33;
 	int MinQual = 20;
 	bool verbose = false;
 	int bestScore = 0;
@@ -63,27 +63,22 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 		int LocalBestScore = 0;
 		int LocalIndex = -1;
 		int LocalOverlap = 0;
+		bool LocalPerfectMatch = false;
 		string A;
 		int Alen;
 		string Aq;
+		A = Ap;
+		Alen = A.length();
+		Aq = Aqp;
 
-		//#pragma omp critical
-		{
-			A = Ap;
-			Alen = A.length();
-			Aq = Aqp;
-		}
 		string B;
 		string Bq;
 		int Blength = -1;
 		int Alength = Alen;
 		int k;
-
-		//#pragma omp critical
-		{
-			B = sequenes[j];
-			Bq = quals[j];
-		}
+		B = sequenes[j];
+		Bq = quals[j];
+		
 		Blength = B.length();
 		int window = -1;
 		int longest = -1;
@@ -161,13 +156,12 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 				// Note: as soon as we find a perfect match we take the first one
 				// Could this affect STRs or long repeats? - SJG
 				if (score == window) {
-					PerfectMatch = true;
+					LocalPerfectMatch = true;
 					break;
 				}
 			}
 		}
-
-		if (PerfectMatch == false) 
+		if (LocalPerfectMatch == false) 
 		{
 			// Check for overlap at end of A and start of B
 			for (int i = window - 1; i >= MinOverlap; i--) 
@@ -251,10 +245,15 @@ int Align3(vector<string>& sequenes, vector<string>& quals, string Ap, string Aq
 		}
 		#pragma omp critical(updateCounts)
 		{
-			if (bestScore < LocalBestScore) {
+		if (bestScore < LocalBestScore || 
+        	(bestScore == LocalBestScore && LocalIndex < index)) {  // Tie-breaker to ensure consistent results		
 				bestScore = LocalBestScore;
 				index = LocalIndex;
 				overlap = LocalOverlap;
+			}
+			// Only want to update this logic if we have found a perfect match
+			if (LocalPerfectMatch) {
+				PerfectMatch = true;
 			}
 		}
 	}

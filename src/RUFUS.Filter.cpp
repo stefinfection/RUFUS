@@ -1,6 +1,6 @@
 /*By ANDREW FARRELL
  * RUFUS.CheckHashFilter.cpp
- * TODO: describe funciton of file
+ * TODO: describe function of file
  */
 
 #include <bitset>
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 
 	int BufferSize = 240;
 
-	cout << "Paramaters are:\n	PreBuiltMutHash = " << argv[1]
+	cout << "Parameters are:\n	PreBuiltMutHash = " << argv[1]
 			 << "\n	Mutant.mate1.fq = " << argv[2]
 			 << "\n	Mutant.mate2.fq = " << argv[3] 
 			 << "\n	out stub = " << argv[4]
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 	// Read in file passed to the program on the command line
 
 	string temp = argv[5];
-	int HashSize = atoi(temp.c_str());
+	int HashSize = atoi(temp.c_str()); // k-mer length
 	temp = argv[6];
 	int MinQ = atoi(temp.c_str());
 	temp = argv[7];
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 	MutHashFile.open(argv[1]);
 	if (MutHashFile.is_open()) {
 		cout << "Parent File open - " << argv[1] << endl;
-	}	// cout << "##File Opend\n";
+	}
 	else {
 		cout << "Error, ParentHashFile could not be opened";
 		return 0;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 	cout << "here " << endl;	
  
 	if (MutFileM1.is_open()) {
-		cout << "##File Opend\n";
+		cout << "##File Opened\n";
 	} else {
 		cout << "Error, MutFile could not be opened";
 		return 0;
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	MutFileM2.open(argv[3]);
 	
 	if (MutFileM2.is_open()) {
-		cout << "##File Opend\n";
+		cout << "##File Opened\n";
 	} else {
 		cout << "Error, MutFile could not be opened";
 		return 0; 
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 
 	string line;
 	unordered_map<unsigned long, int> Mutations;
-	cout << "Reading in pre-built hash talbe\n";
+	cout << "Reading in pre-built hash table\n";
 	int lines = 0;
 	string L1;
 	unsigned long LongHash;
@@ -177,10 +177,11 @@ int main(int argc, char *argv[])
 
 
 
-
+        // todo: figure out what's going on here
 		if (lines % 10000 > 1 && (lines % (10000 + Threads) < Threads)) {
 			Et = clock();
 			float Dt = ((double)(Et - St)) * CLOCKS_PER_SEC;
+            // todo: there's a race condition somewhere on this output (in o.out)
 			cout << "Read in " << lines * (BufferSize/4) << " lines: Found " << found
 					 << " Reads per sec = " << (float)lines / (float)Dt << " \r";
 		}

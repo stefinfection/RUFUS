@@ -151,4 +151,3 @@ singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/s
 ## 
 
 =======
-

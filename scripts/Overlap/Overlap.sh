@@ -13,21 +13,24 @@ ParentsJhash=$9
 humanRefBwa=${10}
 refHash=${11}
 
-#echo " you gave
-#File=$2
-#FinalCoverage=$3
-#NameStub=$4.V2
-#HashList=$5
-#HashSize=$6
-#Threads=$7
-#"
+echo " you gave
+File=$2
+FinalCoverage=$3
+NameStub=$4.V2
+HashList=$5
+HashSize=$6
+Threads=$7
+"
 
-#echo "final coveage is $FinalCoverage"
+echo "final coveage is $FinalCoverage"
 
-echo "Starting overlap phase..."
-echo "Reference provided is $humanRef"
+echo "@@@@@@@@@@@@@__IN_OVERLAP__@@@@@@@@@@@@@@@"
+echo "human ref in Overlap is $humanRef"
+echo "bwa human ref in Overlap is $humanRefBwa"
+echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 mkdir ./TempOverlap/
 mkdir ./Intermediates/
+echo "Overlaping $File"
 
 CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
@@ -41,14 +44,11 @@ ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ
 AnnotateOverlap=$RDIR/bin/AnnotateOverlap
 #gkno=$RDIR/bin/gkno_launcher/gkno
 bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
-samtools=/opt/samtools/samtools
 RUFUSinterpret=$RDIR/bin/RUFUS.interpret
 CheckHash=$RDIR/scripts/CheckJellyHashList.sh
 OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
-fastaFromBed=/opt/bedtools2/bin/fastaFromBed
-bamToBed=/opt/bedtools2/bin/bamToBed
-
+samtools=/uufs/chpc.utah.edu/common/HIPAA/u0746015/bin/container_versions/samtools/samtools
 
 #if [ -s $NameStub.overlap.hashcount.fastq ]
 #then 
@@ -122,18 +122,18 @@ fi
 #############################################################################################################
 if [ -e ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]
 then 
-	echo "skipping pull reference sequences"
+	echo "skipping pull reference sequecnes"
 else
-	$fastaFromBed -bed <( $bamToBed -i ./$NameStub.overlap.hashcount.fastq.bam) -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
+	/uufs/chpc.utah.edu/common/HIPAA/u0746015/bin/container_versions/bedtools2/bin/fastaFromBed -bed <( /uufs/chpc.utah.edu/common/HIPAA/u0746015/bin/container_versions/bedtools2/bin/bamToBed -i ./$NameStub.overlap.hashcount.fastq.bam) -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
 fi 
 
 if [ -e ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ]
 then 
 	echo "skipping var hash generationr"
 else
-	#echo "$JellyFish count -m $HashSize -s 1G -t 20 -o ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ./$NameStub.overlap.hashcount.fastq"
+	echo "$JellyFish count -m $HashSize -s 1G -t 20 -o ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ./$NameStub.overlap.hashcount.fastq"
 	$JellyFish count -m $HashSize -s 1G -t 20 -o ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ./$NameStub.overlap.hashcount.fastq
-	#echo "$JellyFish dump  -c ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash > ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab"
+	echo "$JellyFish dump  -c ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash > ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab"
 	$JellyFish dump  -c ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash > ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab
 fi 
 
@@ -203,7 +203,7 @@ if [ -s ./Intermediates/$NameStub.ref.RepRefHash ]
 then
         echo "Exclude already exists"
 else
-	#echo "bash $CheckHash $refHash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 1 > Intermediates/$NameStub.ref.RepRefHash"
+	echo "bash $CheckHash $refHash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 1 > Intermediates/$NameStub.ref.RepRefHash"
 	bash $CheckHash $refHash ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 1 > Intermediates/$NameStub.ref.RepRefHash
 fi
 wait
@@ -211,7 +211,7 @@ wait
 mkfifo check 
 $samtools index ./$NameStub.overlap.hashcount.fastq.bam
 
-#echo "$RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash "
+echo "$RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash "
 
 $samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
 

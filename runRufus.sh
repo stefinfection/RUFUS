@@ -1,4 +1,19 @@
 #!/bin/bash
+rufus_branch="Epsilon "
+rufus_version="v.0.1.0"
+rufus_invoc_file="rufus_command.txt"
+
+echo -n "You are running the $rufus_branch"
+echo -n " version of RUFUS: $rufus_version"
+echo "$rufus_version" > $rufus_invoc_file
+
+# Check for correct version of gcc
+gcc_expected="10.2.0"
+gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
+if [[ "$gcc_expected" != "$gcc_actual" ]]; then
+    echo "It looks like you have the wrong version of gcc loaded to run RUFUS: please use the module system to load gcc/10.2.0"
+    exit 0
+fi
 
 set -e 
 
@@ -83,6 +98,7 @@ _assemblySpeed="full"
 _parallel_jelly="no"
 _pairedEnd="true"
 _arg_region=
+_use_region_hash="FALSE"
 _arg_filterK=1
 _arg_ParLowK=2
 _filterMinQ=15
@@ -98,6 +114,7 @@ print_help ()
 	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multipe times)"
 	printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
+	printf "\t%s\n" "-eR, --exclude-region-hash: Region-specific Jhash file of kmers to exclude from mutation list; only support 1mb region sizes"
 	printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
 	printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
 	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
@@ -304,32 +321,32 @@ parse_commandline ()
 		shift
 		;;
 	-R|--region)
+			test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+			_arg_region="$2"
+			if  [[ -z $_arg_region  ]] ; then
+				echo "arg region must not be empyty"
+				exit 100
+			fi
+			shift
+			;;
+	-pa|--passArray)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-		_arg_region="$2"
-		if  [[ -z $_arg_region  ]] ; then
-			echo "arg region must not be empyty"
-			exit 100
+			_arg_slurm_array_index=$2
+			if ! [[ $_arg_slurm_array_index =~ $re ]] ; then
+		echo "arg -pa or --passArray must be a number "
+		exit 100
+		fi
+		shift
+			;;
+	-cn|--currAbsNum)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_abs_coord_index=$2
+		if ! [[ $_arg_abs_coord_index =~ $re ]] ; then
+		echo "arg -cn or --currAbsNum must be a number "
+		exit 100
 		fi
 		shift
 		;;
-	-pa|--passArray)
-	  test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-		_arg_slurm_array_index=$2
-		if ! [[ $_arg_slurm_array_index =~ $re ]] ; then
-      echo "arg -pa or --passArray must be a number "
-      exit 100
-    fi
-    shift
-		;;
-  -cn|--currAbsNum)
-    test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-    _arg_abs_coord_index=$2
-    if ! [[ $_arg_abs_coord_index =~ $re ]] ; then
-      echo "arg -cn or --currAbsNum must be a number "
-      exit 100
-    fi
-    shift
-    ;;
 	-i|--saliva)
 		_arg_saliva="TRUE"
 		echo "INFO: Saliva subject sample provided"
@@ -337,7 +354,7 @@ parse_commandline ()
 	-vs|--Very_Short_Assembly|--vs)
 		_assemblySpeed="veryfast"
 		echo "INFO: Very fast assembly being used"
-		;;
+	;;
 	-se|--single_end_reads|--se)
 		_pairedEnd="false"
 		echo "INFO: Sample Bam file is single end data"
@@ -428,6 +445,7 @@ assign_positional_args ()
 	eval "${_positional_names[ii]}=\${_positionals[ii]}" || die "Error during argument parsing, possibly an Argbash bug." 1
 	done
 }
+
 
 # Cleans up intermediary files created by RUFUS run if keep file flag is not set
 clean_up_files ()
@@ -616,8 +634,8 @@ check_empty_hashes ()
     rm "$control_code_file"
     rm "$subject_code_file"
 }
-
 parse_commandline "$@"
+echo "$@" >> $rufus_invoc_file
 
 region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
@@ -957,7 +975,6 @@ fi
 #  echo " $parent"
 #done
 #echo "Value of K is: $K"
-#echo "Value of Threads is: $Threads"
 #echo "value of ref is: $ref"
 #echo "value of min is: $_arg_min" 
 #echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -1255,7 +1272,7 @@ then
 		echo "ERROR: No unique hashes pulled from fastq files in filtering step."
 		exit 100
 	fi
-	
+
 	shortinsert="false"
 	if [ -e "$ProbandGenerator".Mutations.fastq.bam ]
 	then 
@@ -1367,8 +1384,8 @@ then
     echo "########### Skipping overlap step ###########"
 else
     echo "########### Starting RUFUS overlap ###########"
-    echo " bash  $RUFUSOverlap "$_arg_ref" "${ProbandGenerator}".Mutations.fastq 5 $ProbandGenerator "${ProbandGenerator}".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "${ProbandGenerator}".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
-     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "${ProbandGenerator}".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "${ProbandGenerator}".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
+    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
+     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
@@ -1383,7 +1400,7 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-
+rm "rufus_command.txt"
 echo "cleaning up VCF"
 
 PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
@@ -1392,9 +1409,15 @@ grep ^# ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" = "TRUE" ]
+grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+echo "arg_mosaic = $_arg_mosaic"
+if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
+	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"; 
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
