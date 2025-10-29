@@ -1,6 +1,12 @@
 #!/bin/bash
 
-echo "You are running the STAGING version of RUFUS: v0.3.0"
+rufus_branch="DEV "
+rufus_version="v.0.3.0"
+rufus_invoc_file="rufus_command.txt"
+
+echo -n "You are running the $rufus_branch"
+echo -n " version of RUFUS: $rufus_version"
+echo "$rufus_version" > $rufus_invoc_file
 
 # Check for correct version of gcc
 gcc_expected="10.2.0"
@@ -398,6 +404,7 @@ assign_positional_args ()
 #which bamtools || die "ERROR, bamtools not installed, exiting"
 
 parse_commandline "$@"
+echo "$@" >> $rufus_invoc_file
 
 # [ <-- needed because of Argbash
 
@@ -716,7 +723,6 @@ fi
 #  echo " $parent"
 #done
 #echo "Value of K is: $K"
-#echo "Value of Threads is: $Threads"
 #echo "value of ref is: $ref"
 #echo "value of min is: $_arg_min" 
 #echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -1113,9 +1119,8 @@ then
     echo "########### Skipping overlap step ###########"
 else
     echo "########### Starting RUFUS overlap ###########"
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq $MutantMinCov $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
-     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq $MutantMinCov $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
-    #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
+    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq $MutantMinCov $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash" "$RDIR""
+     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq $MutantMinCov $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash" "$RDIR"
     echo "Done with RUFUS overlap"
 fi
 ##############################################################################################
@@ -1129,7 +1134,7 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-
+rm "rufus_command.txt"
 echo "cleaning up VCF"
 
 PREFINAL_VCF="$ProbandGenerator.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
