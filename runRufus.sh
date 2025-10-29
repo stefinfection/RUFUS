@@ -1,7 +1,7 @@
 #!/bin/bash
 
-rufus_branch="DEV "
-rufus_version="v.0.3.0"
+rufus_branch="STAGING "
+rufus_version="v.0.4.0"
 rufus_invoc_file="rufus_command.txt"
 
 echo -n "You are running the $rufus_branch"
