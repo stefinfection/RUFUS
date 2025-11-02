@@ -1,9 +1,10 @@
 #!/bin/bash
 
+PATH_TO_ENV="/mnt/data/rufus_resources"
 # Check for RUFUS env file
-if [ -f aws_rufus.env ]; then
+if [ -f "$PATH_TO_ENV/rufus.env" ]; then
     set -a
-    source <(grep -v '^#' aws_rufus.env | grep -v '^[[:space:]]*$' | sed 's/\r$//')
+    source <(grep -v '^#' $PATH_TO_ENV/rufus.env | grep -v '^[[:space:]]*$' | sed 's/\r$//')
     set +a
 else
     echo "Error: rufus.env file not found"
@@ -19,30 +20,19 @@ for var in "${REQUIRED_VARS[@]}"; do
     fi
 done
 
-# Helper functions
-get_control_hash() {
-    local region=$1
-    
-    # Check for resources directory
-    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/control_hashes" ]; then
-        echo -n "Error: Internal control resources directory not found at ${HOST_DATA_DIR}/rufus_resources/control_hashes - "
-        echo "Please ensure the RUFUS resources directory is copied or soft-linked within the HOST_DATA_DIR assigned in the rufus.env file"
-        exit 1
-    fi
-    
-    local ctrl_hash=""
-    if [ "$region" == "" ]; then
-        # If we don't have a region, use entire genome wide Jhash
-        ctrl_hash="/mnt/rufus_resources/control_hashes/wg.control_${CONTROL_HASH_VERSION}.Jhash"
+get_reference() {
+    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/references" ] || [ ! -f "${HOST_DATA_DIR}/rufus_resources/references/${REFERENCE_FASTA}" ]; then
+        # Check for resources directory and that the reference is in there - warn if not
+        echo -n "Warning - ${REFERENCE_FASTA} not found in ${HOST_DATA_DIR}/rufus_resources/references directory - "
+        echo "Utilizing pre-built BWA references provided in the RUFUS resources directory can speed up run time next time"
+        reference="mnt/${REFERENCE_FASTA}"
     else
-        # Otherwise, use region specific technical control
-        hash_arg=$(echo "$region" | tr ':-' '_')
-        ctrl_hash="/mnt/rufus_resources/control_hashes/${hash_arg}.control_${CONTROL_HASH_VERSION}.Jhash"
+        # If it is in references, use it 
+        reference="/mnt/rufus_resources/references/${REFERENCE_FASTA}"
     fi
 
-    echo "$ctrl_hash"
+    echo "$reference"
 }
-export -f get_internal_control
 
 get_kg1_hash() {
     local region=$1
@@ -69,18 +59,75 @@ get_kg1_hash() {
 }
 export -f get_kg1_hash
 
-get_reference() {
-    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/references" ] || [ ! -f "${HOST_DATA_DIR}/rufus_resources/references/${REFERENCE_FASTA}" ]; then
-        # Check for resources directory and that the reference is in there - warn if not
-        echo -n "Warning - ${REFERENCE_FASTA} not found in ${HOST_DATA_DIR}/rufus_resources/references directory - "
-        echo "Utilizing pre-built BWA references provided in the RUFUS resources directory can speed up run time next time"
-        reference="mnt/${REFERENCE_FASTA}"
+# Helper functions
+get_control_hash() {
+    local region=$1
+    
+    # Check for resources directory
+    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/control_hashes" ]; then
+        echo -n "Error: Internal control resources directory not found at ${HOST_DATA_DIR}/rufus_resources/control_hashes - "
+        echo "Please ensure the RUFUS resources directory is copied or soft-linked within the HOST_DATA_DIR assigned in the rufus.env file"
+        exit 1
+    fi
+    
+    local ctrl_hash=""
+    if [ "$region" == "" ]; then
+        # If we don't have a region, use entire genome wide Jhash
+        ctrl_hash="/mnt/rufus_resources/control_hashes/wg.control_${CONTROL_HASH_VERSION}.Jhash"
     else
-        # If not, just use what they provided
-        reference="/mnt/rufus_resources/references/${REFERENCE_FASTA}"
+        # Otherwise, use region specific technical control
+        hash_arg=$(echo "$region" | tr ':-' '_')
+        ctrl_hash="/mnt/rufus_resources/control_hashes/${hash_arg}.control_${CONTROL_HASH_VERSION}.Jhash"
     fi
 
-    echo "$reference"
+    echo "$ctrl_hash"
+}
+export -f get_internal_control
+
+# Fetch resources from S3 if not present locally
+fetch_kg1_hash() {
+    local region=$1
+    fmtd_reg=$(echo "$region" | tr ':-' '_')
+
+    if [ ! -d "${HOST_DATA_DIR}/rufus_resources" ]; then
+        mkdir -p "${HOST_DATA_DIR}/rufus_resources"
+    fi
+
+    local kg1_hash=""
+    if [ "$region" == "" ]; then
+        # If we don't have a region, use entire genome wide Jhash
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/kg1_hashes/${KG1_HASH_VERSION}/wg_kg1_${KG1_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
+        kg1_hash="mnt/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
+    else
+        # Convert chrN:n-m to chrN_n_m
+        chrom=$(echo "$fmtd_reg" | cut -d'_' -f1)
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/kg1_hashes/${KG1_HASH_VERSION}/${chrom}/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
+        kg1_hash="/mnt/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
+    fi
+
+    echo "$kg1_hash"
+}
+
+fetch_control_hash() {
+    local region=$1
+    fmtd_reg=$(echo "$region" | tr ':-' '_')
+
+    if [ ! -d "${HOST_DATA_DIR}/rufus_resources" ]; then
+        mkdir -p "${HOST_DATA_DIR}/rufus_resources"
+    fi
+
+    local ctrl_hash=""
+    if [ "$region" == "" ]; then
+        # If we don't have a region, use entire genome wide Jhash
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/control_hashes/${CONTROL_HASH_VERSION}/wg_control_${CONTROL_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
+        ctrl_hash="mnt/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
+    else
+        # Convert chrN:n-m to chrN_n_m
+        chrom=$(echo "$fmtd_reg" | cut -d'_' -f1)
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/kg1_hashes/${CONTROL_HASH_VERSION}/${chrom}/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
+        ctrl_hash="/mnt/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
+    fi
+    echo "$ctrl_hash"
 }
 
 process_region() {
@@ -90,8 +137,8 @@ process_region() {
     # Check to see if controls are provided
     if [ "${#CONTROL_FILE_ARRAY[@]}" -eq 0 ]; then
         echo "No control samples provided, using internal control for single sample mode"
-        internal_ctrl=$($get_control_hash $region)
-        ctrl_arg="-c $internal_ctrl "
+        internal_ctrl_hash=$($fetch_control_hash $region)
+        ctrl_arg="-e $internal_ctrl_hash "
     else
         # Concatenate controls into a single -c delimited string
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
@@ -99,7 +146,7 @@ process_region() {
         done
     fi
 
-    kg1_hash=$(get_kg1_hash $region)
+    kg1_hash=$(fetch_kg1_hash $region)
     kg1_hash_arg="-e $kg1_hash"
 
     ref=$(get_reference)
