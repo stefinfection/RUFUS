@@ -1,1 +1,1 @@
-sudo docker build -t rufus:epsilon
+sudo docker build -t rufus:latest
