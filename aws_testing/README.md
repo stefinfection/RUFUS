@@ -1,6 +1,7 @@
 # Running RUFUS on AWS
 
-Running RUFUS on AWS requires obtaining the RUFUS container and the RUFUS resource directory.
+## Step 0: Prerequisites
+Running RUFUS requires Docker. Installation instructions for getting Docker on your machine can be found [here](https://docs.docker.com/engine/install/).
 
 ## Step 1: Download the RUFUS Container and launch script
 ```bash
@@ -17,7 +18,7 @@ ln -s ${REFERENCE_FILE} ${HOST_DATA_DIR}
 ```
 
 ## Step 3: Download RUFUS resource directory
-RUFUS requires a small resource directory containing an environment file, and optional reference files that allow RUFUS to run quicker. This resource directory **must** be placed in the same data directory from step 2. There are a few ways to easily download these resources.
+RUFUS requires a small resource directory containing an environment file, a regions file, and reference files that allow RUFUS to run quicker. This resource directory **must** be placed in the same data directory from step 2. There are a few ways to easily download these resources.
 
 ### Option A: Download with AWS-CLI
 ```bash
