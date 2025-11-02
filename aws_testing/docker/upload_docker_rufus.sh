@@ -1,2 +1,2 @@
-sudo docker tag rufus:epsilon stefinfection/rufus:epsilon_1.0
-sudo docker push stefinfection/rufus:epsilon_1.0
+sudo docker tag 686ceda6d318 stefinfection/rufus:latest
+sudo docker push stefinfection/rufus:latest
