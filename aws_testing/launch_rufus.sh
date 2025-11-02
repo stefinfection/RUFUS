@@ -1,8 +1,13 @@
 #!/bin/bash
 
-PATH_TO_ENV="/mnt/data/rufus_resources"
+# Fill in
+HOST_DATA_DIR=
+
+
+start_time=$(date +%s)
+
 # Check for RUFUS env file
-if [ -f "$PATH_TO_ENV/rufus.env" ]; then
+if [ -f "$HOST_DATA_DIR/rufus_resources/rufus.env" ]; then
     set -a
     source <(grep -v '^#' $PATH_TO_ENV/rufus.env | grep -v '^[[:space:]]*$' | sed 's/\r$//')
     set +a
@@ -34,60 +39,9 @@ get_reference() {
     echo "$reference"
 }
 
-get_kg1_hash() {
-    local region=$1
-
-    local kg1_hash_arg=""
-    # Check for resources directory
-    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/kg1_hashes" ]; then
-        echo -n "Error - rufus_resources/kg1_hashes directory not found in ${HOST_DATA_DIR} - "
-        echo "Please ensure the RUFUS resources directory is copied or soft-linked within the HOST_DATA_DIR assigned in the rufus.env file"
-        exit 1
-    fi
-
-    local hash_arg=""
-    if [ "$region" == "" ]; then
-        # If we don't have a region, use entire genome wide Jhash
-        kg1_hash_arg="/mnt/rufus_resources/kg1_hashes/wg.${KG1_HASH_VERSION}.Jhash"
-    else
-        # Convert chrN:n-m to chrN_n_m
-        kg1_hash_arg=$(echo "$region" | tr ':-' '_')
-        kg1_hash_arg="/mnt/rufus_resources/kg1_hashes/${hash_arg}.${KG1_HASH_VERSION}.Jhash"
-    fi
-
-    echo "$kg1_hash_arg"
-}
-export -f get_kg1_hash
-
-# Helper functions
-get_control_hash() {
-    local region=$1
-    
-    # Check for resources directory
-    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/control_hashes" ]; then
-        echo -n "Error: Internal control resources directory not found at ${HOST_DATA_DIR}/rufus_resources/control_hashes - "
-        echo "Please ensure the RUFUS resources directory is copied or soft-linked within the HOST_DATA_DIR assigned in the rufus.env file"
-        exit 1
-    fi
-    
-    local ctrl_hash=""
-    if [ "$region" == "" ]; then
-        # If we don't have a region, use entire genome wide Jhash
-        ctrl_hash="/mnt/rufus_resources/control_hashes/wg.control_${CONTROL_HASH_VERSION}.Jhash"
-    else
-        # Otherwise, use region specific technical control
-        hash_arg=$(echo "$region" | tr ':-' '_')
-        ctrl_hash="/mnt/rufus_resources/control_hashes/${hash_arg}.control_${CONTROL_HASH_VERSION}.Jhash"
-    fi
-
-    echo "$ctrl_hash"
-}
-export -f get_internal_control
-
 # Fetch resources from S3 if not present locally
 fetch_kg1_hash() {
     local region=$1
-    fmtd_reg=$(echo "$region" | tr ':-' '_')
 
     if [ ! -d "${HOST_DATA_DIR}/rufus_resources" ]; then
         mkdir -p "${HOST_DATA_DIR}/rufus_resources"
@@ -96,12 +50,13 @@ fetch_kg1_hash() {
     local kg1_hash=""
     if [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/kg1_hashes/${KG1_HASH_VERSION}/wg_kg1_${KG1_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/kg1_hashes/${KG1_HASH_VERSION}/wg_kg1_${KG1_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
         kg1_hash="mnt/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
+        fmtd_reg=$(echo "$region" | tr ':-' '_')
         chrom=$(echo "$fmtd_reg" | cut -d'_' -f1)
-        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/kg1_hashes/${KG1_HASH_VERSION}/${chrom}/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/kg1_hashes/${KG1_HASH_VERSION}/${chrom}/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
         kg1_hash="/mnt/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
     fi
 
@@ -110,7 +65,6 @@ fetch_kg1_hash() {
 
 fetch_control_hash() {
     local region=$1
-    fmtd_reg=$(echo "$region" | tr ':-' '_')
 
     if [ ! -d "${HOST_DATA_DIR}/rufus_resources" ]; then
         mkdir -p "${HOST_DATA_DIR}/rufus_resources"
@@ -119,12 +73,13 @@ fetch_control_hash() {
     local ctrl_hash=""
     if [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/control_hashes/${CONTROL_HASH_VERSION}/wg_control_${CONTROL_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/control_hashes/${CONTROL_HASH_VERSION}/wg_control_${CONTROL_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
         ctrl_hash="mnt/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
+        fmtd_reg=$(echo "$region" | tr ':-' '_')
         chrom=$(echo "$fmtd_reg" | cut -d'_' -f1)
-        aws s3 sync "s3://rufus.marth.lab/public_access_data/rufus_resources/kg1_hashes/${CONTROL_HASH_VERSION}/${chrom}/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
+        aws s3 sync "s3://rufus.marth.lab/public_access_data/control_hashes/${CONTROL_HASH_VERSION}/${chrom}/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash" "${HOST_DATA_DIR}/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
         ctrl_hash="/mnt/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
     fi
     echo "$ctrl_hash"
@@ -152,16 +107,28 @@ process_region() {
     ref=$(get_reference)
     ref_arg="-r $ref"
 
-    echo "singularity exec --bind ${HOST_DATA_DIR}:/mnt ${CONTAINER_PATH} bash /opt/RUFUS/runRufus.sh \
-        -s /mnt/$SUBJECT_FILE \
-        $ctrl_arg \
-        $ref_arg \
-        -m $KMER_DEPTH_CUTOFF \
-        -k $KMER_LENGTH \
-        -t $THREAD_LIMIT \
-        $OTHER_FLAGS \
-        $kg1_hash_arg \
-        $region"
+    docker run --rm -v ${HOST_DATA_DIR}:/mnt ${CONTAINER_IMAGE} bash /opt/RUFUS/runRufus.sh \
+    -s /mnt/$SUBJECT_FILE \
+    $ctrl_arg \
+    $ref_arg \
+    -m $KMER_DEPTH_CUTOFF \
+    -k $KMER_LENGTH \
+    -t $THREAD_LIMIT \
+    $OTHER_FLAGS \
+    $kg1_hash_arg \
+    $region
+
+    # Uncomment below to use singularity
+    # singularity exec --bind ${HOST_DATA_DIR}:/mnt ${CONTAINER_IMAGE} bash /opt/RUFUS/runRufus.sh \
+    #     -s /mnt/$SUBJECT_FILE \
+    #     $ctrl_arg \
+    #     $ref_arg \
+    #     -m $KMER_DEPTH_CUTOFF \
+    #     -k $KMER_LENGTH \
+    #     -t $THREAD_LIMIT \
+    #     $OTHER_FLAGS \
+    #     $kg1_hash_arg \
+    #     $region
 }
 export -f process_region
 
@@ -177,7 +144,6 @@ else
     echo "Running RUFUS in whole genome mode"
 fi
 
-# TODO: port to Docker command
 # Start work
 echo "Starting parallel RUFUS jobs..."
 parallel -j "$JOB_THRESHOLD" process_region {} :::: "$REGION_FILE"
@@ -191,6 +157,13 @@ done
 ref=$($get_reference)
 
 # Wait for all jobs to finish before combining + post-processing
-#echo "All RUFUS regional jobs completed. Starting merge and post-process..."
-#singularity exec --bind "${HOST_DATA_DIR}:/mnt" "${CONTAINER_PATH}$" bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -c "$concat_ctrl_post_arg" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt"
-echo "RUFUS completed. Total run time: "
+echo "All RUFUS regional jobs completed. Starting merge and post-process..."
+
+docker run --rm -v ${HOST_DATA_DIR}:/mnt ${CONTAINER_IMAGE} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -c "$concat_ctrl_post_arg" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt"
+
+# Uncomment below to use singularity
+#singularity exec --bind "${HOST_DATA_DIR}:/mnt" "${CONTAINER_IMAGE}$" bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -c "$concat_ctrl_post_arg" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt"
+
+end_time=$(date +%s)
+elapsed=$((end_time - start_time))
+echo "RUFUS completed. Total run time: $elapsed"
