@@ -528,7 +528,6 @@ clean_up_files ()
     )
     for postfix in "${subject_files[@]}";
     do
-	  echo "trying to remove ${probandFileName}${regionPostfix}.${postfix}"
       if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
         rm ${probandFileName}${regionPostfix}.${postfix}
       fi

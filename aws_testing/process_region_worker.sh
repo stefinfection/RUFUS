@@ -1,9 +1,10 @@
 #!/bin/bash
 
-DEV_MOUNT=""
+DEV_MOUNT="-v /home/ubuntu/RUFUS:/opt/RUFUS -v /opt/RUFUS/bin"
 
 ENV_FILE="$1"
-region="$2"
+CONTAINER_ID="$2"
+region="$3"
 
 # Check RUFUS env file arg actually exists
 if [ -f "$ENV_FILE" ]; then
@@ -46,11 +47,11 @@ fetch_kg1_hash() {
 
     if [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "wg"
+        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "wg"
         kg1_hash="mnt/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
     else
         fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "$fmtd_reg"
+        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "$fmtd_reg"
         kg1_hash="/mnt/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
     fi
 
@@ -69,12 +70,12 @@ fetch_control_hash() {
 
     if [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "wg"
+        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "wg"
         ctrl_hash="mnt/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
         fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "$fmtd_reg"
+        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "$fmtd_reg"
         ctrl_hash="/mnt/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
     fi
     echo "$ctrl_hash"
@@ -135,7 +136,7 @@ get_control_hash() {
         if [ -f "${HOST_DATA_DIR}/rufus_resources/control_hashes/wg_control_${CONTROL_HASH_VERSION}.Jhash" ]; then
             ctrl_hash="/mnt/rufus_resources/control_hashes/wg_control_${CONTROL_HASH_VERSION}.Jhash"
         else
-            echo "NOTICE: 1000G whole genome hash not found locally - downloading from S3" >&2
+            echo "NOTICE: control whole genome hash not found locally - downloading from S3" >&2
             ctrl_hash=$(fetch_control_hash "$region")
         fi
     else
@@ -144,7 +145,7 @@ get_control_hash() {
         if [ -f "${HOST_DATA_DIR}/rufus_resources/control_hashes/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash" ]; then
             ctrl_hash="/mnt/rufus_resources/control_hashes/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
         else
-            echo "NOTICE: 1000G hash for region $region not found locally - downloading from S3" >&2
+            echo "NOTICE: control hash for region $region not found locally - downloading from S3" >&2
             ctrl_hash=$(fetch_control_hash "$region")
         fi
         ctrl_hash="/mnt/rufus_resources/control_hashes/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
@@ -183,19 +184,25 @@ region_arg=""
 if [ "$region" != "" ]; then
     region_arg="-R $region"
 fi
+fmtd_reg=$(echo "$region" | tr ':-' '_')
 
-docker run $DEV_MOUNT \
--v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} \
-bash /opt/RUFUS/runRufus.sh \
--s /mnt/$SUBJECT_FILE \
-$ctrl_arg \
-$ref_arg \
--m $KMER_DEPTH_CUTOFF \
--k $KMER_LENGTH \
--t $THREAD_LIMIT \
-$OTHER_FLAGS \
-$kg1_hash_arg \
-$region_arg
+# Make log directory
+mkdir -p ${HOST_DATA_DIR}/rufus_resources/logs
+
+
+docker exec "$CONTAINER_ID" bash -c \
+  "/opt/RUFUS/runRufus.sh \
+    -s /mnt/$SUBJECT_FILE \
+    $ctrl_arg \
+    $ref_arg \
+    -m $KMER_DEPTH_CUTOFF \
+    -k $KMER_LENGTH \
+    -t $THREAD_LIMIT \
+    $OTHER_FLAGS \
+    $kg1_hash_arg \
+    $region_arg \
+    > /mnt/rufus_resources/logs/${fmtd_reg}.out \
+    2> /mnt/rufus_resources/logs/${fmtd_reg}.err"
 
 # Clean up hash files
 if [ "$region" == "" ]; then

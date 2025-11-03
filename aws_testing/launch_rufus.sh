@@ -1,4 +1,5 @@
 #!/bin/bash
+DEV_MOUNT="-v /home/ubuntu/RUFUS:/opt/RUFUS -v /opt/RUFUS/bin"
 
 # Check for required argument
 ENV_FILE="$1"
@@ -58,10 +59,19 @@ get_reference() {
 }
 export -f get_reference
 
+# Start RUFUS container
+CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
+  -v /mnt/data:/mnt \
+  -v /home/ubuntu/RUFUS:/opt/RUFUS \
+  -v /opt/RUFUS/bin \
+  rufus:latest \
+  tail -f /dev/null)
+# CONTAINER_ID=$(docker run -d --rm --name=rufus-worker $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} tail -f /dev/null)
+
 # Start work
 echo "Starting RUFUS job(s)..."
 start_time=$(date +%s)
-parallel --line-buffer -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" {} :::: "$REGION_PATH"
+parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
 
 # Concatenate controls without -c delimiters
 concat_ctrl_post_arg=""
@@ -73,8 +83,10 @@ ref=$(get_reference)
 
 # Wait for all jobs to finish before combining + post-processing
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
+echo "docker run ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -c "$concat_ctrl_post_arg" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt""
 
-echo "docker run -v ${HOST_DATA_DIR}:/mnt ${CONTAINER_IMAGE} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -c "$concat_ctrl_post_arg" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt""
+# Stop container and clean up
+docker stop rufus-worker
 
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))
