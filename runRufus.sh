@@ -1,19 +1,19 @@
 #!/bin/bash
 rufus_branch="Epsilon "
 rufus_version="v.0.1.0"
-rufus_invoc_file="/mnt/data/rufus_resources/rufus_command.txt"
+rufus_invoc_file="/mnt/rufus_resources/rufus_command.txt"
 
 echo -n "You are running the $rufus_branch"
 echo -n " version of RUFUS: $rufus_version"
 echo "$rufus_version" > $rufus_invoc_file
 
 # Check for correct version of gcc
-#gcc_expected="10.2.0"
-#gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
-#if [[ "$gcc_expected" != "$gcc_actual" ]]; then
-#    echo "It looks like you have the wrong version of gcc loaded to run RUFUS: please use the module system to load gcc/10.2.0"
-#    exit 0
-#fi
+# gcc_expected="10.2.0"
+# gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
+# if [[ "$gcc_expected" != "$gcc_actual" ]]; then
+#   echo "It looks like you have the wrong version of gcc loaded to run RUFUS: please use the module system to load gcc/10.2.0"
+#   exit 0
+# fi
 
 set -e 
 
@@ -39,7 +39,7 @@ echo -e "RUFUS command was: $0 $@"
 date
 
 MaxHashDepth=1200; #need to make this a passed option
-RDIR=/opt/RUFUS
+RDIR="/opt/RUFUS"
 ##########################__SET_EXECUTABLE_PATHS__##############################
 RUFUSmodel=$RDIR/bin/ModelDist
 RUFUSfilter=$RDIR/bin/RUFUS.Filter
@@ -868,7 +868,6 @@ done
 ###############__CHECK_IF_ALL_REFERENCE_FILES_EXIST__#####################
 BUILD_REFS="FALSE"
 
-echo "checking for "$_arg_ref".sa and "$_arg_ref_cat".sa"
 if [[ ! -e "$_arg_ref".sa ]] && [[ ! -e "$_arg_ref_cat".sa ]]
 then
 	BUILD_REFS="TRUE"

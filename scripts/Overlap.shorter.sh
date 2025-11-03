@@ -70,10 +70,7 @@ else
 fi
 echo "Overlaping $File..."
 
-CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-
-
-RDIR=$CDIR/../
+RDIR=/opt/RUFUS/
 
 AddSA=$RDIR/scripts/AddSAtoReadSame.pl
 OverlapHash=$RDIR/bin/Overlap

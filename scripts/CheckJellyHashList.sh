@@ -1,8 +1,6 @@
 #!/bin/sh
 
-CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-RDIR=$CDIR/../
-
+RDIR=/opt/RUFUS
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
 Jhash=$1 # List of kmers
 HashList=$2 # File to count within

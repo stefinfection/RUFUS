@@ -3,11 +3,6 @@
 HASH_TYPE="$1"
 HASH_VERSION="$2"
 FMTD_REGION="$3"
-
-if [ ! -d "/mnt/rufus_resources" ]; then
-    mkdir -p "/mnt/rufus_resources"
-fi
-
 chrom=$(echo "$FMTD_REGION" | cut -d'_' -f1)
 
 if [ "$FMTD_REGION" == "wg" ]; then
