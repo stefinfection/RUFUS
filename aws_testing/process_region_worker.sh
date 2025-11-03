@@ -156,12 +156,18 @@ kg1_hash=$(get_kg1_hash $region)
 kg1_hash_arg="-e $kg1_hash"
 
 ref=$(get_reference)
+
+# if subject_file ends with cram, need to change region_arg to -cr
 ref_arg="-r $ref"
+if [[ "$SUBJECT_FILE" == *.cram ]]; then
+    ref_arg="-cr $ref"
+fi
 
 region_arg=""
 if [ "$region" != "" ]; then
     region_arg="-R $region"
 fi
+
 
 echo "docker run -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/runRufus.sh \
 -s /mnt/$SUBJECT_FILE \
