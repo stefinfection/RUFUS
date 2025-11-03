@@ -45,10 +45,23 @@ else
     chmod +x "$process_region_worker"
 fi
 
+# Checks to see if we already have BWA indexes premade for the reference argument, and points there if so
+get_reference() {
+    reference="${HOST_DATA_DIR}/${REFERENCE_FASTA}" 
+
+    # If we have the exact reference BWA indexes already, point there to save some time
+    if [ -d "${HOST_DATA_DIR}/rufus_resources/references" ] && [ -f "${HOST_DATA_DIR}/rufus_resources/references/${REFERENCE_FASTA}" ]; then
+        reference="/mnt/rufus_resources/references/${REFERENCE_FASTA}"
+    fi
+
+    echo "$reference"
+}
+export -f get_reference
+
 # Start work
 echo "Starting RUFUS job(s)..."
 start_time=$(date +%s)
-parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" {} :::: "$REGION_PATH"
+parallel --line-buffer -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" {} :::: "$REGION_PATH"
 
 # Concatenate controls without -c delimiters
 concat_ctrl_post_arg=""
