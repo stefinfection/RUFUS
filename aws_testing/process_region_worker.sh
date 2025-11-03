@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DEV_MOUNT="-v /home/ubuntu/RUFUS:/opt/RUFUS -v /opt/RUFUS/bin"
+DEV_MOUNT=""
 
 ENV_FILE="$1"
 region="$2"
@@ -46,11 +46,11 @@ fetch_kg1_hash() {
 
     if [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        sudo docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "wg"
+        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "wg"
         kg1_hash="mnt/rufus_resources/wg_kg1_${KG1_HASH_VERSION}.Jhash"
     else
         fmtd_reg=$(echo "$region" | tr ':-' '_')
-        sudo docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "$fmtd_reg"
+        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASH_VERSION}" "$fmtd_reg"
         kg1_hash="/mnt/rufus_resources/${fmtd_reg}_kg1_${KG1_HASH_VERSION}.Jhash"
     fi
 
@@ -69,12 +69,12 @@ fetch_control_hash() {
 
     if [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        sudo docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "wg"
+        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "wg"
         ctrl_hash="mnt/rufus_resources/wg_control_${CONTROL_HASH_VERSION}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
         fmtd_reg=$(echo "$region" | tr ':-' '_')
-        sudo docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "$fmtd_reg"
+        docker run $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${CONTROL_HASH_VERSION}" "$fmtd_reg"
         ctrl_hash="/mnt/rufus_resources/${fmtd_reg}_control_${CONTROL_HASH_VERSION}.Jhash"
     fi
     echo "$ctrl_hash"
@@ -184,9 +184,7 @@ if [ "$region" != "" ]; then
     region_arg="-R $region"
 fi
 
-
-# TODO: remove mounted RUFUS code volume after testing
-sudo docker run $DEV_MOUNT \
+docker run $DEV_MOUNT \
 -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} \
 bash /opt/RUFUS/runRufus.sh \
 -s /mnt/$SUBJECT_FILE \
@@ -200,7 +198,6 @@ $kg1_hash_arg \
 $region_arg
 
 # Clean up hash files
-exit # TODO: remov after testing
 if [ "$region" == "" ]; then
     rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/wg_*.Jhash
 else 
