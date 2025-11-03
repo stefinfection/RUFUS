@@ -59,4 +59,4 @@ PATH_TO_RUFUS_ENV="${HOST_DATA_DIR}/rufus_resources/rufus.env"
 ./launch_rufus.sh $PATH_TO_RUFUS_ENV
 ```
 
-Upon completion of RUFUS, result files will be stored in `${HOST_DATA_DIR}/results/rufus_calls.vcf.gz`
+Upon completion of RUFUS, the resulting vcf will be stored in `${HOST_DATA_DIR}/` and supplemental files in `${HOST_DATA_DIR}/rufus_supplementals`
