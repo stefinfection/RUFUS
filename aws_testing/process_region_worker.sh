@@ -3,8 +3,6 @@
 ENV_FILE="$1"
 region="$2"
 
-echo "$region region"
-
 # Check RUFUS env file arg actually exists
 if [ -f "$ENV_FILE" ]; then
     set -a
@@ -38,10 +36,10 @@ done
 fetch_kg1_hash() {
     local region="$1"
     local kg1_hash=""
-    echo "fetching 1000G kg1 hash for region: $region"
+    echo "fetching 1000G kg1 hash for region: $region" >&2
 
-    if [ ! -d "${HOST_DATA_DIR}/rufus_resources" ]; then
-        mkdir -p "${HOST_DATA_DIR}/rufus_resources"
+    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/kg1_hashes" ]; then
+        mkdir -p "${HOST_DATA_DIR}/rufus_resources/kg1_hashes"
     fi
 
     if [ "$region" == "" ]; then
@@ -61,10 +59,10 @@ export -f fetch_kg1_hash
 fetch_control_hash() {
     local region="$1"
     local ctrl_hash=""
-    echo "fetching control hash for region: $region"
+    echo "fetching control hash for region: $region" >&2
 
-    if [ ! -d "${HOST_DATA_DIR}/rufus_resources" ]; then
-        mkdir -p "${HOST_DATA_DIR}/rufus_resources"
+    if [ ! -d "${HOST_DATA_DIR}/rufus_resources/control_hashes" ]; then
+        mkdir -p "${HOST_DATA_DIR}/rufus_resources/control_hashes"
     fi
 
     if [ "$region" == "" ]; then
@@ -100,11 +98,9 @@ get_kg1_hash() {
     local region="$1"
     local kg1_hash=""
 
-    echo "looking for ${HOST_DATA_DIR}/rufus_resources/kg1_hashes"
-
     if [ ! -d "${HOST_DATA_DIR}/rufus_resources/kg1_hashes" ]; then
         # Look for resources locally first
-        echo "NOTICE: 1000G resources directory not found in ${HOST_DATA_DIR}/rufus_resources/kg1_hashes - downloading from S3"
+        echo "NOTICE: 1000G resources directory not found at ${HOST_DATA_DIR}/rufus_resources/kg1_hashes - downloading hash from S3" >&2
         kg1_hash=$(fetch_kg1_hash "$region")
     elif [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
@@ -125,11 +121,9 @@ get_control_hash() {
     local region="$1"
     local ctrl_hash=""
 
-    echo "looking for ${HOST_DATA_DIR}/rufus_resources/control_hashes"
-
     if [ ! -d "${HOST_DATA_DIR}/rufus_resources/control_hashes" ]; then
         # Look for resources locally first
-        echo "NOTICE: Internal control resources directory not found at ${HOST_DATA_DIR}/rufus_resources/control_hashes - downloading from S3"
+        echo "NOTICE: Internal control resources directory not found at ${HOST_DATA_DIR}/rufus_resources/control_hashes - downloading hash from S3" >&2
         ctrl_hash=$(fetch_control_hash "$region")
     elif [ "$region" == "" ]; then
         # If we don't have a region, use entire genome wide Jhash
@@ -158,12 +152,16 @@ else
     done
 fi
 
-echo "trying to get kg1_hash"
 kg1_hash=$(get_kg1_hash $region)
 kg1_hash_arg="-e $kg1_hash"
 
 ref=$(get_reference)
 ref_arg="-r $ref"
+
+region_arg=""
+if [ "$region" != "" ]; then
+    region_arg="-R $region"
+fi
 
 echo "docker run -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} bash /opt/RUFUS/runRufus.sh \
 -s /mnt/$SUBJECT_FILE \
@@ -174,12 +172,12 @@ $ref_arg \
 -t $THREAD_LIMIT \
 $OTHER_FLAGS \
 $kg1_hash_arg \
-$region"
+$region_arg"
 
 # Clean up hash files
 if [ "$region" == "" ]; then
-    rm ${HOST_DATA_DIR}/rufus_resources/wg_*.Jhash
+    rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/wg_*.Jhash
 else 
     fmtd_reg=$(echo "$region" | tr ':-' '_')
-    rm ${HOST_DATA_DIR}/rufus_resources/$fmtd_reg*.Jhash
+    rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/$fmtd_reg*.Jhash
 fi
