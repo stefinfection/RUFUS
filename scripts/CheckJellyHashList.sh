@@ -2,8 +2,8 @@
 
 RDIR=/opt/RUFUS
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
-Jhash=$1 # List of kmers
-HashList=$2 # File to count within
+Jhash=$1 # File to count within
+HashList=$2 # List of kmers
 MinCov=$3
 MaxCov=$4
 

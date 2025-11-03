@@ -28,14 +28,11 @@ HashSize=$6
 Threads=$7
 MaxAlleleSize=$8
 speed=$9
+humanRefBwa=${10}
+refHash=${11} # Will say "empty" if not provided
+SampleJhash=${12}
+ParentsJhash=${13} # this is optional
 
-SampleJhash=${10}
-ParentsJhash=${11}
-
-humanRefBwa=${12}
-refHash=${13}
-
-rufusPath=${14}
 
 MaxCov=100000
 #echo " you gave
@@ -95,8 +92,8 @@ else
     sortedFastq="sorted."$File
     cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
     
-	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | samtools sort -T $File -O bam - > $File.bam
-	samtools index $File.bam 
+	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | $samtools sort -T $File -O bam - > $File.bam
+	$samtools index $File.bam 
 fi
 
 if [ $( $samtools view $File.bam| head | wc -l | awk '{print $1}') -eq "0" ]; then
@@ -216,6 +213,7 @@ if [ $( head ./$NameStub.overlap.hashcount.fastq | wc -l | awk '{print $1}') -eq
         exit 100
 fi
 
+# Sort fastq file used in subsequence bwa calls for reproducibility
 sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
 if [ -s ./$NameStub".overlap.hashcount.fastq" ]
 then
@@ -232,7 +230,7 @@ then
 	echo "skipping contig alignment" 
 else
     $bwa mem -t $Threads -Y  $humanRefBwa ./$sortedFastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-	samtools index ./$NameStub.overlap.hashcount.fastq.bam
+	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
 if [ $( $samtools view ./$NameStub.overlap.hashcount.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
@@ -247,9 +245,9 @@ if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam ]
 then
 	echo "skipping MOB alignemnt check "
 else
+	echo "$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | $samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam"
 	$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | $samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
-fi
-
+fi 
 
 if [ -e ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]
 then 
@@ -295,7 +293,7 @@ for parent in $ParentsJhash
             then
                 echo "skiping Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent already exists"
             else
-		echo "pulling  Intermediates/$NameStub".overlap.asembly.hash.fastq."$parent"
+				echo "pulling  Intermediates/$NameStub".overlap.asembly.hash.fastq."$parent"
                 bash $CheckHash $parent ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov> Intermediates/$NameStub".overlap.asembly.hash.fastq."$parent &
             fi
 done
@@ -340,7 +338,7 @@ if [ -s ./Intermediates/$NameStub.ref.RepRefHash ]
 then
         echo "Exclude already exists"
 else
-	if [ -z $refHash ]
+	if [ "$refHash"  == "empty" ]
 	then 
 		echo "refhash not provided, skipping"
 		touch  Intermediates/$NameStub.ref.RepRefHash
