@@ -1,7 +1,7 @@
 #!/bin/bash
 rufus_branch="Epsilon "
 rufus_version="v.0.1.0"
-rufus_invoc_file="/mnt/rufus_resources/rufus_command.txt"
+rufus_invoc_file="/mnt/data/rufus_resources/rufus_command.txt"
 
 echo -n "You are running the $rufus_branch"
 echo -n " version of RUFUS: $rufus_version"
@@ -766,7 +766,6 @@ fi
 #############################################################
 
 Parents=("${_arg_controls[@]}")
-_arg_ref_cat="${_arg_ref%.*}"
 
 #########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
 ProbandFileName=$(basename "$_arg_subject")
@@ -801,13 +800,17 @@ then
 		kill -9 $$ 
 	fi
     ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
-    echo "$samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
+    echo "$samtools view -F 3328 -T $_arg_cramref $_arg_subject $_arg_region" > "$ProbandGenerator"
+	_arg_ref="$_arg_cramref"
 elif [[ "$ProbandExtension" = "generator" ]]
 then
     ProbandGenerator="${ProbandFileName}${region_postfix}"
 else 
     echo "unknown error during generator generation, killing run with non-zero exit status"
 fi
+
+# Have to do this after proband check in case cram reference is used
+_arg_ref_cat="${_arg_ref%.*}"
 
 ParentGenerators=()
 ParentJhash=()
@@ -864,6 +867,8 @@ done
 
 ###############__CHECK_IF_ALL_REFERENCE_FILES_EXIST__#####################
 BUILD_REFS="FALSE"
+
+echo "checking for "$_arg_ref".sa and "$_arg_ref_cat".sa"
 if [[ ! -e "$_arg_ref".sa ]] && [[ ! -e "$_arg_ref_cat".sa ]]
 then
 	BUILD_REFS="TRUE"
