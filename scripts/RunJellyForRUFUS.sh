@@ -36,7 +36,6 @@ else
 	# guessing this starting number is far too low and there's a lot of memory swapping happening here
 	# good area of parallelization and possible merging after - will neeed to think through
 	
-	echo "about to count jellyfish for $GEN"
 	echo "$JELLYFISH count --disk -m $K -L $L -s $HASH_SIZE -t $T -o $GEN.Jhash -C $GEN.fq"
 	$JELLYFISH count --disk -m $K -L $L -s $HASH_SIZE -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
@@ -45,12 +44,10 @@ else
 	wait
 fi
 
-if [ ! -s  $GEN.Jhash.histo ]; then 
+if [ ! -s $GEN.Jhash.histo ]; then 
 	$JELLYFISH histo -f -o $GEN.Jhash.histo $GEN.Jhash
 fi
 if [ $(awk '$2 > 0' $GEN.Jhash.histo | wc -l ) -eq "0" ]; then  
-	echo "ERROR: jellyfish failed on the file $GEN"
-	exit 100
+	exit 1
 fi
-
 exit 0

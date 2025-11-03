@@ -571,8 +571,10 @@ make_jelly_hash ()
 	hash_size="1G"
   fi
 
+  set +e
   bash $RunJelly "$generator" "$k" "$threads" "$lowK" "$hash_size"
   local exitCode=$?
+  set -e
 
   if [[ "$isControl" == "true" ]]; then
     echo "$exitCode" >> "${controlCodeFile}"
@@ -596,25 +598,30 @@ check_empty_hashes ()
 
 	# Check that at least one control has hashes (i.e. has a zero exit code)
 	found_zero=false
-	while IFS= read -r line; do
-		if [[ "$line" -eq 0 ]]; then
-			found_zero=true
-			break
+
+	# Only check for controls if we have them
+	if [ -f "$control_code_file" ]; then
+		while IFS= read -r line; do
+			if [[ "$line" -eq 0 ]]; then
+				found_zero=true
+				break
+			fi
+		done < "$control_code_file"
+
+		if [ "$found_zero" = false ]; then
+			echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
+			echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
+
+			rm "$control_code_file"
+			rm "$subject_code_file"
+			clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
+			exit 0
 		fi
-	done < "$control_code_file"
-
-	if [ "$found_zero" = false ]; then
-		echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
-		echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
-
-		rm "$control_code_file"
-		rm "$subject_code_file"
-		clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
-		exit 0
 	fi
 
 	# Check that the subject has hashes
 	found_zero=false
+	echo "check subject codes in file $subject_code_file"
 	while IFS= read -r line; do
 		if [[ "$line" -eq 0 ]]; then
 			found_zero=true
@@ -625,15 +632,19 @@ check_empty_hashes ()
     if [ "$found_zero" = false ]; then
       echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
       echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
-      rm "$control_code_file"
-      rm "$subject_code_file"
+	  if [ -f "$control_code_file" ]; then
+	  	rm "$control_code_file"
+      fi
+	  rm "$subject_code_file"
       clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
       exit 0
     fi
 
     # Cleanup
-    rm "$control_code_file"
-    rm "$subject_code_file"
+	  if [ -f "$control_code_file" ]; then
+	  	rm "$control_code_file"
+      fi
+	  rm "$subject_code_file"
 }
 
 
@@ -1023,8 +1034,8 @@ done
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
-CONTROL_EXIT_CODES="jelly_exit_code_controls_$formatted_region.log"
-SUBJECT_EXIT_CODES="jelly_exit_code_subject_$formatted_region.log"
+CONTROL_EXIT_CODES="/mnt/jelly_exit_code_controls_$formatted_region.log"
+SUBJECT_EXIT_CODES="/mnt/jelly_exit_code_subject_$formatted_region.log"
 
 if [ $_parallel_jelly == "yes" ]
 then 
@@ -1037,14 +1048,14 @@ then
 
 	for parent in "${ParentGenerators[@]}"
 	do
-    make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"  &
-    #bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK  &
+    	make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"  &
 	done
+
     make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" &
-    #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2  &
     
 	# wait here for all hashes to finish being made
 	wait
+
     check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
 
 else
@@ -1057,12 +1068,11 @@ else
     for parent in "${ParentGenerators[@]}"
     do
       make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
-      #bash $RunJelly $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK
     done
-      make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
-      #bash $RunJelly $ProbandGenerator $K $(echo $JThreads -2 | bc) 2
+    
+	make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
 
-      check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
+    check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
 fi
 ##############################################################################
 
