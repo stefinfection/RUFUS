@@ -455,7 +455,7 @@ clean_up_files ()
   local regionPostfix="$3"
   local SUPP_DIR="rufus_supplementals"
 
-  if [ "$_arg_dev_file_output" = "FALSE" ]; then
+  if [ "$_arg_dev_file_output" == "FALSE" ]; then
 
     # Move files we want to keep into supplementals
     if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
@@ -507,6 +507,7 @@ clean_up_files ()
       "generator.V2.overlap.fastqd"
       "generator.Jelly.chr"
       "generator.V2.overlap.hashcount.fastq"
+	  "generator.V2.overlap.hashcount.sorted.fastq"
       "generator.Jhash"
       "generator.Jhash.histo"
       "generator.Jhash.histo.7.7.dist"
@@ -515,8 +516,10 @@ clean_up_files ()
       "generator.Jhash.histo.7.7.prob"
       "generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
       "generator.Mutations.Mate1.fastq"
+	  "generator.sorted.Mutations.Mate1.fastq"
       "generator.filter.chr"
       "generator.Mutations.Mate2.fastq"
+	  "generator.sorted.Mutations.Mate2.fastq"
       "generator.temp"
       "generator.temp.mate1.fastq"
       "generator.V2.overlap.fastq"
@@ -525,12 +528,14 @@ clean_up_files ()
     )
     for postfix in "${subject_files[@]}";
     do
+	  echo "trying to remove ${probandFileName}${regionPostfix}.${postfix}"
       if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
         rm ${probandFileName}${regionPostfix}.${postfix}
       fi
     done
 
     supplemental_files=(
+		"generator.V2.overlap.hashcount.sorted.fastq.bam"
         "generator.V2.overlap.hashcount.fastq.bam"
         "generator.V2.overlap.hashcount.fastq.bam.bai"
         "generator.V2.overlap.hashcount.fastq.bam.vcf"
@@ -621,7 +626,6 @@ check_empty_hashes ()
 
 	# Check that the subject has hashes
 	found_zero=false
-	echo "check subject codes in file $subject_code_file"
 	while IFS= read -r line; do
 		if [[ "$line" -eq 0 ]]; then
 			found_zero=true
@@ -1404,8 +1408,14 @@ then
     echo "########### Skipping overlap step ###########"
 else
     echo "########### Starting RUFUS overlap ###########"
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
-     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
+
+	# Have to assign something here to maintain argument order
+	if [ -z "$_arg_refhash" ]; then
+		_arg_refhash="empty"
+	fi
+
+    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_arg_ref_bwa" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" "
+    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
@@ -1420,15 +1430,11 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-rm "rufus_command.txt"
+rm $rufus_invoc_file
 echo "cleaning up VCF"
 
-PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
+PREFINAL_VCF="$ProbandGenerator.coinherited.vcf"
 
-grep ^# ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
-echo "arg_mosaic = $_arg_mosaic"
-if [ "$_arg_mosaic" = "TRUE" ]
 grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 echo "arg_mosaic = $_arg_mosaic"
@@ -1440,26 +1446,19 @@ then
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
-# Rename final vcf and zip/index
-FINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
-mv $PREFINAL_VCF $FINAL_VCF
-bgzip -f ./$FINAL_VCF
-tabix ./$FINAL_VCF.gz
+#echo "about to head prefinal vcf prior to zipping"
+#bcftools view -h "./$PREFINAL_VCF" | head -n 5
+
+bgzip -f "./$PREFINAL_VCF"
+tabix "./${PREFINAL_VCF}.gz"
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
-#bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
+#bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string
+clean_up_files "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
 
-clean_up_files "$ProbandGenerator" "$ProbandFileName" "$formatted_region"
-
-end_time=$(date +"%s")
-time_delta=$(( $end_time - $start_time ))
-hours=$(( time_delta / 3600 ))
-minutes=$(( (time_delta % 3600) / 60 ))
-seconds=$(( time_delta % 60 ))
-printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
-
+echo "done with everything"
 exit 0
 # ] <-- needed because of Argbash

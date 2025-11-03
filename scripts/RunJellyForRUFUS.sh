@@ -36,7 +36,6 @@ else
 	# guessing this starting number is far too low and there's a lot of memory swapping happening here
 	# good area of parallelization and possible merging after - will neeed to think through
 	
-	echo "$JELLYFISH count --disk -m $K -L $L -s $HASH_SIZE -t $T -o $GEN.Jhash -C $GEN.fq"
 	$JELLYFISH count --disk -m $K -L $L -s $HASH_SIZE -t $T -o $GEN.Jhash -C $GEN.fq
 	rm $GEN.Jhash.temp
 	rm $GEN.fq
