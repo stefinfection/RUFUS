@@ -117,6 +117,9 @@ clean_up_early_intermeds() {
   fi
 }
 
+# Strip off path from subject file if provided
+SUBJECT_FILE=$(basename $SUBJECT_FILE)
+
 cd $SOURCE_DIR
 echo "RUFUS post-process version E-0.0.1"
 date
@@ -128,28 +131,19 @@ TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
 GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 
 # Slight name change if not doing a windowed run
-if [ "$WINDOW_SIZE" = "0" ]; then
+if [ "$WINDOW_SIZE" == "0" ]; then
+  # TODO: need to test full genome run
 	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
 	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
-fi
 
-# Check to see if final vcf exists, if not report empty results and exit
-if [ ! -e "$TEMP_FINAL_VCF" ]; then
-  clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
-  report_empty_and_exit
-  exit 0
-fi
-
-# Get number of variants reported
-VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
-
-# Keep germline vcf
-cp $TEMP_FINAL_VCF $GERMLINE_VCF
-mv $GERMLINE_VCF rufus_supplementals/
-
-# If windowed mode, trim and combine region
-if [ "$WINDOW_SIZE" != "0" ]; then
-
+  # Check to see if final vcf exists, if not report empty results and exit
+  if [ ! -e "$TEMP_FINAL_VCF" ]; then
+    clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+    report_empty_and_exit
+    exit 0
+  fi
+else
+  # Start processing windowed run
   TAB_DELIM_CONTROL_STRING=""
   if [ ${#CONTROLS[@]} -eq 0 ]; then
       TAB_DELIM_CONTROL_STRING="internal"
@@ -157,14 +151,20 @@ if [ "$WINDOW_SIZE" != "0" ]; then
       IFS=$'\t'
       TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
   fi
-
 	echo "Windowed run performed, trimming and combining region vcfs..."
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
 
+  # Get number of variants reported
+  VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
+
+  # Keep germline vcf
+  cp $TEMP_FINAL_VCF $GERMLINE_VCF
+  mv $GERMLINE_VCF rufus_supplementals/
+
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
-if [ "$VARS_REPORTED" = "0" ]; then
+if [ "$VARS_REPORTED" == "0" ]; then
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
   report_empty_and_exit
 fi

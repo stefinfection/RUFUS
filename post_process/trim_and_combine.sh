@@ -12,8 +12,6 @@
 #module load bcftools
 #module load htslib
 
-cd /mnt
-
 SUBJECT_FILE=$1
 CONTROL_STRING=$2
 WINDOW_SIZE=$3
