@@ -5,7 +5,7 @@ usage() {
 	echo "Options:"
 	echo " -w window_size	Required: The size of the window used in the RUFUS run"
 	echo " -r reference	Required: The reference used in the RUFUS run"
-	echo " -c controls	Required: The control bam files used in the RUFUS run"
+	echo " -c controls	The control bam files used in the RUFUS run, if any"
 	echo " -s subject_file	Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
 	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located"
 	echo " -h help	Print help message"
@@ -17,58 +17,6 @@ report_empty_and_exit() {
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > results.out
   exit 0
-}
-
-# Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
-clean_up_early_intermeds() {
-  local SUBJECT_FILE="$1"
-  local ALL_ARGS=("$@")
-  local CONTROLS=("${ALL_ARGS[@]:1}")
-
-  # TODO: will need to not hard code eventually to accommodate other builds/species
-  # NOTE: don't need chr10-22 because 1* and 2* will get rid of these
-  chroms=(
-    "chr1"
-    "chr2"
-    "chr3"
-    "chr4"
-    "chr5"
-    "chr6"
-    "chr7"
-    "chr8"
-    "chr9"
-    "chrX"
-    "chrY"
-  )
-
-  # Clean up intermediate files
-  echo "Cleaning up early intermediates..." >&2
-
-  # Have to do this piecemeal because too many files with windowed mode for single rm command
-  for chrom in "${chroms[@]}"; do
-    if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
-      rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
-    fi
-  done
-
-  for control in "${CONTROLS[@]}"; do
-    # Have to do this piecemeal because too many files with windowed mode for single rm command
-    for chrom in "${chroms[@]}"; do
-        if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
-          rm /mnt/${control}*${chrom}*.generator*
-        fi
-      done
-  done
-
-  # Remove intermediate files if they exist
-  if [ -d "/mnt/Intermediates" ] && [ -d "/mnt/TempOverlap" ]; then
-    rm -r /mnt/Intermediates
-    rm -r /mnt/TempOverlap
-  fi
-
-  if [ -e "/mnt/temp*.vcf*" ]; then
-    rm /mnt/temp*.vcf*
-  fi
 }
 
 # static paths
@@ -112,11 +60,65 @@ if [[ -z "$SOURCE_DIR" ]]; then
 fi
 
 if [ ${#CONTROLS[@]} -eq 0 ]; then
-	    echo "ERROR: Must supply at least one control bam" >&2
+	    echo "No controls provided, using internal control" >&2
 fi
 
+# Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
+clean_up_early_intermeds() {
+  local SUBJECT_FILE="$1"
+  local ALL_ARGS=("$@")
+  local CONTROLS=("${ALL_ARGS[@]:1}")
+  local PATH_TO_OUTPUT="${SOURCE_DIR}"
+
+  # TODO: will need to not hard code eventually to accommodate other builds/species
+  # NOTE: don't need chr10-22 because 1* and 2* will get rid of these
+  chroms=(
+    "chr1"
+    "chr2"
+    "chr3"
+    "chr4"
+    "chr5"
+    "chr6"
+    "chr7"
+    "chr8"
+    "chr9"
+    "chrM"
+    "chrX"
+    "chrY"
+  )
+
+  # Clean up intermediate files
+  echo "Cleaning up early intermediates..." >&2
+
+  # Have to do this piecemeal because too many files with windowed mode for single rm command
+  for chrom in "${chroms[@]}"; do
+    if ls ${PATH_TO_OUTPUT}/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
+      rm ${PATH_TO_OUTPUT}/${SUBJECT_FILE}*${chrom}*.generator*
+    fi
+  done
+
+  for control in "${CONTROLS[@]}"; do
+    # Have to do this piecemeal because too many files with windowed mode for single rm command
+    for chrom in "${chroms[@]}"; do
+        if ls ${PATH_TO_OUTPUT}/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
+          rm ${PATH_TO_OUTPUT}/${control}*${chrom}*.generator*
+        fi
+      done
+  done
+
+  # Remove intermediate files if they exist
+  if [ -d "${PATH_TO_OUTPUT}/Intermediates" ] && [ -d "${PATH_TO_OUTPUT}/TempOverlap" ]; then
+    rm -r ${PATH_TO_OUTPUT}/Intermediates
+    rm -r ${PATH_TO_OUTPUT}/TempOverlap
+  fi
+
+  if [ -e "${PATH_TO_OUTPUT}/temp*.vcf*" ]; then
+    rm ${PATH_TO_OUTPUT}/temp*.vcf*
+  fi
+}
+
 cd $SOURCE_DIR
-echo "RUFUS post-process version D-1.0.1"
+echo "RUFUS post-process version E-0.0.1"
 date
 start_time=$(date +"%s")
 
@@ -147,8 +149,15 @@ mv $GERMLINE_VCF rufus_supplementals/
 
 # If windowed mode, trim and combine region
 if [ "$WINDOW_SIZE" != "0" ]; then
-	IFS=$'\t'
-	TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
+
+  TAB_DELIM_CONTROL_STRING=""
+  if [ ${#CONTROLS[@]} -eq 0 ]; then
+      TAB_DELIM_CONTROL_STRING="internal"
+  else
+      IFS=$'\t'
+      TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
+  fi
+
 	echo "Windowed run performed, trimming and combining region vcfs..."
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
@@ -179,19 +188,26 @@ rm $TEMP_FINAL_VCF
 #rm $TEMP_PREFILTERED_VCF
 $bcftools index "sorted.$TEMP_FINAL_VCF"
 
-# Remove coinheriteds
-echo "Removing coinheriteds..."
-IFS=$','
-CONTROL_STRING="${CONTROLS[*]}"
+# Remove coinheriteds if we have at least one control
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
-bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+if [ ${#CONTROLS[@]} -eq 0 ]; then
+    echo "No controls provided, skipping coinherited removal..."
+    mv "sorted.$TEMP_FINAL_VCF" "$COINHERITED_REMOVED_VCF"
+    #mv "sorted.$TEMP_PREFILTERED_VCF" $TEMP_PREFILTERED_VCF
+    exit 0
+else
+  echo "Removing coinheriteds..."
+  IFS=$','
+  CONTROL_STRING="${CONTROLS[*]}"
+  bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+fi
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
 AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
 SUBJECT_SAMPLE_NAME=$($bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
-$bcftools index $AF_ADDED_VCF 
+$bcftools index $AF_ADDED_VCF
 
 # Compose final vcfs
 SUBJECT_STRING=$(basename $SUBJECT_FILE)
@@ -201,7 +217,7 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
 $bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
-cat /mnt/rufus.cmd >> $FINAL_VCF
+cat ${SOURCE_DIR}/rufus.cmd >> $FINAL_VCF
 $bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
 $bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
 bgzip $FINAL_VCF
@@ -209,7 +225,7 @@ $bcftools index "$FINAL_VCF.gz"
 
 #TODO: Comment back in after prefiltered vcf cleaned up
 #$bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-#cat /mnt/rufus.cmd >> $PREFILTERED_VCF
+#cat ${SOURCE_DIR}/rufus.cmd >> $PREFILTERED_VCF
 #$bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
 #$bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
 #bgzip $PREFILTERED_VCF
@@ -235,13 +251,13 @@ rm $TEMP_FINAL_VCF*
 rm "sorted.$TEMP_FINAL_VCF"*
 rm $COINHERITED_REMOVED_VCF*
 rm "normed.sorted.$TEMP_FINAL_VCF"*
-rm -r "/mnt/Intermediates"
-rm -r "/mnt/TempOverlap"
-rm "/mnt/rufus.cmd"
+rm -r "${SOURCE_DIR}/Intermediates"
+rm -r "${SOURCE_DIR}/TempOverlap"
+rm "${SOURCE_DIR}/rufus.cmd"
 rm "$AF_ADDED_VCF"*
 
 # Combining supplementals
-SUPPLEMENTAL_DIR=/mnt/rufus_supplementals/
+SUPPLEMENTAL_DIR=${SOURCE_DIR}/rufus_supplementals/
 # TODO: only do this if not reporting in developer mode
 ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
 ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam

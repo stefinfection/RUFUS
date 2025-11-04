@@ -22,6 +22,11 @@ BCFTOOLS="/opt/bcftools/bcftools"
 
 COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
 COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
+
+COMBINED_SAMPLE_STRING=""
+if [ "$CONTROL_STRING" == "internal" ]; then
+    COMBINED_SAMPLE_STRING="${SUBJECT_FILE}"
+fi
 COMBINED_SAMPLE_STRING="${SUBJECT_FILE}\t${CONTROL_STRING}"
 
 SUPP_DIR="rufus_supplementals/"
