@@ -1,11 +1,9 @@
 #!/bin/bash
 rufus_branch="Epsilon "
 rufus_version="v.0.1.0"
-rufus_invoc_file="/mnt/rufus_resources/rufus_command.txt"
 
 echo -n "You are running the $rufus_branch"
-echo -n " version of RUFUS: $rufus_version"
-echo "$rufus_version" > $rufus_invoc_file
+echo " version of RUFUS: $rufus_version"
 
 # Check for correct version of gcc
 # gcc_expected="10.2.0"
@@ -524,7 +522,6 @@ clean_up_files ()
       "generator.temp.mate1.fastq"
       "generator.V2.overlap.fastq"
       "generator.temp.mate2.fastq"
-	  "rufus_command.txt"
     )
     for postfix in "${subject_files[@]}";
     do
@@ -652,7 +649,6 @@ check_empty_hashes ()
 
 
 parse_commandline "$@"
-echo "$@" >> $rufus_invoc_file
 
 region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
@@ -663,6 +659,9 @@ else
 	region_postfix=".${formatted_region}"
 fi
 
+rufus_invoc_file="/mnt/rufus_resources/rufus_command_$formatted_region.txt"
+echo "$rufus_version" > $rufus_invoc_file
+echo "$@" >> $rufus_invoc_file
 
 # [ <-- needed because of Argbash
 
@@ -1432,7 +1431,8 @@ fi
 rm $rufus_invoc_file
 echo "cleaning up VCF"
 
-PREFINAL_VCF="$ProbandGenerator.coinherited.vcf"
+# Trim off generator postfix
+PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
 
 grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
