@@ -5280,6 +5280,7 @@ int main(int argc, char *argv[]) {
         cout << "ERROR: Could not open vcf header text file; vcf file may be corrupted" << endl;
     }
     while (getline(vcfHeader, line)) {
+        // TODO: Trim off any whitespace at end of line
         VCFOutFile << line << endl;
     }
 

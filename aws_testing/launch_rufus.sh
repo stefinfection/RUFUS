@@ -66,24 +66,41 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v /opt/RUFUS/bin \
   rufus:latest \
   tail -f /dev/null)
-# CONTAINER_ID=$(docker run -d --rm --name=rufus-worker $DEV_MOUNT -v ${HOST_DATA_DIR}:/mnt ${RUFUS_DOCKER_IMAGE} tail -f /dev/null)
 
 # Start work
 echo "Starting RUFUS job(s)..."
 start_time=$(date +%s)
 parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
 
-# Concatenate controls without -c delimiters
 concat_ctrl_post_arg=""
-for control in "${CONTROL_FILE_ARRAY[@]}"; do
-    concat_ctrl_post_arg+="/mnt/$control "
-done
+if [ ${#CONTROLS[@]} -gt 0 ]; then
+    # Concatenate controls without -c delimiters
+    concat_ctrls=""
+    for control in "${CONTROL_FILE_ARRAY[@]}"; do
+        concat_ctrls+="/mnt/$control "
+    done
+    concat_ctrl_post_arg="-c $concat_ctrls"
+fi
+
+# Checks to see if we already have BWA indexes premade for the reference argument, and points there if so
+get_reference() {
+    reference="${HOST_DATA_DIR}/${REFERENCE_FASTA}" 
+
+    # If we have the exact reference BWA indexes already, point there to save some time
+    if [ -d "${HOST_DATA_DIR}/rufus_resources/references" ] && [ -f "${HOST_DATA_DIR}/rufus_resources/references/${REFERENCE_FASTA}" ]; then
+        reference="/mnt/rufus_resources/references/${REFERENCE_FASTA}"
+    fi
+
+    echo "$reference"
+}
+export -f get_reference
 
 ref=$(get_reference)
+echo "ref is $ref"
 
 # Wait for all jobs to finish before combining + post-processing
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
-echo "docker run ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -c "$concat_ctrl_post_arg" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt""
+#docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$SUBJECT_FILE" -r "$ref" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
 
 # Stop container and clean up
 docker stop rufus-worker
