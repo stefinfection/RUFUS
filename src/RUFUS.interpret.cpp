@@ -5303,7 +5303,6 @@ int main(int argc, char *argv[]) {
         cout << "Error, ArgFile could not be opened";
     }
     VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
-    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
@@ -5335,11 +5334,8 @@ int main(int argc, char *argv[]) {
             vector <string> temp = Split(line, '\t');
             //cout << temp[0] << endl;
             if (temp[0] == "@SQ") {
-                //	cout << temp[1] << endl;
                 vector <string> chr = Split(temp[1], ':');
                 vector <string> len = Split(temp[2], ':');
-
-                //	cout << "##contig=<ID=" <<  chr[1]<<",length=" << len[1] << ">"<< endl;
                 VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
             }
         } else {

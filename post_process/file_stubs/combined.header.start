@@ -31,7 +31,7 @@
 ##INFO=<ID=LT,Number=1,Type=Integer,Description="Longest polyA tail in target region">
 ##INFO=<ID=TB,Number=1,Type=Integer,Description="Is tail left bound, right bound, or double bound">
 ##INFO=<ID=AS,Number=1,Type=Integer,Description="Number of alignment segments in the contig">
-##INFO=<ID=MT,Number=1,Type=String,Description="Mobil element sequence inserted">
+##INFO=<ID=MT,Number=1,Type=String,Description="Mobile element sequence inserted">
 ##INFO=<ID=SVID,Number=1,Type=String,Description="Uniuqe ID given to an SV event with multiple brekends so it can be quicky identified">
 ##INFO=<ID=SOURCE,Number=1,Type=String,Description="Location in the genome where the inserted sequence came from">
 ##INFO=<ID=SVDES,Number=1,Type=String,Description="If available RUFUS will interpret the SV type for you">

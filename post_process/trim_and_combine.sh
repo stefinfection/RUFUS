@@ -24,8 +24,9 @@ COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
 COMBINED_SAMPLE_STRING=""
 if [ "$CONTROL_STRING" == "internal" ]; then
     COMBINED_SAMPLE_STRING="${SUBJECT_FILE}"
+else
+    COMBINED_SAMPLE_STRING="${SUBJECT_FILE}\t${CONTROL_STRING}"
 fi
-COMBINED_SAMPLE_STRING="${SUBJECT_FILE}\t${CONTROL_STRING}"
 
 SUPP_DIR="rufus_supplementals/"
 
@@ -34,8 +35,7 @@ COMBINED_HEADER="combined.header"
 COMBINED_PRE_HEADER="combined.preheader"
 
 # Start of headers
-HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.header.start"
-PRE_HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.preheader.start"
+HEADER_STUB="/opt/RUFUS/resources/vcf_header.txt"
 
 # Records that get written to vcf (non-header)
 COMBINED_RECORDS="combined.records"
@@ -98,8 +98,12 @@ CHR_LENGTHS=(
 )
 
 # Initialize combined headers
-cat "$HEADER_START" > $COMBINED_HEADER
-cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
+for file in $COMBINED_HEADER $COMBINED_PRE_HEADER; do
+    echo "##fileformat=VCFv4.1" > $file
+    echo "##fileDate=$(date +%Y%m%d)" >> $file
+    cat "$HEADER_STUB" >> $file
+done
+
 TEMP_TRIMMED="temp.trimmed"
 
 # Adjust chunk size to bp
@@ -124,16 +128,19 @@ do
 		CURR_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
 		CURR_PRE_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
         if [[ -f "${CURR_VCF}" ]]; then
-       
+            contig_temp=""
+
             # Write out trimmed region to final vcf
             $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
             $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
-            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_HEADER 
+            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
+            sort -V $contig_temp | uniq >> $COMBINED_HEADER
            
 			# Write out trimmed region to prefiltered vcf 
             $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
             $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
-            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
+            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
+            sort -V $contig_temp | uniq >> $COMBINED_PRE_HEADER
 
 	    	# Remove vcf and indexes
 	    	rm $CURR_VCF*
@@ -146,11 +153,11 @@ do
     echo "Done combining chr${curr_chr}"
 done
 
-cat $COMBINED_HEADER | uniq > $COMBINED_VCF
+cat $COMBINED_HEADER > $COMBINED_VCF
 echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_VCF
 cat $COMBINED_RECORDS >> $COMBINED_VCF
 
-cat $COMBINED_PRE_HEADER | uniq > $COMBINED_PRE_VCF
+cat $COMBINED_PRE_HEADER > $COMBINED_PRE_VCF
 echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
 cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
