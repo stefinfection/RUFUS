@@ -4,9 +4,6 @@ ENV_FILE="$1"
 CONTAINER_ID="$2"
 region="$3"
 
-# Constants
-RUN_COMMAND_FILE="${HOST_DATA_DIR}/rufus_resources/rufus.cmd" # Path must match post_process.sh var
-
 # Check RUFUS env file arg actually exists
 if [ -f "$ENV_FILE" ]; then
     set -a

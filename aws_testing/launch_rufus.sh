@@ -64,30 +64,6 @@ get_reference() {
 }
 export -f get_reference
 
-# Returns docker command line invocation for putting in final vcf
-get_invocation() {
-    type="$1"
-    container_id="$2"
-
-    # get control argument or internal version
-    ctrl_arg=""
-    if [ "${#CONTROL_FILE_ARRAY[@]}" -eq 0 ]; then
-        ctrl_arg="-e internal_$CONTROL_HASH_VERSION"
-    else
-        # Concatenate controls into a single -c delimited string
-        for control in "${CONTROL_FILE_ARRAY[@]}"; do
-            ctrl_arg+="-c /mnt/$control"
-        done
-    fi
-
-    if [ "$type" == "post_process" ]; then
-        echo "docker exec ${container_id} bash /opt/RUFUS/post_process/post_process.sh -s \"/mnt/$SUBJECT_FILE\" -r \"$(get_reference)\" -w \"$WINDOW_SIZE\" -d \"/mnt\" $ctrl_arg"
-    else
-        echo "docker exec ${container_id} bash /opt/RUFUS/runRufus.sh -s \"/mnt/$SUBJECT_FILE\" $ctrl_arg -r \"$(get_reference)\" -k \"$KMER_LENGTH\" -m \"$KMER_DEPTH_CUTOFF\" -t \"$THREAD_LIMIT\" $OTHER_FLAGS -e kg1_$KG1_HASH_VERSION"
-    fi
-}
-export -f get_invocation
-
 # Start RUFUS container
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v /mnt/data:/mnt \
@@ -100,19 +76,17 @@ if [ ${#CONTROLS[@]} -eq 0 ]; then
     echo "No controls provided, running RUFUS in internal control mode..."
 fi
 
-# TODO: left off here - test this
-# Write commands for final vcf
-cmd="$(get_invocation run_rufus $CONTAINER_ID)"
-echo -e $cmd > "${HOST_DATA_DIR}/rufus_resources/rufus.cmd"
-
-cmd="$(get_invocation post_process $CONTAINER_ID)"
-echo -e $cmd > "${HOST_DATA_DIR}/rufus_resources/rufus.cmd"
+# Write commands for final vcf (do inside container so have access to RUFUS versioning)
+RELATIVE_PATH="${ENV_FILE#$HOST_DATA_DIR}"
+RELATIVE_PATH="${RELATIVE_PATH#/}"  # Remove leading slash
+CONTAINER_ENV_PATH="/mnt/$RELATIVE_PATH"
+docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ENV_PATH" "$CONTAINER_ID"
 
 # Start work
 echo "Starting RUFUS job(s)..."
 start_time=$(date +%s)
 
-parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
+#parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
 
 concat_ctrl_post_arg=""
 if [ ${#CONTROLS[@]} -gt 0 ]; then

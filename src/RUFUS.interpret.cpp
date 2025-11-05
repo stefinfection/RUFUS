@@ -5313,12 +5313,6 @@ int main(int argc, char *argv[]) {
     }
     VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
 
-    // if (isWindowed) {
-    //     ofstream commandOut;
-    //     commandOut.open("/opt/RUFUS/rufus_resources/rufus.cmd");
-    //     commandOut << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
-    // }
-
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
     string samplename = outStub.substr(0, outStub.find(".generator"));

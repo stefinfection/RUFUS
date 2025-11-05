@@ -220,8 +220,10 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 echo "Composing final vcfs..."
 $bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
 
-RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_resources/rufus.cmd" # Path must match process_region_worker.sh version
-cat "$RUN_COMMAND_FILE" >> $FINAL_VCF
+RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_resources/rufus.cmd"
+while read line; do
+  echo -e "$line" >> $FINAL_VCF
+done < "$RUN_COMMAND_FILE"
 #rm $RUN_COMMAND_FILE
 
 $bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
@@ -231,7 +233,6 @@ $bcftools index "$FINAL_VCF.gz"
 
 #TODO: Comment back in after prefiltered vcf cleaned up
 #$bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-#cat ${SOURCE_DIR}/rufus.cmd >> $PREFILTERED_VCF
 #$bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
 #$bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
 #bgzip $PREFILTERED_VCF
