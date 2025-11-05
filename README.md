@@ -50,7 +50,7 @@ rclone copy :s3:rufus.marth.lab/public_access_data/control_hashes/ ${HOST_DATA_D
 ```
 
 ## Step 4: Fill Out the RUFUS Environment File
-The `rufus.env` file, which should now be found at `${HOST_DATA_DIR}/rufus_resources/rufus.env` coordinates passing arguments into the RUFUS launch script. 
+The `rufus.env` file, which should now be found at `${HOST_DATA_DIR}/rufus_resources/rufus.env`, coordinates passing arguments into the RUFUS launch script. 
 
 ## Step 5: Launch RUFUS
 ```bash
