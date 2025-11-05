@@ -1,10 +1,11 @@
 #!/bin/bash
 
-DEV_MOUNT="-v /home/ubuntu/RUFUS:/opt/RUFUS -v /opt/RUFUS/bin"
-
 ENV_FILE="$1"
 CONTAINER_ID="$2"
 region="$3"
+
+# Constants
+RUN_COMMAND_FILE="${HOST_DATA_DIR}/rufus_resources/rufus.cmd" # Path must match post_process.sh var
 
 # Check RUFUS env file arg actually exists
 if [ -f "$ENV_FILE" ]; then
@@ -159,7 +160,6 @@ export -f get_control_hash
 # Check to see if controls are provided
 ctrl_arg=""
 if [ "${#CONTROL_FILE_ARRAY[@]}" -eq 0 ]; then
-    echo "No control samples provided, using internal control for single sample mode"
     internal_ctrl_hash=$(get_control_hash $region)
     ctrl_arg="-e $internal_ctrl_hash "
 else
@@ -189,25 +189,28 @@ fmtd_reg=$(echo "$region" | tr ':-' '_')
 # Make log directory
 mkdir -p ${HOST_DATA_DIR}/rufus_resources/logs
 
+echo "Running RUFUS for region: $region"
+
+RUFUS_CMD="/opt/RUFUS/runRufus.sh \
+  -s /mnt/$SUBJECT_FILE \
+  $ctrl_arg \
+  $ref_arg \
+  -m $KMER_DEPTH_CUTOFF \
+  -k $KMER_LENGTH \
+  -t $THREAD_LIMIT \
+  $OTHER_FLAGS \
+  $kg1_hash_arg \
+  $region_arg"
 
 docker exec "$CONTAINER_ID" bash -c \
-  "/opt/RUFUS/runRufus.sh \
-    -s /mnt/$SUBJECT_FILE \
-    $ctrl_arg \
-    $ref_arg \
-    -m $KMER_DEPTH_CUTOFF \
-    -k $KMER_LENGTH \
-    -t $THREAD_LIMIT \
-    $OTHER_FLAGS \
-    $kg1_hash_arg \
-    $region_arg \
+    "$RUFUS_CMD \
     > /mnt/rufus_resources/logs/${fmtd_reg}.out \
     2> /mnt/rufus_resources/logs/${fmtd_reg}.err"
 
 # Clean up hash files
-if [ "$region" == "" ]; then
-    rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/wg_*.Jhash
-else 
-    fmtd_reg=$(echo "$region" | tr ':-' '_')
-    rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/$fmtd_reg*.Jhash
-fi
+# if [ "$region" == "" ]; then
+#     rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/wg_*.Jhash
+# else 
+#     fmtd_reg=$(echo "$region" | tr ':-' '_')
+#     rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/$fmtd_reg*.Jhash
+# fi

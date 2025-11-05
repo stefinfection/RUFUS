@@ -1,9 +1,12 @@
 #!/bin/bash
-rufus_branch="Epsilon "
-rufus_version="v.0.1.0"
 
-echo -n "You are running the $rufus_branch"
-echo " version of RUFUS: $rufus_version"
+# Import globals
+GLOBALS_FILE="/opt/RUFUS/resources/globals.txt" # Path to globals file inside container
+set -a
+source <(grep -v '^#' $GLOBALS_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
+set +a
+echo -n "You are running the $RUFUS_BRANCH"
+echo " version of RUFUS: $RUFUS_VERSION"
 
 # Check for correct version of gcc
 # gcc_expected="10.2.0"
@@ -448,6 +451,9 @@ assign_positional_args ()
 # Cleans up intermediary files created by RUFUS run if keep file flag is not set
 clean_up_files ()
 {
+
+	echo "starting to clean up files..."
+
   local probandGenerator="$1"
   local probandFileName="$2"
   local regionPostfix="$3"
@@ -660,7 +666,8 @@ else
 fi
 
 rufus_invoc_file="/mnt/rufus_resources/rufus_command_$formatted_region.txt"
-echo "$rufus_version" > $rufus_invoc_file
+echo "$RUFUS_BRANCH" > $rufus_invoc_file
+echo "$RUFUS_VERSION" >> $rufus_invoc_file
 echo "$@" >> $rufus_invoc_file
 
 # [ <-- needed because of Argbash
@@ -1439,7 +1446,7 @@ grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
-	echo "including mosaic"; 
+	echo "including mosaic"
 	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds

@@ -4875,7 +4875,8 @@ int main(int argc, char *argv[]) {
                       "-e    arg  Path to Kmer file to exclude from LowCov check\n"
                       "-mob  arg  Path to a bam file of the aligned contigs to a mobil element list\n"
                       "-as   arg  alignment segments threshold (default: 10)\n"
-                      "-rp   arg  Path to rufus run directory\n";
+                      "-rp   arg  Path to rufus run directory\n"
+                      "-w    arg  Indicates windowed mode run";
 
     string MutHashFilePath = "";
     string MutHashFilePathReference = "";
@@ -4887,6 +4888,8 @@ int main(int argc, char *argv[]) {
     string ExcludeFilePath = "";
     string MobBam = "";
     string rufusPath = "";
+    bool isWindowed = false;
+
     SegThreshold = 10;
     int MinMapQual = 40;
     for (int i = 1; i < argc; i++) {
@@ -4963,6 +4966,9 @@ int main(int argc, char *argv[]) {
             cout << "RUFUS parent path = " << argv[i + 1] << endl;
             rufusPath = argv[i + 1];
             i += 1;
+        } else if (p == "-w") {
+            cout << "Windowed mode indicated " << endl;
+            isWindowed = true;
         } else {
             cout << "ERROR: unkown command line paramater -" << argv[i] << "-" << endl;
             return 0;
@@ -5284,6 +5290,7 @@ int main(int argc, char *argv[]) {
         VCFOutFile << line << endl;
     }
 
+    string rufusBranch = "";
     string rufusVersion = "";
     string rufusCommandLineInvoc = "";
     ifstream ArgFile;
@@ -5292,8 +5299,10 @@ int main(int argc, char *argv[]) {
         int lineIdx = 0;
         while(getline(ArgFile, line)) {
             if (lineIdx == 0) {
-                rufusVersion = line;
+                rufusBranch = line;
             } else if (lineIdx == 1) {
+                rufusVersion = line;
+            } else {
                 rufusCommandLineInvoc = line;
             }
             lineIdx++;
@@ -5302,12 +5311,19 @@ int main(int argc, char *argv[]) {
     else {
         cout << "Error, ArgFile could not be opened";
     }
-    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
+
+    // if (isWindowed) {
+    //     ofstream commandOut;
+    //     commandOut.open("/opt/RUFUS/rufus_resources/rufus.cmd");
+    //     commandOut << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
+    // }
 
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
     string samplename = outStub.substr(0, outStub.find(".generator"));
-    VCFOutFile << samplename;
+   
+    VCFOutFile << samplename << endl;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
         string ParPath = argv[ParentHashFilePaths[i]];
         int startpos = ParPath.find("overlap.asembly.hash.fastq.");

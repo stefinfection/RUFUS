@@ -102,6 +102,7 @@ for file in $COMBINED_HEADER $COMBINED_PRE_HEADER; do
     echo "##fileformat=VCFv4.1" > $file
     echo "##fileDate=$(date +%Y%m%d)" >> $file
     cat "$HEADER_STUB" >> $file
+    echo "" >> $file
 done
 
 TEMP_TRIMMED="temp.trimmed"
@@ -126,25 +127,25 @@ do
         fi
 	
 		CURR_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
-		CURR_PRE_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+		#CURR_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+        contig_temp="contig_temp.txt"
         if [[ -f "${CURR_VCF}" ]]; then
-            contig_temp=""
 
             # Write out trimmed region to final vcf
             $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
             $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
             $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
-            sort -V $contig_temp | uniq >> $COMBINED_HEADER
-           
+
 			# Write out trimmed region to prefiltered vcf 
-            $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
-            $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
-            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
-            sort -V $contig_temp | uniq >> $COMBINED_PRE_HEADER
+            #$BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
+            #$BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
+            #$BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
+            #sort -V $contig_temp | uniq >> $COMBINED_PRE_HEADER
 
 	    	# Remove vcf and indexes
 	    	rm $CURR_VCF*
-	    	rm $CURR_PRE_VCF*
+	    	#rm $CURR_PRE_VCF*
+            #rm $contig_temp
         fi
     
         # Advance start coordinate
@@ -153,23 +154,24 @@ do
     echo "Done combining chr${curr_chr}"
 done
 
+sort -u $contig_temp >> $COMBINED_HEADER
 cat $COMBINED_HEADER > $COMBINED_VCF
 echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_VCF
 cat $COMBINED_RECORDS >> $COMBINED_VCF
 
-cat $COMBINED_PRE_HEADER > $COMBINED_PRE_VCF
-echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
-cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
+# cat $COMBINED_PRE_HEADER > $COMBINED_PRE_VCF
+# echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
+# cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
 bgzip $COMBINED_VCF
 $BCFTOOLS index -t "${COMBINED_VCF}.gz"
 
-bgzip $COMBINED_PRE_VCF
-$BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
+# bgzip $COMBINED_PRE_VCF
+# $BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
 
 # Clean up temp files
 rm $TEMP_TRIMMED
 rm $COMBINED_HEADER
 rm $COMBINED_PRE_HEADER
 rm $COMBINED_RECORDS
-rm $COMBINED_PRE_RECORDS
+#rm $COMBINED_PRE_RECORDS

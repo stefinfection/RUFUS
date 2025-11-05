@@ -1,0 +1,4 @@
+RUFUS_BRANCH="docker"
+RUFUS_VERSION="v1.0.0"
+
+# todo: put RDIR in here

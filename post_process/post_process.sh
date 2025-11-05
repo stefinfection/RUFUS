@@ -21,6 +21,7 @@ report_empty_and_exit() {
 
 # static paths
 bcftools="/opt/bcftools/bcftools"
+samtools="/opt/samtools/samtools"
 
 # initialize vars
 CONTROLS=()
@@ -172,11 +173,11 @@ fi
 # Check for empty lines
 echo "Checking vcf formatting..."
 bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
-rm $TEMP_FINAL_VCF
-rm $TEMP_PREFILTERED_VCF
+#bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
+rm $TEMP_FINAL_VCF*
+#rm $TEMP_PREFILTERED_VCF
 mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
-mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
+#mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 
 # Sort
 echo "Sorting..."
@@ -184,7 +185,7 @@ $bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
 # TODO: when fix formatting on prefiltered vcf, comment two lines below back in
 #$bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
 
-rm $TEMP_FINAL_VCF
+rm $TEMP_FINAL_VCF*
 #rm $TEMP_PREFILTERED_VCF
 $bcftools index "sorted.$TEMP_FINAL_VCF"
 
@@ -193,13 +194,14 @@ COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 if [ ${#CONTROLS[@]} -eq 0 ]; then
     echo "No controls provided, skipping coinherited removal..."
     mv "sorted.$TEMP_FINAL_VCF" "$COINHERITED_REMOVED_VCF"
+    mv "sorted.$TEMP_FINAL_VCF".csi "$COINHERITED_REMOVED_VCF".csi
     #mv "sorted.$TEMP_PREFILTERED_VCF" $TEMP_PREFILTERED_VCF
-    exit 0
 else
   echo "Removing coinheriteds..."
   IFS=$','
   CONTROL_STRING="${CONTROLS[*]}"
   bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+  rm "sorted.$TEMP_FINAL_VCF"*
 fi
 
 # Add HD_AF field
@@ -217,7 +219,11 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
 $bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
-cat ${SOURCE_DIR}/rufus.cmd >> $FINAL_VCF
+
+RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_resources/rufus.cmd" # Path must match process_region_worker.sh version
+cat "$RUN_COMMAND_FILE" >> $FINAL_VCF
+#rm $RUN_COMMAND_FILE
+
 $bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
 $bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
 bgzip $FINAL_VCF
@@ -233,11 +239,11 @@ $bcftools index "$FINAL_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
 
 # Only need to move and rename if did a windowed run
-if [ "$WINDOW_SIZE" != "0" ]; then
-	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
-	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
-	mv prefiltered.vcf.gz* rufus_supplementals/
-fi
+# if [ "$WINDOW_SIZE" != "0" ]; then
+# 	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+# 	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+# 	mv prefiltered.vcf.gz* rufus_supplementals/
+# fi
 
 
 # TODO: Separate SVs and SNV/Indels
@@ -246,32 +252,26 @@ fi
 # Cleanup
 echo "Cleaning up intermediate post-processing files..."
 #rm $TEMP_PREFILTERED_VCF*
-rm $TEMP_FINAL_VCF*
-#rm "sorted.$TEMP_PREFILTERED_VCF"*
-rm "sorted.$TEMP_FINAL_VCF"*
 rm $COINHERITED_REMOVED_VCF*
-rm "normed.sorted.$TEMP_FINAL_VCF"*
-rm -r "${SOURCE_DIR}/Intermediates"
-rm -r "${SOURCE_DIR}/TempOverlap"
-rm "${SOURCE_DIR}/rufus.cmd"
+#rm "normed.sorted.$TEMP_FINAL_VCF"*
 rm "$AF_ADDED_VCF"*
 
 # Combining supplementals
 SUPPLEMENTAL_DIR=${SOURCE_DIR}/rufus_supplementals/
 # TODO: only do this if not reporting in developer mode
-ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
-ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
-samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
-samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
-rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
-rm ${SUPPLEMENTAL_DIR}unique_reads.bam
-rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
-rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
+# ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
+# $samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
+# $samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
+# rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# rm ${SUPPLEMENTAL_DIR}unique_reads.bam
+# rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
+# rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
 
-cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
-rm ${SUPPLEMENTAL_DIR}*.HashList
+# cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
+# rm ${SUPPLEMENTAL_DIR}*.HashList
 
-clean_up_early_intermeds() "$SUBJECT_FILE" "${CONTROLS[@]}"
+clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
 
 echo "Post-processing complete."
 end_time=$(date +"%s")
