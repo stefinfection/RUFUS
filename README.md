@@ -14,7 +14,7 @@ curl "https://zenodo.org/records/13871423/files/rufus.env" -o rufus_resources/ru
 ```
 
 ## Step 2: Create a Data Directory With All Input Files
-RUFUS requires all input files (including the above downloaded `rufus_resources`) to be in a single directory that gets mounted during exection. Since subject files can be very large, and copying them may not be ideal, one simple way to accomplish this is by soft linking:
+RUFUS requires all input files (including the above downloaded `rufus_resources`) to be in a single directory that gets mounted during exection. Since subject files can be very large, and copying them may not be ideal, one simple way to accomplish this is by soft linking. (WARNING: soft-linking only works at the top level of the mounted directory. If you want to use sub-directories within your HOST_DATA_DIR for your source files, be sure to hard link instead):
 ```bash
 mkdir ${HOST_DATA_DIR}
 
