@@ -66,9 +66,9 @@ export -f get_reference
 
 # Start RUFUS container
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
-  -v /mnt/data:/mnt \
+  -v ${HOST_DATA_DIR}:/mnt \
   $DEV_MOUNT \
-  rufus:latest \
+  $RUFUS_DOCKER_IMAGE \
   tail -f /dev/null)
 
 # Check for controls here and notify if using internal
