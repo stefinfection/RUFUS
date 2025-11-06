@@ -7,10 +7,10 @@ Running RUFUS requires Docker. Installation instructions for getting Docker on y
 ```bash
 docker pull stefinfection/rufus:latest
 mkdir rufus_resources
-curl "https://zenodo.org/records/13871423/files/launch_rufus.sh" -o launch_rufus.sh
-curl "https://zenodo.org/records/13871423/files/process_region_worker.sh" -o rufus_resources/process_region_worker.sh
-curl "https://zenodo.org/records/13871423/files/grch38_1mb_regions.txt" -o rufus_resources/grch38_1mb_regions.txt
-curl "https://zenodo.org/records/13871423/files/rufus.env" -o rufus_resources/rufus.env
+curl "https://zenodo.org/records/13871423/files/launch_rufus.sh?download=1" -o launch_rufus.sh
+curl "https://zenodo.org/records/13871423/files/process_region_worker.sh?download=1" -o rufus_resources/process_region_worker.sh
+curl "https://zenodo.org/records/17510792/files/grch38_1mb_regions.txt?download=1" -o rufus_resources/grch38_1mb_regions.txt
+curl "https://zenodo.org/records/13871423/files/rufus.env?download=1" -o rufus_resources/rufus.env
 ```
 
 ## Step 2: Create a Data Directory With All Input Files
