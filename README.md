@@ -3,14 +3,14 @@
 ## Step 0: Prerequisites
 Running RUFUS requires Docker. Installation instructions for getting Docker on your machine can be found [here](https://docs.docker.com/engine/install/).
 
-## Step 1: Fetch RUFUS image from Docker Hub and Setup Scripts from Zenodo
+## Step 1: Fetch RUFUS image from Docker Hub and Setup Scripts from S3
 ```bash
 docker pull stefinfection/rufus:latest
 mkdir rufus_resources
-curl "https://zenodo.org/records/13871423/files/launch_rufus.sh" -o launch_rufus.sh
-curl "https://zenodo.org/records/13871423/files/process_region_worker.sh" -o rufus_resources/process_region_worker.sh
-curl "https://zenodo.org/records/13871423/files/grch38_1mb_regions.txt" -o rufus_resources/grch38_1mb_regions.txt
-curl "https://zenodo.org/records/13871423/files/rufus.env" -o rufus_resources/rufus.env
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/launch_resources/launch_rufus.sh" -o launch_rufus.sh
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/launch_resources/process_region_worker.sh" -o rufus_resources/process_region_worker.sh
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/rufus_resources/grch38_1mb_regions.txt" -o rufus_resources/grch38_1mb_regions.txt
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/launch_resources/rufus.env" -o rufus_resources/rufus.env
 ```
 
 ## Step 2: Create a Data Directory With All Input Files
@@ -50,7 +50,7 @@ rclone copy :s3:rufus.marth.lab/public_access_data/control_hashes/ ${HOST_DATA_D
 ```
 
 ## Step 4: Fill Out the RUFUS Environment File
-The `rufus.env` file, which should now be found at `${HOST_DATA_DIR}/rufus_resources/rufus.env` coordinates passing arguments into the RUFUS launch script. 
+The `rufus.env` file, which should now be found at `${HOST_DATA_DIR}/rufus_resources/rufus.env`, coordinates passing arguments into the RUFUS launch script. 
 
 ## Step 5: Launch RUFUS
 ```bash
