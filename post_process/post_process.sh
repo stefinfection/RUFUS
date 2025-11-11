@@ -224,7 +224,7 @@ RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_resources/rufus.cmd"
 while read line; do
   echo -e "$line" >> $FINAL_VCF
 done < "$RUN_COMMAND_FILE"
-#rm $RUN_COMMAND_FILE
+rm $RUN_COMMAND_FILE
 
 $bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
 $bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF

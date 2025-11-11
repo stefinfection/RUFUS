@@ -4,6 +4,9 @@ ENV_FILE="$1"
 CONTAINER_ID="$2"
 region="$3"
 
+delete_kg1_hashes=false
+delete_control_hashes=false
+
 # Check RUFUS env file arg actually exists
 if [ -f "$ENV_FILE" ]; then
     set -a
@@ -38,6 +41,7 @@ fetch_kg1_hash() {
     local region="$1"
     local kg1_hash=""
     echo "fetching 1000G kg1 hash for region: $region" >&2
+    delete_kg1_hashes=true
 
     if [ ! -d "${HOST_DATA_DIR}/rufus_resources/kg1_hashes" ]; then
         mkdir -p "${HOST_DATA_DIR}/rufus_resources/kg1_hashes"
@@ -61,6 +65,7 @@ fetch_control_hash() {
     local region="$1"
     local ctrl_hash=""
     echo "fetching control hash for region: $region" >&2
+    delete_control_hashes=true
 
     if [ ! -d "${HOST_DATA_DIR}/rufus_resources/control_hashes" ]; then
         mkdir -p "${HOST_DATA_DIR}/rufus_resources/control_hashes"
@@ -205,9 +210,22 @@ docker exec "$CONTAINER_ID" bash -c \
     2> /mnt/rufus_resources/logs/${fmtd_reg}.err"
 
 # Clean up hash files
-# if [ "$region" == "" ]; then
-#     rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/wg_*.Jhash
-# else 
-#     fmtd_reg=$(echo "$region" | tr ':-' '_')
-#     rm ${HOST_DATA_DIR}/rufus_resources/*_hashes/$fmtd_reg*.Jhash
-# fi
+if [ "$region" == "" ]; then
+    if $delete_control_hashes; then
+        rm ${HOST_DATA_DIR}/rufus_resources/control_hashes/wg_control*.Jhash
+    fi
+
+    if $delete_kg1_hashes; then
+        rm ${HOST_DATA_DIR}/rufus_resources/kg1_hashes/wg_kg1*.Jhash
+    fi
+else 
+    fmtd_reg=$(echo "$region" | tr ':-' '_')
+
+    if $delete_control_hashes; then
+        rm ${HOST_DATA_DIR}/rufus_resources/control_hashes/$fmtd_reg*.Jhash
+    fi
+
+    if $delete_kg1_hashes; then
+        rm ${HOST_DATA_DIR}/rufus_resources/kg1_hashes/$fmtd_reg*.Jhash
+    fi
+fi

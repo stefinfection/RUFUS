@@ -1,10 +1,13 @@
 #!/bin/bash
-DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
-  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
-  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
-  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
-  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
-  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
+
+#DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
+#   -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
+#   -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
+#   -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
+#   -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
+#   -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
+
+DEV_MOUNT=""
 
 # Check for required argument
 ENV_FILE="$1"
@@ -86,7 +89,7 @@ docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.
 echo "Starting RUFUS job(s)..."
 start_time=$(date +%s)
 
-#parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
+parallel -j "$JOB_THRESHOLD" "${process_region_worker}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
 
 concat_ctrl_post_arg=""
 if [ ${#CONTROLS[@]} -gt 0 ]; then

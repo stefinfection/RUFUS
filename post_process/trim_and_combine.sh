@@ -145,7 +145,7 @@ do
 	    	# Remove vcf and indexes
 	    	rm $CURR_VCF*
 	    	#rm $CURR_PRE_VCF*
-            #rm $contig_temp
+            rm $contig_temp
         fi
     
         # Advance start coordinate
