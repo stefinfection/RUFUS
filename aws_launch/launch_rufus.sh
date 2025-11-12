@@ -79,14 +79,19 @@ check_inputs() {
         exit 1
     fi
 
+
+    # Check that if one of the following are filled out, the other two also are - WINDOW_SIZE, JOB_THRESHOLD, REGION_FILE
+    if { [ -n "$WINDOW_SIZE" ] || [ -n "$JOB_THRESHOLD" ] || [ -n "$REGION_FILE" ]; } && { [ -z "$WINDOW_SIZE" ] || [ -z "$JOB_THRESHOLD" ] || [ -z "$REGION_FILE" ]; }; then
+        echo "Error: If one of WINDOW_SIZE, JOB_THRESHOLD, or REGION_FILE is filled out, all three must be provided for regional processing mode" >&2
+        exit 1
+    fi
+
     # Check that if job threshold is present, it is an int greater than 0
     if [ -n "$JOB_THRESHOLD" ]; then
         if ! [[ "$JOB_THRESHOLD" =~ ^[0-9]+$ ]] || [ "$JOB_THRESHOLD" -le 0 ]; then
             echo "Error: JOB_THRESHOLD must be a positive integer" >&2
             exit 1
         fi
-    else
-        JOB_THRESHOLD=1
     fi
 
     # Check that kmer depth cutoff is an int and warn if less than 3
