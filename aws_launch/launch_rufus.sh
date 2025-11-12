@@ -30,7 +30,7 @@ fi
 # Checks for required arguments and formatting + bounds of integer arguments
 check_inputs() {
     # Check for all required variables to be filled in rufus.env
-    REQUIRED_VARS=(SUBJECT_FILE KMER_DEPTH_CUTOFF THREAD_LIMIT JOB_THRESHOLD REFERENCE_FASTA RUFUS_DOCKER_IMAGE)
+    REQUIRED_VARS=(SUBJECT_FILE KMER_DEPTH_CUTOFF THREAD_LIMIT REFERENCE_FASTA RUFUS_DOCKER_IMAGE)
     for var in "${REQUIRED_VARS[@]}"; do
         if [ -z "${!var}" ]; then
             echo "Error: Required variable $var is not set in rufus.env"
@@ -79,10 +79,14 @@ check_inputs() {
         exit 1
     fi
 
-    # Check that job threshold is an int greater than 0
-    if ! [[ "$JOB_THRESHOLD" =~ ^[0-9]+$ ]] || [ "$JOB_THRESHOLD" -le 0 ]; then
-        echo "Error: JOB_THRESHOLD must be a positive integer" >&2
-        exit 1
+    # Check that if job threshold is present, it is an int greater than 0
+    if [ -n "$JOB_THRESHOLD" ]; then
+        if ! [[ "$JOB_THRESHOLD" =~ ^[0-9]+$ ]] || [ "$JOB_THRESHOLD" -le 0 ]; then
+            echo "Error: JOB_THRESHOLD must be a positive integer" >&2
+            exit 1
+        fi
+    else
+        JOB_THRESHOLD=1
     fi
 
     # Check that kmer depth cutoff is an int and warn if less than 3
@@ -112,6 +116,7 @@ check_inputs() {
             echo "ERROR: WINDOW_SIZE is set to $WINDOW_SIZE - must be either 1000 or empty" >&2
             exit 1
         fi
+    fi
 
     # If we don't have a working dir, set it to .
     if [ -z "$WORKING_DIR" ]; then
@@ -214,7 +219,7 @@ set_up_ref() {
     done
 
     # Mount indexes only if we have them all and don't need to build
-    if [ "$build_refs" == "FALSE" ];
+    if [ "$build_refs" == "FALSE" ]; then
         mount_clause+="$index_mounts"
     fi
 
@@ -222,30 +227,13 @@ set_up_ref() {
 }
 export -f set_up_ref
 
-# Returns mount clause for region file if provided (file existence already checked in check_inputs)
-get_region_mount() {
-    local mount_clause=""
-    if [ -z "$REGION_FILE" ]; then
-        echo "Running RUFUS in whole genome mode" >&2
-    else
-        num=$(cat "$REGION_FILE" | wc -l)
-        first=$(cat "$REGION_FILE" | head -n 1)
-        last=$(cat "$REGION_FILE" | tail -n 1)
-        echo "Using $REGION_FILE with $num regions - first is $first and last is $last"
-        mount_clause="-v ${REGION_FILE}:/mnt/regions.txt "
-    fi
-    echo "$mount_clause"
-}
-export -f get_region_mount
-
 # Start work
 check_inputs
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
-region_file_mount=$(get_region_mount)
 control_mount=$(set_up_controls) || exit 1
 kg1_mount=$(set_up_kg1) || exit 1
 subject_base=$(basename ${SUBJECT_FILE})
-input_mount_clause="$ref_mount $region_file_mount $control_mount $kg1_mount -v ${SUBJECT_FILE}:/mnt/${subject_base}"
+input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${SUBJECT_FILE}:/mnt/${subject_base}"
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
@@ -262,13 +250,22 @@ docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
-    echo ""Generating BWA indexes for reference fasta...
+    echo "Generating BWA indexes for reference fasta..."
     docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/check_for_bwa_indexes.sh "${REFERENCE_FASTA}"
 fi
 
+# Make rufus resource dirs inside container
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/control_hashes
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/kg1_hashes
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/logs
+
 # Start work
 echo "Starting RUFUS job(s)..."
-parallel -j "$JOB_THRESHOLD" "${PR_WORKER}" "$ENV_FILE" "$CONTAINER_ID" {} :::: "$REGION_PATH"
+if [ -n "$REGION_FILE" ]; then
+    parallel -j "$JOB_THRESHOLD" "${PR_WORKER}" "$CONTAINER_ID" {} :::: "$REGION_FILE"
+else
+    "${PR_WORKER}" "$CONTAINER_ID" ""
+fi
 
 concat_ctrl_post_arg=""
 if [ ${#CONTROLS[@]} -gt 0 ]; then

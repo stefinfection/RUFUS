@@ -1,247 +1,139 @@
 #!/bin/bash
 
-ENV_FILE="$1"
-CONTAINER_ID="$2"
-region="$3"
+# Arguments
+CONTAINER_ID="$1"
+REGION="$2"
 
 # Constants
+ENV_FILE="/mnt/rufus_resources/rufus.env"
 DEFAULT_KG1_HASH_VERSION="v3.0"
 DEFAULT_CONTROL_HASH_VERSION="v1.0"
 
-# Globals
-delete_kg1_hashes=false
-delete_control_hashes=false
+# Import env file now that we're inside of container
+set -a
+source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
+set +a
 
-
-# Check RUFUS env file arg actually exists
-if [ -f "$ENV_FILE" ]; then
-    set -a
-    source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
-    set +a
-else
-    echo "Error: $ENV_FILE file not found - please provide valid path to rufus.env file"
-    exit 1
-fi
-
-
-
-# Check that we have at least one of the following filled out: KG1_HASH_VERSION KG1_HASH_LOCAL_DIR
-if [ -z "$KG1_HASH_VERSION" ] && [ -z "$KG1_HASH_LOCAL_DIR" ]; then
-    echo "Error: Must provide at least one of: KG1_HASH_VERSION or KG1_HASH_LOCAL_DIR in rufus.env"
-    exit 1
-else
-    if [ "$KG1_HASH_LOCAL_DIR" != "" ]; then
-        echo "Using local 1000G hashes at: $KG1_HASH_LOCAL_DIR"
-    elif [ "$KG1_HASH_VERSION" != "" ]; then
-        echo "Fetching S3 1000G hashes with version: $KG1_HASH_VERSION"
-    fi
-fi
-
-# Fetch functions to get resources from S3
-# TODO: add in option to pass flag here to keep hashes?
-fetch_kg1_hash() {
+# Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
+# Returns path to downloaded hash
+# Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
+# Returns path to downloaded hash
+fetch_hash() {
     local region="$1"
-    local kg1_hash=""
-    echo "fetching 1000G kg1 hash for region: $region" >&2
-    delete_kg1_hashes=true
-
-    # We may not have a hash version if we're missing one of the hashes in our local dir and don't have KG1_HASH_VERSION set
-    local hash_version="$KG1_HASH_VERSION"
-    if [ "$hash_version" == "" ]; then
-        # Set to the latest default for now
-        hash_version="v3.0"
+    local hash_type="$2"
+    # Capitalize all letters in hash_type
+    local hash_type_upper=$(echo "$hash_type" | tr '[:lower:]' '[:upper:]')
+    # Output var
+    local hash=""
+    
+    # Get the hash version - use specific version if set, otherwise use default
+    local version_var="${hash_type_upper}_HASH_VERSION"
+    local hash_version="${!version_var}"
+    
+    if [ -z "$hash_version" ]; then
+        local default_var="DEFAULT_${hash_type_upper}_HASH_VERSION"
+        hash_version="${!default_var}"
     fi
-
-    hash_dir=""
-    if [ "${KG1_HASH_LOCAL_DIR}" == "" ]; then
-        hash_dir="${WORKING_DIR}/rufus_resources/kg1_hashes"
-        if [ ! -d "$hash_dir" ]; then
-            mkdir -p "$hash_dir"
-        fi
-    else
-        hash_dir="${KG1_HASH_LOCAL_DIR}"
-    fi
-
-    if [ "$region" == "" ]; then
+    
+    if [ -z "$region" ]; then
         # If we don't have a region, use entire genome wide Jhash
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${hash_version}" "wg"
-        kg1_hash="mnt/rufus_resources/wg_kg1_${hash_version}.Jhash"
-    else
-        fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "kg1" "${KG1_HASHhash_version_VERSION}" "$fmtd_reg"
-        kg1_hash="/mnt/rufus_resources/${fmtd_reg}_kg1_${hash_version}.Jhash"
-    fi
-
-    echo "$kg1_hash"
-}
-export -f fetch_kg1_hash
-
-# TODO: add in option to pass flag here to keep hashes?
-fetch_control_hash() {
-    local region="$1"
-    local ctrl_hash=""
-    echo "fetching control hash for region: $region" >&2
-    delete_control_hashes=true
-
-    # We may not have a hash version if we're missing one of the hashes in our local dir and don't have CONTROL_HASH_VERSION set
-    local hash_version="$CONTROL_HASH_VERSION"
-    if [ "$hash_version" == "" ]; then
-        # Set to the latest default for now
-        hash_version="v1.0"
-    fi
-
-    if [ ! -d "${WORKING_DIR}/rufus_resources/control_hashes" ]; then
-        mkdir -p "${WORKING_DIR}/rufus_resources/control_hashes"
-    fi
-
-    if [ "$region" == "" ]; then
-        # If we don't have a region, use entire genome wide Jhash
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${hash_version}" "wg"
-        ctrl_hash="mnt/rufus_resources/wg_control_${hash_version}.Jhash"
+        echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
+        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "wg"
+        hash="/mnt/rufus_resources/${hash_type}_hashes/wg_${hash_type}_${hash_version}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
-        fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "control" "${hash_version}" "$fmtd_reg"
-        ctrl_hash="/mnt/rufus_resources/${fmtd_reg}_control_${hash_version}.Jhash"
+        echo "Fetching version ${hash_version} ${hash_type} hash for region: $region" >&2
+        local fmtd_reg=$(echo "$region" | tr ':-' '_')
+        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "$fmtd_reg"
+        hash="/mnt/rufus_resources/${hash_type}_hashes/${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
     fi
-    echo "$ctrl_hash"
+    
+    echo "$hash"
 }
-export -f fetch_control_hash
+export -f fetch_hash
 
-# Checks to see if we already have BWA indexes premade for the reference argument, and points there if so
-get_reference() {
-    reference="${HOST_DATA_DIR}/${REFERENCE_FASTA}" 
-
-    # If we have the exact reference BWA indexes already, point there to save some time
-    if [ -d "${HOST_DATA_DIR}/rufus_resources/references" ] && [ -f "${HOST_DATA_DIR}/rufus_resources/references/${REFERENCE_FASTA}" ]; then
-        reference="/mnt/rufus_resources/references/${REFERENCE_FASTA}"
-    fi
-
-    echo "$reference"
-}
-export -f get_reference
-
-# Looks for 1000G hashes in ${KG1_HASH_LOCAL_DIR}
+# Looks for control or kg1 hashes in /mnt/rufus_resources/${hash_type}_hashes first
+# At this point, we know that if a local directory has been provided and mounted, it contains at least one *.Jhash file
+# If local directory contains multiple *.Jhash files matching region or WG, will return error code
 # If can't find, will pull from S3
-get_kg1_hash() {
+get_hash() {
     local region="$1"
-    local kg1_hash=""
-    local kg1_output_clause=""
+    local geo_type="$2"
+    local hash_type="$3"
 
-    if [ "$KG1_HASH_LOCAL_DIR" != "" ]; then
-
-        if [ "$region" == "" ]; then
-            # We don't have a region and we're looking locally
-            if [ -d "${KG1_HASH_LOCAL_DIR}" ] && ls "$KG1_HASH_LOCAL_DIR"/*wg*kg1*.Jhash 1> /dev/null 2>&1; then
-                # File exists
-                kg1_output_clause+="Using local whole genome 1000G hash at: $KG1_HASH_LOCAL_DIR"
-                kg1_base=$(ls "$KG1_HASH_LOCAL_DIR"/*wg*kg1*.Jhash)
-                kg1_hash="/mnt/rufus_resources/$kg1_base"
-            else
-                # File does not exist locally, fetch from S3
-                kg1_output_clause+=" Could not find local whole genome 1000G hash at: $KG1_HASH_LOCAL_DIR, will attempt to fetch from S3"
-                kg1_hash=$(fetch_kg1_hash "$region") 
-            fi
-        else
-            # We have a region and we're looking locally
-            fmtd_reg=$(echo "$region" | tr ':-' '_')
-            # Look for a file with our formatted region in the name (because we don't enforce version if looking locally)
-            if ls "$KG1_HASH_LOCAL_DIR"/*${fmtd_reg}*kg1*.Jhash 1> /dev/null 2>&1; then
-                kg1_output_clause+="Using local 1000G hash for region $region at: $KG1_HASH_LOCAL_DIR"
-                kg1_file=$(ls "$KG1_HASH_LOCAL_DIR"/*${fmtd_reg}*kg1*.Jhash)
-                kg1_base=$(basename "$kg1_file")
-                kg1_hash="/mnt/rufus_resources/$kg1_base"
-            else
-                # File does not exist locally, fetch from S3
-                kg1_output_clause+=" Could not find local 1000G hash for region $region at: $KG1_HASH_LOCAL_DIR, will attempt to fetch from S3"
-                kg1_hash=$(fetch_kg1_hash "$region") 
-            fi
-        fi
-    elif [ "$KG1_HASH_VERSION" != "" ]; then
-    # Then use S3 if we don't have local hashes
-        if [ "$region" == "" ]; then
-            kg1_output_clause+="Fetching S3 whole genome 1000G hash with version: $KG1_HASH_VERSION"
-            kg1_hash=$(fetch_kg1_hash "$region")
-        else
-            kg1_output_clause+="Fetching S3 1000G hash for region $region with version: $KG1_HASH_VERSION"
-            kg1_hash=$(fetch_kg1_hash "$region")
-        fi
-    fi
-    echo $kg1_output_clause >&2
-    echo "$kg1_hash"
-}
-export -f get_kg1_hash
-
-# Looks for control hashes in user provided ${CONTROL_HASH_LOCAL_DIR}
-# If can't find, will pull from S3
-get_control_hash() {
-    local region="$1"
-    local type="$2"
+    local hash_type_upper=$(echo "$hash_type" | tr '[:lower:]' '[:upper:]')
 
     # Output vars
-    local ctrl_hash=""
-    local dir_mount=""
-    local ctrl_output_echo=""
-
+    local hash=""
+    local output_echo=""
+    
+    # Get the user's original directory path for error messages
+    local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
+    local user_dir="${!env_var}"
+    
+    # The actual mounted directory in the container
+    local local_dir="/mnt/rufus_resources/${hash_type}_hashes"
+    
     # Local hashes
-    if [ type == "local" ]; then
-
+    if [ "$geo_type" == "local" ]; then
         # Whole genome mode and we're looking locally
         if [ "$region" == "" ]; then
-            curr_hash=$(ls "$CONTROL_HASH_LOCAL_DIR"/*wg*control*.Jhash)
-            if [ "$curr_hash" != "" ]; then
-                control_output_echo+="Using local whole genome control hash at: $curr_hash"
-                curr_base=$(basename "$curr_hash")
-                ctrl_hash="/mnt/rufus_resources/$curr_base"
-                dir_mount="${CONTROL_HASH_LOCAL_DIR}:/mnt/rufus_resources/control_hashes"
+            file_count=$(ls "${local_dir}"/*wg*${hash_type}*.Jhash 2>/dev/null | wc -l)
+            if [ "$file_count" -gt 1 ]; then
+                echo "ERROR: Multiple whole genome ${hash_type} hash files found in ${user_dir}:" >&2
+                ls "${local_dir}"/*wg*${hash_type}*.Jhash >&2
+                echo "Please ensure only one *wg*${hash_type}*.Jhash file exists in the directory." >&2
+                return 1
+            elif [ "$file_count" -eq 1 ]; then
+                hash=$(ls "${local_dir}"/*wg*${hash_type}*.Jhash)
+                output_echo+="Using local whole genome ${hash_type} hash at $hash"
             else
                 # File does not exist locally, fetch from S3
-                control_output_echo+=" Could not find local whole genome control hash in: $CONTROL_HASH_LOCAL_DIR. This file must be formatted like "*wg*control*.Jhash" for RUFUS to recognize it. Will attempt to fetch from S3."
-                ctrl_hash=$(fetch_control_hash "$region")
+                output_echo+="Could not find local whole genome ${hash_type} hash in ${user_dir}. The file in this directory must be named like \"*wg*${hash_type}*.Jhash\" for RUFUS to recognize it. Will attempt to fetch from S3."
+                hash=$(fetch_hash "$region" "$hash_type")
             fi
         # Region mode and we're looking locally
         else
             fmtd_reg=$(echo "$region" | tr ':-' '_')
-            curr_hash=$(ls "$CONTROL_HASH_LOCAL_DIR"/*${fmtd_reg}*control*.Jhash)
-            if [ "$curr_hash" != "" ]; then
-                control_output_echo+="Using local control hash for region $region at: $curr_hash"
-                curr_base=$(basename "$curr_hash")
-                ctrl_hash="/mnt/rufus_resources/$curr_base"
+            file_count=$(ls "${local_dir}"/*${fmtd_reg}*${hash_type}*.Jhash 2>/dev/null | wc -l)
+            if [ "$file_count" -gt 1 ]; then
+                echo "ERROR: Multiple ${hash_type} hash files for region $region found in ${user_dir}:" >&2
+                ls "${local_dir}"/*${fmtd_reg}*${hash_type}*.Jhash >&2
+                echo "Please ensure only one *${fmtd_reg}*${hash_type}*.Jhash file exists in the directory." >&2
+                return 1
+            elif [ "$file_count" -eq 1 ]; then
+                hash=$(ls "${local_dir}"/*${fmtd_reg}*${hash_type}*.Jhash)
+                output_echo+="Using local ${hash_type} hash for region $region at: $hash"
             else
                 # File does not exist locally, fetch from S3
-                control_output_echo+=" Could not find local control hash for region $region in: $CONTROL_HASH_LOCAL_DIR. This file must be formatted like "chrN_start_end*control*.Jhash" for RUFUS to recognize it. Will attempt to fetch from S3."
-                ctrl_hash=$(fetch_control_hash "$region") 
+                output_echo+="Could not find local ${hash_type} hash for region $region in ${user_dir}. The file in this directory must be named like \"*${fmtd_reg}*${hash_type}*.Jhash\" for RUFUS to recognize it. Will attempt to fetch from S3."
+                hash=$(fetch_hash "$region" "$hash_type")
             fi
         fi
     # Remote fetching of hashes
     else
-        if [ "$region" == "" ]; then
-            control_output_echo+="Fetching S3 whole genome control hash with version: $CONTROL_HASH_VERSION."
-            ctrl_hash=$(fetch_control_hash "$region")
-        else
-            control_output_echo+="Fetching S3 control hash for region $region with version: $CONTROL_HASH_VERSION."
-            ctrl_hash=$(fetch_control_hash "$region")
-        fi
+        output_echo+="Fetching ${hash_type} hash from S3."
+        hash=$(fetch_hash "$region" "$hash_type")
     fi
-    echo $control_output_echo >&2
-    echo "$ctrl_hash"
+    
+    echo -e "$output_echo" >&2
+    echo "$hash"
 }
-export -f get_control_hash
+export -f get_hash
 
 
 # Compose control argument of both or one of control hashes and paired control files
 ctrl_arg=""
-
 if [ "$CONTROL_HASH_LOCAL_DIR" != "" ]; then
-    control_hash=$(get_control_hash $region "local")
+    control_hash=$(get_hash $REGION "local" "control") || exit 1
     ctrl_arg+="-e $control_hash "
 elif [ "$CONTROL_HASH_VERSION" != "" ]; then
-    control_hash=$(get_control_hash $region "remote")
+    control_hash=$(get_hash $REGION "remote" "control") || exit 1
     ctrl_arg+="-e $control_hash "
 elif [ "${#CONTROL_FILE_ARRAY[@]}" -eq 0 ]; then
-    echo "No control hash version provided, using default: $DEFAULT_CONTROL_HASH_VERSION" >&2
+    echo "No local control hashes, paired controls, or control hash version provided, fetching default $DEFAULT_CONTROL_HASH_VERSION hashes piecemeal" >&2
     CONTROL_HASH_VERSION="$DEFAULT_CONTROL_HASH_VERSION"
-    control_hash=$(get_control_hash $region "remote")
+    control_hash=$(get_hash $REGION "remote" "control") || exit 1
     ctrl_arg+="-e $control_hash "
 fi
 
@@ -249,39 +141,36 @@ fi
 if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
     # Concatenate controls into -c delimited string
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
-        ctrl_arg+="-c /mnt/$control "
+        control_base=$(basename "$control")
+        ctrl_arg+="-c /mnt/$control_base "
     done
 fi
 
-if [ "$KG1_HASH_VERSION" == "" ] && [ "$KG1_HASH_LOCAL_DIR" == "" ]; then
-    echo "WARNING: not removing population variants found in the 1000G cohort as both KG1_HASH_VERSION and KG1_HASH_LOCAL_DIR are empty" >&2
-else
-    kg1_hash=$(get_kg1_hash $region)
+# Compose kg1 hash argument
+if [ "$KG1_HASH_LOCAL_DIR" != "" ]; then
+    kg1_hash=$(get_hash $REGION "local" "kg1") || exit 1
+    kg1_hash_arg="-e $kg1_hash"
+elif [ "$KG1_HASH_VERSION" != "" ]; then
+    kg1_hash=$(get_hash $REGION "remote" "kg1") || exit 1
     kg1_hash_arg="-e $kg1_hash"
 fi
 
+ref_base=$(basename "$REFERENCE_FASTA")
+ref_arg="-r /mnt/$ref_base"
 # If subject_file ends with cram, need to change region_arg to -cr
-ref=$(get_reference)
-ref_arg="-r $ref"
 subject_base=$(basename "$SUBJECT_FILE")
 if [[ "$subject_base" == *.cram ]]; then
-    ref_arg="-cr $ref"
+    ref_arg="-cr /mnt/$ref_base"
 fi
 
-# Region args
-region_arg=""
-fmtd_reg=""
-if [ "$region" != "" ]; then
-    region_arg="-R $region"
-    fmtd_reg=$(echo "$region" | tr ':-' '_')
+# Region arg
+if [ "$REGION" != "" ]; then
+    region_arg="-R $REGION"
+    fmtd_reg=$(echo "$REGION" | tr ':-' '_')
 fi
 
-# Make log directory
-mkdir -p ${HOST_DATA_DIR}/rufus_resources/logs
-
-# TODO: will need to mount any input file directories
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
-  -s /mnt/$SUBJECT_FILE \
+  -s /mnt/$subject_base \
   $ctrl_arg \
   $ref_arg \
   -m $KMER_DEPTH_CUTOFF \
@@ -297,22 +186,15 @@ docker exec "$CONTAINER_ID" bash -c \
     2> /mnt/rufus_resources/logs/${fmtd_reg}.err"
 
 # Clean up hash files
-if [ "$region" == "" ]; then
-    if $delete_control_hashes; then
-        rm ${HOST_DATA_DIR}/rufus_resources/control_hashes/wg_control*.Jhash
-    fi
-
-    if $delete_kg1_hashes; then
-        rm ${HOST_DATA_DIR}/rufus_resources/kg1_hashes/wg_kg1*.Jhash
+if [ "$REGION" == "" ]; then
+    if [ "$KEEP_DOWNLOADED_HASHES" != "TRUE" ] && [ "$KEEP_DOWNLOADED_HASHES" != "true" ]; then
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/control_hashes/*wg*control*.Jhash
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/kg1_hashes/*wg*kg1*.Jhash
     fi
 else 
-    fmtd_reg=$(echo "$region" | tr ':-' '_')
-
-    if $delete_control_hashes; then
-        rm ${HOST_DATA_DIR}/rufus_resources/control_hashes/$fmtd_reg*.Jhash
-    fi
-
-    if $delete_kg1_hashes; then
-        rm ${HOST_DATA_DIR}/rufus_resources/kg1_hashes/$fmtd_reg*.Jhash
+    fmtd_reg=$(echo "$REGION" | tr ':-' '_')
+    if [ "$KEEP_DOWNLOADED_HASHES" != "TRUE" ] && [ "$KEEP_DOWNLOADED_HASHES" != "true" ]; then
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/control_hashes/*$fmtd_reg*.Jhash
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/kg1_hashes/*$fmtd_reg*.Jhash
     fi
 fi
