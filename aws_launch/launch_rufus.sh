@@ -46,13 +46,10 @@ check_inputs() {
     fi
 
     # Check for control files existence
-    CONTROL_FILE_ARRAY=()
-    for control in "${CONTROLS[@]}"; do
+    for control in "${CONTROL_FILE_ARRAY[@]}"; do
         if [ ! -f "$control" ]; then
             echo "Error: Control file $control not found" >&2
             exit 1
-        else
-            CONTROL_FILE_ARRAY+=("$control")
         fi
     done
 
@@ -133,7 +130,7 @@ export -f check_inputs
 # Check for correct controls setup and returns paths needed for mounting if necessary
 set_up_controls() {
     # Check for controls here and notify if using internal
-    if [ ${#CONTROLS[@]} -eq 0 ]; then
+    if [ ${#CONTROL_FILE_ARRAY[@]} -eq 0 ]; then
         echo "No paired controls provided, running RUFUS in internal control mode..." >&2
     fi
 
@@ -273,7 +270,7 @@ else
 fi
 
 concat_ctrl_post_arg=""
-if [ ${#CONTROLS[@]} -gt 0 ]; then
+if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
     # Concatenate controls without -c delimiters
     concat_ctrls=""
     for control in "${CONTROL_FILE_ARRAY[@]}"; do

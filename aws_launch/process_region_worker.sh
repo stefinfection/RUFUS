@@ -167,6 +167,8 @@ fi
 if [ "$REGION" != "" ]; then
     region_arg="-R $REGION"
     fmtd_reg=$(echo "$REGION" | tr ':-' '_')
+else
+    fmtd_reg="whole_genome"
 fi
 
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
