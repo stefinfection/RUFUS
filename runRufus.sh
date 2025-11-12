@@ -883,43 +883,7 @@ do
 done
 #################################################################
 
-# Note: have to do reference checks AFTER file type determination
-
-###############__CHECK_IF_ALL_REFERENCE_FILES_EXIST__#####################
-BUILD_REFS="FALSE"
-
-if [[ ! -e "$_arg_ref".sa ]] && [[ ! -e "$_arg_ref_cat".sa ]]
-then
-	BUILD_REFS="TRUE"
-fi
-
-if [[ ! -e "$_arg_ref".bwt ]] && [[ ! -e "$_arg_ref_cat".bwt ]]
-then
-	BUILD_REFS="TRUE"
-fi
-
-if [[ ! -e "$_arg_ref".pac ]] && [[ ! -e "$_arg_ref_cat".pac ]]
-then
-	BUILD_REFS="TRUE"
-fi
-
-if [[ ! -e "$_arg_ref".amb ]] && [[ ! -e "$_arg_ref_cat".amb ]]
-then
-	BUILD_REFS="TRUE"
-fi
-
-if [[ ! -e "$_arg_ref".ann ]] && [[ ! -e "$_arg_ref_cat".ann ]]
-then
-	BUILD_REFS="TRUE"
-fi
-
-if [ "$BUILD_REFS" = "TRUE" ]; then
-	echo "Missing reference file indexes needed for BWA... Generating... "
-	fasta_idx=$(basename ${_arg_ref})
-	$bwa index -a bwtsw $fasta_idx
-	$samtools faidx $fasta_idx
-fi
-
+# Note: BWA index checks done in launch script
 
 ###### when we add PB need to check its reference stuff here 
 ###########################################################################

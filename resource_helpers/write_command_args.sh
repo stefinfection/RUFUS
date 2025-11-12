@@ -5,8 +5,8 @@ CMD_OUT="/mnt/rufus_resources/rufus.cmd"
 GLOBALS_FILE="/opt/RUFUS/resources/globals.txt"
 
 # Required args
-HOST_ENV_FILE="$1"
-CONTAINER_ID="$2"
+CONTAINER_ID="$1"
+HOST_ENV_FILE="/mnt/rufus_resources/rufus.env" # Mounted into container
 
 # Make env variables available
 if [ -f "$HOST_ENV_FILE" ]; then
