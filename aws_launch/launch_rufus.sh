@@ -329,7 +329,7 @@ input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
-  -v ${TEMP_ENV_FILE}:/mnt/rufus.env \
+  #-v ${TEMP_ENV_FILE}:/mnt/rufus.env \
   $input_mount_clause \
   $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
