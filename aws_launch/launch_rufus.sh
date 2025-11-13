@@ -41,7 +41,7 @@ check_inputs() {
     done
 
     # Check for subject file existence
-    subject_path="${SUBJECT_FILE}"
+    subject_path=$(realpath "${SUBJECT_FILE}")
     if [ ! -f "$subject_path" ]; then
         echo "Error: SUBJECT_FILE $subject_path not found" >&2
         exit 1
@@ -49,14 +49,15 @@ check_inputs() {
 
     # Check for control files existence
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
-        if [ ! -f "$control" ]; then
-            echo "Error: Control file $control not found" >&2
+        control_path=$(realpath "$control")
+        if [ ! -f "$control_path" ]; then
+            echo "Error: Control file $control_path not found" >&2
             exit 1
         fi
     done
 
     # Check for reference fasta existence
-    reference_path="${REFERENCE_FASTA}"
+    reference_path=$(realpath "${REFERENCE_FASTA}")
     if [ ! -f "$reference_path" ]; then
         echo "Error: REFERENCE_FASTA $reference_path not found" >&2
         exit 1
@@ -64,11 +65,10 @@ check_inputs() {
 
     # Check if region file provided, that it exists
     if [ -n "$REGION_FILE" ]; then
-        if [ ! -f "$REGION_FILE" ]; then
-            echo "Error: REGION_FILE $REGION_FILE not found. Please provide valid file or leave empty for whole genome mode." >&2
+        region_path=$(realpath "${REGION_FILE}")
+        if [ ! -f "$region_path" ]; then
+            echo "Error: REGION_FILE $region_path not found. Please provide valid file or leave empty for whole genome mode." >&2
             exit 1
-        else
-            REGION_PATH="$REGION_FILE"
         fi
     fi
 
@@ -126,7 +126,7 @@ check_inputs() {
 
     # If we don't have a working dir, set it to .
     if [ -z "$WORKING_DIR" ]; then
-        WORKING_DIR="."
+        WORKING_DIR=$(pwd)
     fi
 }
 export -f check_inputs
@@ -141,19 +141,20 @@ set_up_controls() {
     local mount_clause=""
     # Make sure the local directory exists if provided
     if [ ! -z "${CONTROL_HASH_LOCAL_DIR}" ]; then
-        if [ ! -d "${CONTROL_HASH_LOCAL_DIR}" ]; then
-            echo "Error: CONTROL_HASH_LOCAL_DIR ${CONTROL_HASH_LOCAL_DIR} does not exist. Please ensure directory exists or leave CONTROL_HASH_LOCAL_DIR empty for S3 fetching." >&2
+        control_path=$(realpath "${CONTROL_HASH_LOCAL_DIR}")
+        if [ ! -d "${control_path}" ]; then
+            echo "Error: CONTROL_HASH_LOCAL_DIR ${control_path} does not exist. Please ensure directory exists or leave CONTROL_HASH_LOCAL_DIR empty for S3 fetching." >&2
             return 1
         else
             # Make sure directory has at least one *.Jhash file in it
             shopt -s nullglob
-            jhash_files=("${CONTROL_HASH_LOCAL_DIR}"/*.Jhash)
+            jhash_files=("${control_path}"/*.Jhash)
             shopt -u nullglob
             if [ ${#jhash_files[@]} -eq 0 ]; then
-                echo "Error: CONTROL_HASH_LOCAL_DIR ${CONTROL_HASH_LOCAL_DIR} does not contain any *.Jhash files. Please ensure directory has Jhash files or leave CONTROL_HASH_LOCAL_DIR empty for S3 fetching." >&2
+                echo "Error: CONTROL_HASH_LOCAL_DIR ${control_path} does not contain any *.Jhash files. Please ensure directory has Jhash files or leave CONTROL_HASH_LOCAL_DIR empty for S3 fetching." >&2
                 return 1
             fi
-            mount_clause="-v ${CONTROL_HASH_LOCAL_DIR}:/mnt/rufus_resources/control_hashes "
+            mount_clause="-v ${control_path}:/mnt/rufus_resources/control_hashes "
         fi
     fi
 
@@ -162,7 +163,8 @@ set_up_controls() {
         # Concatenate controls into -c delimited string
         ctrl_arg=""
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
-            ctrl_arg+="-v /mnt/$control "
+            ctrl_path=$(realpath "$control")
+            ctrl_arg+="-v $ctrl_path "
         done
         mount_clause+="$ctrl_arg"
     fi
@@ -180,19 +182,20 @@ set_up_kg1() {
     else
         # Make sure the local directory exists if provided
         if [ ! -z "${KG1_HASH_LOCAL_DIR}" ]; then
-            if [ ! -d "${KG1_HASH_LOCAL_DIR}" ]; then
-                echo "Error: KG1_HASH_LOCAL_DIR ${KG1_HASH_LOCAL_DIR} does not exist. Please ensure directory exists or leave KG1_HASH_LOCAL_DIR empty for S3 fetching." >&2
+            kg1_path=$(realpath "${KG1_HASH_LOCAL_DIR}")
+            if [ ! -d "${kg1_path}" ]; then
+                echo "Error: KG1_HASH_LOCAL_DIR ${kg1_path} does not exist. Please ensure directory exists or leave KG1_HASH_LOCAL_DIR empty for S3 fetching." >&2
                 return 1
             else
                 # Make sure directory has at least one *.Jhash file in it
                 shopt -s nullglob
-                jhash_files=("${KG1_HASH_LOCAL_DIR}"/*.Jhash)
+                jhash_files=("${kg1_path}"/*.Jhash)
                 shopt -u nullglob
                 if [ ${#jhash_files[@]} -eq 0 ]; then
-                    echo "Error: KG1_HASH_LOCAL_DIR ${KG1_HASH_LOCAL_DIR} does not contain any *.Jhash files. Please ensure directory has Jhash files or leave KG1_HASH_LOCAL_DIR empty for S3 fetching." >&2
+                    echo "Error: KG1_HASH_LOCAL_DIR ${kg1_path} does not contain any *.Jhash files. Please ensure directory has Jhash files or leave KG1_HASH_LOCAL_DIR empty for S3 fetching." >&2
                     return 1
                 fi
-                mount_clause="-v ${KG1_HASH_LOCAL_DIR}:/mnt/rufus_resources/kg1_hashes"
+                mount_clause="-v ${kg1_path}:/mnt/rufus_resources/kg1_hashes"
             fi
         fi
     fi
@@ -201,19 +204,22 @@ set_up_kg1() {
 export -f set_up_kg1
 
 set_up_ref() {
-    local ref_base=$(basename ${REFERENCE_FASTA})
-    local mount_clause="-v ${REFERENCE_FASTA}:/mnt/bwa_indexes/${ref_base} "
+
+    local ref_path=$(realpath "${REFERENCE_FASTA}")
+    local ref_base=$(basename ${ref_path})
+
+    local mount_clause="-v ${ref_path}:/mnt/bwa_indexes/${ref_base} "
     local build_refs="FALSE"
     
     # Get path to reference fasta on host
-    local path_to_ref="$(dirname ${REFERENCE_FASTA})"
+    local path_to_ref="$(dirname ${ref_path})"
     
     # Determine the base filename (without .gz if present)
-    if [[ "$REFERENCE_FASTA" == *.gz ]]; then
-        ref_file="${REFERENCE_FASTA%.gz}"
+    if [[ "$ref_path" == *.gz ]]; then
+        ref_file="${ref_path%.gz}"
         ref_file_base="$(basename ${ref_file})"
     else
-        ref_file="$REFERENCE_FASTA"
+        ref_file="$ref_path"
         ref_file_base="$ref_base"
     fi
     
@@ -261,8 +267,9 @@ check_inputs
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
 control_mount=$(set_up_controls) || exit 1
 kg1_mount=$(set_up_kg1) || exit 1
-subject_base=$(basename ${SUBJECT_FILE})
-input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${SUBJECT_FILE}:/mnt/${subject_base}"
+subject_path=$(realpath "${SUBJECT_FILE}")
+subject_base=$(basename ${subject_path})
+input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/${subject_base}"
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
