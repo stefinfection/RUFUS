@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # CONSTANTS
-PR_WORKER="/opt/RUFUS/aws_launch/process_region_worker.sh"
 DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
   -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
   -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
   -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
   -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
+  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh \
   -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
 #DEV_MOUNT=""
 
@@ -19,6 +19,7 @@ fi
 
 # Check RUFUS env file arg actually exists
 if [ -f "$ENV_FILE" ]; then
+    ENV_FILE=$(realpath "$ENV_FILE")
     set -a
     source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
     set +a
@@ -26,6 +27,7 @@ else
     echo "Error: $ENV_FILE file not found - please provide valid path to rufus.env file"
     exit 1
 fi
+
 
 # Checks for required arguments and formatting + bounds of integer arguments
 check_inputs() {
@@ -107,6 +109,8 @@ check_inputs() {
         elif [ "$KMER_LENGTH" -ne 25 ]; then
             echo "Warning: KMER_LENGTH is set to $KMER_LENGTH, RUFUS has been robustly tested with a KMER_LENGTH of 25 and is recommended" >&2
         fi
+    else
+        KMER_LENGTH=25
     fi
 
     # Check if WINDOW_SIZE filled out, if it is, make sure an int and is 1000
@@ -196,7 +200,7 @@ set_up_kg1() {
 }
 export -f set_up_kg1
 
-sset_up_ref() {
+set_up_ref() {
     local ref_base=$(basename ${REFERENCE_FASTA})
     local mount_clause="-v ${REFERENCE_FASTA}:/mnt/bwa_indexes/${ref_base} "
     local build_refs="FALSE"
@@ -262,7 +266,7 @@ input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${SUBJECT_FILE}:/mnt
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
-  -v ${ENV_FILE}:/mnt/rufus_resources/rufus.env \
+  -v ${ENV_FILE}:/mnt/rufus.env \
   $input_mount_clause \
   $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
@@ -271,7 +275,11 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
 start_time=$(date +%s)
 
 # Write commands for final vcf (do inside container so have access to RUFUS versioning)
-docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID"
+docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID" "$ENV_FILE"
+
+# Pull out worker script
+docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/process_region_worker.sh
+PR_WORKER="${WORKING_DIR}/process_region_worker.sh"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
@@ -287,9 +295,9 @@ docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/logs
 # Start work
 echo "Starting RUFUS job(s)..."
 if [ -n "$REGION_FILE" ]; then
-    parallel -j "$JOB_THRESHOLD" "${PR_WORKER}" "$CONTAINER_ID" {} :::: "$REGION_FILE"
+    parallel -j "$JOB_THRESHOLD" bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$ENV_FILE" {} :::: "$REGION_FILE"
 else
-    "${PR_WORKER}" "$CONTAINER_ID" ""
+    bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$ENV_FILE" ""
 fi
 
 concat_ctrl_post_arg=""
@@ -310,17 +318,9 @@ ref_base=$(basename ${REFERENCE_FASTA})
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
 
-# Move BWA index files to new directory if created
-if [ "$build_refs" == "TRUE" ]; then
-    ref_file="${REFERENCE_FASTA}"
-    if [[ "$REFERENCE_FASTA" == *.gz ]]; then
-        ref_file="${REFERENCE_FASTA%.gz}"
-    fi
-    docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/clean_up_bwa_indexes.sh $ref_file
-fi
-
 # Stop container and clean up
 docker stop rufus-worker
+rm ${WORKING_DIR}/process_region_worker.sh
 
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))
