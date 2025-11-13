@@ -1,62 +1,56 @@
 # Running RUFUS on AWS
 
 ## Step 0: Prerequisites
-Running RUFUS requires Docker. Installation instructions for getting Docker on your machine can be found [here](https://docs.docker.com/engine/install/).
+Running RUFUS on AWS requires Docker. Installation instructions for getting Docker on your machine can be found [here](https://docs.docker.com/engine/install/).
 
-## Step 1: Fetch RUFUS image from Docker Hub and Setup Scripts from Zenodo
+## Step 1: Fetch RUFUS image from Docker Hub and Setup Files from Zenodo
 ```bash
 docker pull stefinfection/rufus:latest
-mkdir rufus_resources
-curl "https://zenodo.org/records/13871423/files/launch_rufus.sh" -o launch_rufus.sh
-curl "https://zenodo.org/records/13871423/files/process_region_worker.sh" -o rufus_resources/process_region_worker.sh
-curl "https://zenodo.org/records/13871423/files/grch38_1mb_regions.txt" -o rufus_resources/grch38_1mb_regions.txt
-curl "https://zenodo.org/records/13871423/files/rufus.env" -o rufus_resources/rufus.env
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/launch_resources/launch_rufus.sh" -o launch_rufus.sh
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/launch_resources/grch38_1mb_regions.txt" -o grch38_1mb_regions.txt
+curl "https://s3.us-east-1.amazonaws.com/rufus.marth.lab/public_access_data/launch_resources/rufus.env" -o rufus.env
 ```
+## Step 2: Fill Out the RUFUS Environment File
+The `rufus.env` file, downloaded in Step 1, coordinates passing arguments into the RUFUS launch script. 
 
-## Step 2: Create a Data Directory With All Input Files
-RUFUS requires all input files (including the above downloaded `rufus_resources`) to be in a single directory that gets mounted during exection. Since subject files can be very large, and copying them may not be ideal, one simple way to accomplish this is by soft linking:
+## Step 3: Launch RUFUS
 ```bash
-mkdir ${HOST_DATA_DIR}
-
-# Move downloaded resrouces to data directory
-mv rufus_resources ${HOST_DATA_DIR}
-
-# Soft link any required large files to data directory
-ln -s ${SUBJECT_FILE} ${HOST_DATA_DIR}
-ln -s ${REFERENCE_FILE} ${HOST_DATA_DIR}
+chmod u+x launch_rufus.sh 
+./launch_rufus.sh "${PATH_TO}/rufus.env"
 ```
+RUFUS will automatically run in and write results to the current directory, unless '$WORKING_DIR' is set to otherwise in `rufus.env`.
 
-## Step 3: [*OPTIONAL*] Download Pre-Built RUFUS Hash Tables and Reference Indexes (~1TB)
+## [*OPTIONAL*] Download Pre-Built RUFUS Hash Tables and Reference Indexes (~1TB)
 RUFUS utilizes hash tables to identify unique kmers within a subject sample. Some of these hash tables have already been created and can be downloaded and stored locally, if desired. This is a good idea if your servers have firewalls or do not allow https traffic. **NOTE: this is approximately 1TB of data.** 
 
 If these resources are not downloaded, RUFUS will automatically fetch them as needed during the run - each run only downloads ~500MB of this data at a time, and deletes after use as to not overwhelm a host directory. 
 
-### Option A: Download with AWS-CLI
+## Step 1: Download Hashes
+#### Option A: Download with AWS-CLI
 ```bash
 # Internal control hashes (for single sample mode)
-aws s3 sync s3://rufus.marth.lab/public_access_data/control_hashes/ ${HOST_DATA_DIR}/rufus_resources/control_hashes --no-sign-request
+aws s3 sync s3://rufus.marth.lab/public_access_data/control_hashes/ ${LOCAL_DESTINATION_DIR}/control_hashes --no-sign-request
 
 # 1000G hashes
-aws s3 sync s3://rufus.marth.lab/public_access_data/kg1_hashes/ ${HOST_DATA_DIR}/rufus_resources/kg1_hashes --no-sign-request
+aws s3 sync s3://rufus.marth.lab/public_access_data/kg1_hashes/ ${LOCAL_DESTINATION_DIR}/kg1_hashes --no-sign-request
 ```
 
-### Option B: Download with Rclone
+#### Option B: Download with Rclone
 ```bash
 # Internal control hashes (for single sample mode)
-rclone copy :s3:rufus.marth.lab/public_access_data/control_hashes/ ${HOST_DATA_DIR}/rufus_resources/control_hashes --s3-provider=AWS --s3-region=us-east-1 --s3-no-check-bucket --s3-env-auth=false -P
+rclone copy :s3:rufus.marth.lab/public_access_data/control_hashes/ ${LOCAL_DESTINATION_DIR}/control_hashes --s3-provider=AWS --s3-region=us-east-1 --s3-no-check-bucket --s3-env-auth=false -P
 
 # 1000G hashes
-rclone copy :s3:rufus.marth.lab/public_access_data/control_hashes/ ${HOST_DATA_DIR}/rufus_resources/control_hashes --s3-provider=AWS --s3-region=us-east-1 --s3-no-check-bucket --s3-env-auth=false -P
+rclone copy :s3:rufus.marth.lab/public_access_data/kg1_hashes/ ${LOCAL_DESTINATION_DIR}/kg1_hashes --s3-provider=AWS --s3-region=us-east-1 --s3-no-check-bucket --s3-env-auth=false -P
 ```
 
-## Step 4: Fill Out the RUFUS Environment File
-The `rufus.env` file, which should now be found at `${HOST_DATA_DIR}/rufus_resources/rufus.env` coordinates passing arguments into the RUFUS launch script. 
-
-## Step 5: Launch RUFUS
+### Step 2: Update rufus.env Variables
+Add or assign the following variables in `rufus.env`:
 ```bash
-chmod u+x launch_rufus.sh 
-PATH_TO_RUFUS_ENV="${HOST_DATA_DIR}/rufus_resources/rufus.env"
-./launch_rufus.sh $PATH_TO_RUFUS_ENV
-```
+KG1_HASH_LOCAL_DIR=${PATH_TO_KG1_HASHES}
+CONTROL_HASH_LOCAL_DIR=${PATH_TO_CONTROL_HASHES}
 
-Upon completion of RUFUS, result files will be stored in `${HOST_DATA_DIR}/results/rufus_calls.vcf.gz`
+# Example if using download command from above
+CONTROL_HASH_LOCAL_DIR=${LOCAL_DESTINATION_DIR}/control_hashes
+KG1_HASH_LOCAL_DIR=${LOCAL_DESTINATION_DIR}/kg1_hashes
+```
