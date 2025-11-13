@@ -13,6 +13,10 @@ DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
   -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
 #DEV_MOUNT=""
 
+# Make temp env file with realpaths for all input files
+TEMP_ENV_FILE=${WORKING_DIR}/temp_rufus.env
+touch $TEMP_ENV_FILE
+
 # Check for required argument
 ENV_FILE="$1"
 if [ -z "$ENV_FILE" ]; then
@@ -26,6 +30,8 @@ if [ -f "$ENV_FILE" ]; then
     set -a
     source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
     set +a
+
+    cat $ENV_FILE > $TEMP_ENV_FILE
 else
     echo "Error: $ENV_FILE file not found - please provide valid path to rufus.env file"
     exit 1
@@ -48,22 +54,31 @@ check_inputs() {
     if [ ! -f "$subject_path" ]; then
         echo "Error: SUBJECT_FILE $subject_path not found" >&2
         exit 1
+    else
+        echo "SUBJECT_FILE=$subject_path" >> $TEMP_ENV_FILE
     fi
 
     # Check for control files existence
+    temp_ctrl_array=()
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
         control_path=$(realpath "$control")
         if [ ! -f "$control_path" ]; then
             echo "Error: Control file $control_path not found" >&2
             exit 1
+        else
+            temp_ctrl_array+=("$control_path")
         fi
     done
+    CONTROL_FILE_ARRAY=("${temp_ctrl_array[@]}")
+    echo "CONTROL_FILE_ARRAY=($temp_ctrl_array)" >> $TEMP_ENV_FILE
 
     # Check for reference fasta existence
     reference_path=$(realpath "${REFERENCE_FASTA}")
     if [ ! -f "$reference_path" ]; then
         echo "Error: REFERENCE_FASTA $reference_path not found" >&2
         exit 1
+    else
+        echo "REFERENCE_FASTA=$reference_path" >> $TEMP_ENV_FILE
     fi
 
     # Check if region file provided, that it exists
@@ -72,6 +87,8 @@ check_inputs() {
         if [ ! -f "$region_path" ]; then
             echo "Error: REGION_FILE $region_path not found. Please provide valid file or leave empty for whole genome mode." >&2
             exit 1
+        else
+            echo "REGION_FILE=$region_path" >> $TEMP_ENV_FILE
         fi
     fi
 
@@ -130,11 +147,15 @@ check_inputs() {
     # If we don't have a working dir, set it to .
     if [ -z "$WORKING_DIR" ]; then
         WORKING_DIR=$(pwd)
+        WORKING_DIR=$(realpath "$WORKING_DIR")
     fi
+    echo "WORKING_DIR=$WORKING_DIR" >> $TEMP_ENV_FILE
 }
 export -f check_inputs
 
 # Check for correct controls setup and returns paths needed for mounting if necessary
+# Sets up link to realpath of file within provided directory, because may be a symlink
+# WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
 set_up_controls() {
     # Check for controls here and notify if using internal
     if [ ${#CONTROL_FILE_ARRAY[@]} -eq 0 ]; then
@@ -159,10 +180,15 @@ set_up_controls() {
                 return 1
             fi
 
-            # Optional: Verify at least one symlink target is accessible
+            # Verify at least one symlink target is accessible
             accessible=false
             for file in "${jhash_files[@]}"; do
                 if [ -f "$file" ]; then
+                    file_path=$(realpath "$file")
+                    parent_dir_file=$(dirname "$file_path")
+                    # Mount to realpath of file rather than parent dir because file may be symlinked
+                    mount_clause="-v ${parent_dir_file}:/mnt/rufus_resources/control_hashes "
+                    echo "CONTROL_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                     accessible=true
                     break
                 fi
@@ -172,8 +198,6 @@ set_up_controls() {
                 echo "Error: *.Jhash files found but none are accessible (broken symlinks or goofys issue)." >&2
                 return 1
             fi
-
-            mount_clause="-v ${control_path}:/mnt/rufus_resources/control_hashes "
         fi
     fi
 
@@ -192,6 +216,8 @@ set_up_controls() {
 export -f set_up_controls
 
 # Check for correct 1000G setup and returns paths needed for mounting if necessary
+# Sets up link to realpath of file within provided directory, because may be a symlink
+# WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
 set_up_kg1() {
     local mount_clause=""
 
@@ -214,7 +240,25 @@ set_up_kg1() {
                     echo "Error: KG1_HASH_LOCAL_DIR ${kg1_path} does not contain any *.Jhash files. Please ensure directory has Jhash files or leave KG1_HASH_LOCAL_DIR empty for S3 fetching." >&2
                     return 1
                 fi
-                mount_clause="-v ${kg1_path}:/mnt/rufus_resources/kg1_hashes"
+
+                # Verify at least one symlink target is accessible
+                accessible=false
+                for file in "${jhash_files[@]}"; do
+                    if [ -f "$file" ]; then
+                        file_path=$(realpath "$file")
+                        parent_dir_file=$(dirname "$file_path")
+                        # Mount to realpath of file rather than parent dir because file may be symlinked
+                        mount_clause="-v ${parent_dir_file}:/mnt/rufus_resources/kg1_hashes "
+                        echo "KG1_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
+                        accessible=true
+                        break
+                    fi
+                done
+
+                if [ "$accessible" = false ]; then
+                    echo "Error: *.Jhash files found but none are accessible (broken symlinks or goofys issue)." >&2
+                    return 1
+                fi
             fi
         fi
     fi
@@ -271,11 +315,11 @@ set_up_ref() {
 export -f set_up_ref
 
 # Start work
-# TODO: left off here
 # TODO: I think in check_inputs, should reassign the variables to their realpaths so don't have to do it again later
 # TODO: then will have to change how the env files get passed to process_region_worker.sh so don't have to do again
 # TODO: also in general, mount to better sub-dirs than /mnt directly
 # TODO: then make sure all internals match where they're looking for things
+
 check_inputs
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
 control_mount=$(set_up_controls) || exit 1
@@ -286,7 +330,7 @@ input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
-  -v ${ENV_FILE}:/mnt/rufus.env \
+  -v ${TEMP_ENV_FILE}:/mnt/rufus.env \
   $input_mount_clause \
   $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
@@ -295,7 +339,7 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
 start_time=$(date +%s)
 
 # Write commands for final vcf (do inside container so have access to RUFUS versioning)
-docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID" "$ENV_FILE"
+docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID" "$TEMP_ENV_FILE"
 
 # Pull out worker script
 docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/process_region_worker.sh
@@ -317,7 +361,7 @@ echo "Starting RUFUS job(s)..."
 if [ -n "$REGION_FILE" ]; then
     parallel -j "$JOB_THRESHOLD" bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$ENV_FILE" {} :::: "$REGION_FILE"
 else
-    bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$ENV_FILE" ""
+    bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
 fi
 
 concat_ctrl_post_arg=""
@@ -341,6 +385,7 @@ docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mn
 # Stop container and clean up
 docker stop rufus-worker
 rm ${WORKING_DIR}/process_region_worker.sh
+rm $TEMP_ENV_FILE
 
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))
