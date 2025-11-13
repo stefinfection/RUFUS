@@ -274,7 +274,7 @@ set_up_ref() {
     local build_refs="FALSE"
 
     # We'll assume indexes are in same dir as reference unless found otherwise
-    local mount_clause="-v ${path_to_ref}:/mnt/bwa_indexes/ "
+    local mount_clause="-v ${path_to_ref}:/mnt/bwa_indexes "
         
     # Determine the base filename (without .gz if present)
     if [[ "$ref_path" == *.gz ]]; then
