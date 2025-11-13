@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: after updating /mnt subdirs in container, update where we're looking here to match
+
 # Arguments
 CONTAINER_ID="$1"
 ENV_FILE="$2"
@@ -142,7 +144,7 @@ if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
     # Concatenate controls into -c delimited string
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
         control_base=$(basename "$control")
-        ctrl_arg+="-c /mnt/$control_base "
+        ctrl_arg+="-c /mnt/paired_controls/$control_base "
     done
 fi
 

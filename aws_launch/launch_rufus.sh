@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# TODO: left off here - review everything and get realpaths for all input files
+# Try to mount to diff dirs - /mnt won't work try /home/subdirs
+
 # CONSTANTS
 DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
   -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
@@ -150,10 +153,26 @@ set_up_controls() {
             shopt -s nullglob
             jhash_files=("${control_path}"/*.Jhash)
             shopt -u nullglob
+
             if [ ${#jhash_files[@]} -eq 0 ]; then
                 echo "Error: CONTROL_HASH_LOCAL_DIR ${control_path} does not contain any *.Jhash files. Please ensure directory has Jhash files or leave CONTROL_HASH_LOCAL_DIR empty for S3 fetching." >&2
                 return 1
             fi
+
+            # Optional: Verify at least one symlink target is accessible
+            accessible=false
+            for file in "${jhash_files[@]}"; do
+                if [ -f "$file" ]; then
+                    accessible=true
+                    break
+                fi
+            done
+
+            if [ "$accessible" = false ]; then
+                echo "Error: *.Jhash files found but none are accessible (broken symlinks or goofys issue)." >&2
+                return 1
+            fi
+
             mount_clause="-v ${control_path}:/mnt/rufus_resources/control_hashes "
         fi
     fi
@@ -205,15 +224,15 @@ export -f set_up_kg1
 
 set_up_ref() {
 
-    local ref_path=$(realpath "${REFERENCE_FASTA}")
-    local ref_base=$(basename ${ref_path})
+    local ref_path=$(realpath "${REFERENCE_FASTA}") # Absolute path on host machine
+    local ref_base=$(basename ${ref_path})          # Base filename
+    local path_to_ref="$(dirname ${ref_path})"      # Directory on host machine
 
-    local mount_clause="-v ${ref_path}:/mnt/bwa_indexes/${ref_base} "
     local build_refs="FALSE"
-    
-    # Get path to reference fasta on host
-    local path_to_ref="$(dirname ${ref_path})"
-    
+
+    # We'll assume indexes are in same dir as reference unless found otherwise
+    local mount_clause="-v ${path_to_ref}:/mnt/bwa_indexes/ "
+        
     # Determine the base filename (without .gz if present)
     if [[ "$ref_path" == *.gz ]]; then
         ref_file="${ref_path%.gz}"
@@ -224,38 +243,27 @@ set_up_ref() {
     fi
     
     # Check all required index files in one loop
-    index_mounts=""
     for ext in sa bwt pac amb ann fai; do
-        if [[ -e "${ref_file}.${ext}" ]]; then
-            index_mounts+="-v ${ref_file}.${ext}:/mnt/bwa_indexes/${ref_file_base}.${ext} "
-        else
+        if [[ ! -e "${ref_file}.${ext}" ]]; then
             build_refs="TRUE"
+            mount_clause=""
             break
         fi
     done
     
-    # Check if they exist in bwa_indexes folder if not found above
+    # Check if they exist in bwa_indexes sub-directory if not found above
     if [ "$build_refs" == "TRUE" ]; then
-        index_mounts=""
         build_refs="FALSE"
-        refs_in_subdir="TRUE"
         for ext in sa bwt pac amb ann fai; do
             if [[ ! -e "${path_to_ref}/bwa_indexes/${ref_file_base}.${ext}" ]]; then
                 build_refs="TRUE"
-                refs_in_subdir="FALSE"
                 break
             fi
         done
         
-        if [ "$refs_in_subdir" == "TRUE" ]; then
-            build_refs="FALSE"
-            index_mounts="-v ${path_to_ref}/bwa_indexes:/mnt/bwa_indexes "
+        if [ "$build_refs" == "FALSE" ]; then
+            mount_clause="-v ${path_to_ref}/bwa_indexes:/mnt/bwa_indexes "
         fi
-    fi
-    
-    # Mount indexes only if we have them all and don't need to build
-    if [ "$build_refs" == "FALSE" ]; then
-        mount_clause+="$index_mounts"
     fi
     
     echo "$mount_clause|$build_refs"
@@ -263,6 +271,11 @@ set_up_ref() {
 export -f set_up_ref
 
 # Start work
+# TODO: left off here
+# TODO: I think in check_inputs, should reassign the variables to their realpaths so don't have to do it again later
+# TODO: then will have to change how the env files get passed to process_region_worker.sh so don't have to do again
+# TODO: also in general, mount to better sub-dirs than /mnt directly
+# TODO: then make sure all internals match where they're looking for things
 check_inputs
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
 control_mount=$(set_up_controls) || exit 1
