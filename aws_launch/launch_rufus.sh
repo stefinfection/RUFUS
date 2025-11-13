@@ -196,35 +196,58 @@ set_up_kg1() {
 }
 export -f set_up_kg1
 
-set_up_ref() {
+sset_up_ref() {
     local ref_base=$(basename ${REFERENCE_FASTA})
-    local mount_clause="-v ${REFERENCE_FASTA}:/mnt/${ref_base} "
+    local mount_clause="-v ${REFERENCE_FASTA}:/mnt/bwa_indexes/${ref_base} "
     local build_refs="FALSE"
-
-    # Determine the base name to check once
+    
+    # Get path to reference fasta on host
+    local path_to_ref="$(dirname ${REFERENCE_FASTA})"
+    
+    # Determine the base filename (without .gz if present)
     if [[ "$REFERENCE_FASTA" == *.gz ]]; then
         ref_file="${REFERENCE_FASTA%.gz}"
+        ref_file_base="$(basename ${ref_file})"
     else
         ref_file="$REFERENCE_FASTA"
+        ref_file_base="$ref_base"
     fi
-
+    
     # Check all required index files in one loop
     index_mounts=""
-    for ext in sa bwt pac amb ann; do
-        if [[ ! -e "${ref_file}.${ext}" ]]; then
+    for ext in sa bwt pac amb ann fai; do
+        if [[ -e "${ref_file}.${ext}" ]]; then
+            index_mounts+="-v ${ref_file}.${ext}:/mnt/bwa_indexes/${ref_file_base}.${ext} "
+        else
             build_refs="TRUE"
             break
-        else
-            ref_base=$(basename ${ref_file})
-            index_mounts+="-v ${ref_file}.${ext}:/mnt/${ref_base}.${ext} "
         fi
     done
-
+    
+    # Check if they exist in bwa_indexes folder if not found above
+    if [ "$build_refs" == "TRUE" ]; then
+        index_mounts=""
+        build_refs="FALSE"
+        refs_in_subdir="TRUE"
+        for ext in sa bwt pac amb ann fai; do
+            if [[ ! -e "${path_to_ref}/bwa_indexes/${ref_file_base}.${ext}" ]]; then
+                build_refs="TRUE"
+                refs_in_subdir="FALSE"
+                break
+            fi
+        done
+        
+        if [ "$refs_in_subdir" == "TRUE" ]; then
+            build_refs="FALSE"
+            index_mounts="-v ${path_to_ref}/bwa_indexes:/mnt/bwa_indexes "
+        fi
+    fi
+    
     # Mount indexes only if we have them all and don't need to build
     if [ "$build_refs" == "FALSE" ]; then
         mount_clause+="$index_mounts"
     fi
-
+    
     echo "$mount_clause|$build_refs"
 }
 export -f set_up_ref
@@ -253,7 +276,7 @@ docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
     echo "Generating BWA indexes for reference fasta..."
-    docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/check_for_bwa_indexes.sh "${REFERENCE_FASTA}"
+    docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/build_bwa_indexes.sh "${REFERENCE_FASTA}"
 fi
 
 # Make rufus resource dirs inside container
@@ -286,6 +309,15 @@ ref_base=$(basename ${REFERENCE_FASTA})
 # Wait for all jobs to finish before combining + post-processing
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
+
+# Move BWA index files to new directory if created
+if [ "$build_refs" == "TRUE" ]; then
+    ref_file="${REFERENCE_FASTA}"
+    if [[ "$REFERENCE_FASTA" == *.gz ]]; then
+        ref_file="${REFERENCE_FASTA%.gz}"
+    fi
+    docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/clean_up_bwa_indexes.sh $ref_file
+fi
 
 # Stop container and clean up
 docker stop rufus-worker
