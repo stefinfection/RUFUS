@@ -13,10 +13,6 @@ DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
   -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
 #DEV_MOUNT=""
 
-# Make temp env file with realpaths for all input files
-TEMP_ENV_FILE=${WORKING_DIR}/temp_rufus.env
-touch $TEMP_ENV_FILE
-
 # Check for required argument
 ENV_FILE="$1"
 if [ -z "$ENV_FILE" ]; then
@@ -30,13 +26,23 @@ if [ -f "$ENV_FILE" ]; then
     set -a
     source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
     set +a
-
-    cat $ENV_FILE > $TEMP_ENV_FILE
 else
     echo "Error: $ENV_FILE file not found - please provide valid path to rufus.env file"
     exit 1
 fi
 
+# If we don't have a working dir, set it to .
+if [ -z "$WORKING_DIR" ]; then
+    WORKING_DIR=$(pwd)
+    WORKING_DIR=$(realpath "$WORKING_DIR")
+fi
+
+# Make temp env file with realpaths for all input files
+TEMP_ENV_FILE=${WORKING_DIR}/temp_rufus.env
+touch $TEMP_ENV_FILE
+cat $ENV_FILE > $TEMP_ENV_FILE
+
+echo "WORKING_DIR=$WORKING_DIR" >> $TEMP_ENV_FILE
 
 # Checks for required arguments and formatting + bounds of integer arguments
 check_inputs() {
@@ -143,13 +149,6 @@ check_inputs() {
             exit 1
         fi
     fi
-
-    # If we don't have a working dir, set it to .
-    if [ -z "$WORKING_DIR" ]; then
-        WORKING_DIR=$(pwd)
-        WORKING_DIR=$(realpath "$WORKING_DIR")
-    fi
-    echo "WORKING_DIR=$WORKING_DIR" >> $TEMP_ENV_FILE
 }
 export -f check_inputs
 
