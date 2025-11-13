@@ -1,4 +1,5 @@
 #!/bin/bash
+# This is run within container
 
 # Constants
 CMD_OUT="/mnt/rufus_resources/rufus.cmd"
@@ -6,15 +7,15 @@ GLOBALS_FILE="/opt/RUFUS/resources/globals.txt"
 
 # Required args
 CONTAINER_ID="$1"
-HOST_ENV_FILE="/mnt/rufus_resources/rufus.env" # Mounted into container
+CONT_ENV_FILE="/mnt/rufus.env"  # Mounted into container
 
 # Make env variables available
-if [ -f "$HOST_ENV_FILE" ]; then
+if [ -f "$CONT_ENV_FILE" ]; then
     set -a
-    source <(grep -v '^#' $HOST_ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
+    source <(grep -v '^#' $CONT_ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
     set +a
 else
-    echo "Error: $HOST_ENV_FILE file not found - please provide valid path to rufus.env file"
+    echo "Error: $CONT_ENV_FILE file not found - please provide valid path to rufus.env file"
     exit 1
 fi
 
@@ -41,6 +42,8 @@ fi
 
 run_cmd="docker exec ${CONTAINER_ID} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_FILE $ctrl_arg -r $REFERENCE_FASTA -k $KMER_LENGTH -m $KMER_DEPTH_CUTOFF -t $THREAD_LIMIT $OTHER_FLAGS -e kg1_$KG1_HASH_VERSION"
 post_cmd="docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s /mnt/$SUBJECT_FILE -r $REFERENCE_FASTA -w $WINDOW_SIZE -d /mnt $ctrl_arg"
+
+mkdir -p /mnt/rufus_resources
 
 echo "##RUFUSCommandLine=<ID=rufus, Branch=\"$RUFUS_BRANCH\", Version=\"$RUFUS_VERSION\", Command=\"$run_cmd\">" > "$CMD_OUT"
 echo "##RUFUSCommandLine=<ID=rufus, Branch=\"$RUFUS_BRANCH\", Version=\"$RUFUS_VERSION\", Command=\"$post_cmd\">" >> "$CMD_OUT"

@@ -2,10 +2,10 @@
 
 # Arguments
 CONTAINER_ID="$1"
-REGION="$2"
+ENV_FILE="$2"
+REGION="$3"
 
 # Constants
-ENV_FILE="/mnt/rufus_resources/rufus.env"
 DEFAULT_KG1_HASH_VERSION="v3.0"
 DEFAULT_CONTROL_HASH_VERSION="v1.0"
 
