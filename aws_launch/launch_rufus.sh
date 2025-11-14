@@ -137,6 +137,7 @@ check_inputs() {
         fi
     else
         KMER_LENGTH=25
+        echo "KMER_LENGTH=$KMER_LENGTH" >> $TEMP_ENV_FILE 
     fi
 
     # Check if WINDOW_SIZE filled out, if it is, make sure an int and is 1000
@@ -155,6 +156,8 @@ export -f check_inputs
 # Check for correct controls setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
+# Hashes get mounted to /mnt/rufus_resources/control_hashes within container
+# Paired controls get mounted to /mnt/paired_controls/
 set_up_controls() {
     # Check for controls here and notify if using internal
     if [ ${#CONTROL_FILE_ARRAY[@]} -eq 0 ]; then
@@ -206,7 +209,31 @@ set_up_controls() {
         ctrl_arg=""
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
             ctrl_path=$(realpath "$control")
-            ctrl_arg+="-v $ctrl_path "
+            ctrl_basename=$(basename "$ctrl_path")
+            ctrl_arg+="-v $ctrl_path:/mnt/paired_controls/$ctrl_basename "
+            
+            # Add index or error if not found
+            if [[ "$ctrl_basename" == *.bam ]]; then
+                if [ -f "${ctrl_path}.bai" ]; then
+                    ctrl_arg+="-v ${ctrl_path}.bai:/mnt/paired_controls/${ctrl_basename}.bai "
+                elif [ -f "${ctrl_path%.bam}.bai" ]; then
+                    bai_path="${ctrl_path%.bam}.bai"
+                    ctrl_arg+="-v $bai_path:/mnt/paired_controls/$(basename $bai_path) "
+                else
+                    echo "ERROR: Could not find index file for control BAM ${ctrl_path}. Please ensure .bai file exists." >&2
+                    return 1
+                fi
+            elif [[ "$ctrl_basename" == *.cram ]]; then
+                if [ -f "${ctrl_path}.crai" ]; then
+                    ctrl_arg+="-v ${ctrl_path}.crai:/mnt/paired_controls/${ctrl_basename}.crai "
+                elif [ -f "${ctrl_path%.cram}.crai" ]; then
+                    crai_path="${ctrl_path%.cram}.crai"
+                    ctrl_arg+="-v $crai_path:/mnt/paired_controls/$(basename $crai_path) "
+                else
+                    echo "ERROR: Could not find index file for control CRAM ${ctrl_path}. Please ensure .crai file exists." >&2
+                    return 1
+                fi
+            fi
         done
         mount_clause+="$ctrl_arg"
     fi
@@ -217,6 +244,7 @@ export -f set_up_controls
 # Check for correct 1000G setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
+# Hashes get mounted to /mnt/rufus_resources/kg1_hashes within container
 set_up_kg1() {
     local mount_clause=""
 
@@ -313,12 +341,6 @@ set_up_ref() {
 }
 export -f set_up_ref
 
-# Start work
-# TODO: I think in check_inputs, should reassign the variables to their realpaths so don't have to do it again later
-# TODO: then will have to change how the env files get passed to process_region_worker.sh so don't have to do again
-# TODO: also in general, mount to better sub-dirs than /mnt directly
-# TODO: then make sure all internals match where they're looking for things
-
 check_inputs
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
 control_mount=$(set_up_controls) || exit 1
@@ -327,9 +349,31 @@ subject_path=$(realpath "${SUBJECT_FILE}")
 subject_base=$(basename ${subject_path})
 input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/${subject_base}"
 
+# Check for subject index if bam or cram
+if [[ "$subject_base" == *.bam ]]; then
+    if [ -f "${subject_path}.bai" ]; then
+        input_mount_clause+="-v ${subject_path}.bai:/mnt/${subject_base}.bai "
+    elif [ -f "${subject_path%.bam}.bai" ]; then
+        bai_path="${subject_path%.bam}.bai"
+        input_mount_clause+="-v $bai_path:/mnt/$(basename $bai_path) "
+    else
+        echo "ERROR: Could not find index file for subject BAM ${subject_path}. Please ensure .bai file exists." >&2
+        exit 1
+    fi
+elif [[ "$subject_base" == *.cram ]]; then
+    if [ -f "${subject_path}.crai" ]; then
+        input_mount_clause+="-v ${subject_path}.crai:/mnt/${subject_base}.crai "
+    elif [ -f "${subject_path%.cram}.crai" ]; then
+        crai_path="${subject_path%.cram}.crai"
+        input_mount_clause+="-v $crai_path:/mnt/$(basename $crai_path) "
+    else
+        echo "ERROR: Could not find index file for subject CRAM ${subject_path}. Please ensure .crai file exists." >&2
+        exit 1
+    fi
+fi
+
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
-  #-v ${TEMP_ENV_FILE}:/mnt/rufus.env \
   $input_mount_clause \
   $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
