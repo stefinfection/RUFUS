@@ -152,9 +152,11 @@ else
       IFS=$'\t'
       TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
   fi
-	echo "Windowed run performed, trimming and combining region vcfs..."
-	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
+  echo "Windowed run performed, trimming and combining region vcfs..."
+  bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
+
+exit
 
   # Get number of variants reported
   VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)

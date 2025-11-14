@@ -41,6 +41,8 @@ HEADER_STUB="/opt/RUFUS/resources/vcf_header.txt"
 COMBINED_RECORDS="combined.records"
 COMBINED_PRE_RECORDS="combined.prerecords"
 
+contig_temp="contig_temp.txt"
+
 NUM_CHRS=24
 CHRS=(
 "1"  
@@ -126,9 +128,8 @@ do
             end_coord=$curr_len
         fi
 	
-		CURR_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
-		#CURR_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
-        contig_temp="contig_temp.txt"
+        CURR_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
+        #CURR_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.chr${curr_chr}_${start_coord}_${end_coord}.vcf.gz"
         if [[ -f "${CURR_VCF}" ]]; then
 
             # Write out trimmed region to final vcf
@@ -145,7 +146,6 @@ do
 	    	# Remove vcf and indexes
 	    	rm $CURR_VCF*
 	    	#rm $CURR_PRE_VCF*
-            rm $contig_temp
         fi
     
         # Advance start coordinate
@@ -163,6 +163,8 @@ cat $COMBINED_RECORDS >> $COMBINED_VCF
 # echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
 # cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
+# todo: left off here - unsure why the combined vcf here is out of order and cannot be indexed...
+# maybe try to do a full redo of individual vcfs and try again?
 bgzip $COMBINED_VCF
 $BCFTOOLS index -t "${COMBINED_VCF}.gz"
 
@@ -170,8 +172,8 @@ $BCFTOOLS index -t "${COMBINED_VCF}.gz"
 # $BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
 
 # Clean up temp files
-rm $TEMP_TRIMMED
-rm $COMBINED_HEADER
-rm $COMBINED_PRE_HEADER
-rm $COMBINED_RECORDS
+# rm $TEMP_TRIMMED
+# rm $COMBINED_HEADER
+# rm $COMBINED_PRE_HEADER
+# rm $COMBINED_RECORDS
 #rm $COMBINED_PRE_RECORDS
