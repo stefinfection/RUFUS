@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # CONSTANTS
-#DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
-#  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
-#  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
-#  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
-#  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
-#  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh \
+DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
+  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
+  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
+  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
+  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
+  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh"
 #  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
-DEV_MOUNT=""
+#DEV_MOUNT=""
 
 # Check for required argument
 ENV_FILE="$1"
@@ -155,7 +155,7 @@ export -f check_inputs
 # Check for correct controls setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to /mnt/rufus_resources/control_hashes within container
+# Hashes get mounted to /mnt/rufus_supplementals/control_hashes within container
 # Paired controls get mounted to /mnt/paired_controls/
 set_up_controls() {
     # Check for controls here and notify if using internal
@@ -188,7 +188,7 @@ set_up_controls() {
                     file_path=$(realpath "$file")
                     parent_dir_file=$(dirname "$file_path")
                     # Mount to realpath of file rather than parent dir because file may be symlinked
-                    mount_clause="-v ${parent_dir_file}:/mnt/rufus_resources/control_hashes "
+                    mount_clause="-v ${parent_dir_file}:/mnt/rufus_supplementals/control_hashes "
                     echo "CONTROL_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                     accessible=true
                     break
@@ -243,7 +243,7 @@ export -f set_up_controls
 # Check for correct 1000G setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to /mnt/rufus_resources/kg1_hashes within container
+# Hashes get mounted to /mnt/rufus_supplementals/kg1_hashes within container
 set_up_kg1() {
     local mount_clause=""
 
@@ -274,7 +274,7 @@ set_up_kg1() {
                         file_path=$(realpath "$file")
                         parent_dir_file=$(dirname "$file_path")
                         # Mount to realpath of file rather than parent dir because file may be symlinked
-                        mount_clause="-v ${parent_dir_file}:/mnt/rufus_resources/kg1_hashes "
+                        mount_clause="-v ${parent_dir_file}:/mnt/rufus_supplementals/kg1_hashes "
                         echo "KG1_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                         accessible=true
                         break
@@ -314,7 +314,6 @@ set_up_ref() {
     
     # Check all required index files in one loop
     for ext in sa bwt pac amb ann fai; do
-	echo "checking for ${ref_file}.${ext}" >&2
         if [[ ! -e "${ref_file}.${ext}" ]]; then
             build_refs="TRUE"
             break
@@ -387,8 +386,8 @@ start_time=$(date +%s)
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID" "$TEMP_ENV_FILE"
 
 # Pull out worker script
-#docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/process_region_worker.sh
-PR_WORKER="${WORKING_DIR}/process_region_worker_temp.sh"
+#docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/rufus_supplementals/process_region_worker.sh
+PR_WORKER="${WORKING_DIR}/rufus_supplementals/process_region_worker_temp.sh"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
@@ -397,17 +396,17 @@ if [ "$build_refs" == "TRUE" ]; then
 fi
 
 # Make rufus resource dirs inside container
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/control_hashes
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/kg1_hashes
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/logs
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/control_hashes
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/kg1_hashes
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/logs
 
 # Start work
-echo "Starting RUFUS job(s)..."
-if [ -n "$REGION_FILE" ]; then
-    parallel -j "$JOB_THRESHOLD" bash ${PR_WORKER} "$CONTAINER_ID" "$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
-else
-    bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
-fi
+#echo "Starting RUFUS job(s)..."
+#if [ -n "$REGION_FILE" ]; then
+#    parallel -j "$JOB_THRESHOLD" bash ${PR_WORKER} "$CONTAINER_ID" "$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
+#else
+#    bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
+#fi
 
 concat_ctrl_post_arg=""
 if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
@@ -427,18 +426,13 @@ ref_base=$(basename ${REFERENCE_FASTA})
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
 
-# Move any files we want to keep into working dir
-keep_items=("/mnt/rufus_resources/logs")
-for item in $keep_items; do
-    mv $item $WORKING_DIR
-done
-
 # Stop container and clean up
+echo "Shutting down RUFUS container..."
 docker stop rufus-worker
-rm ${WORKING_DIR}/process_region_worker.sh
 rm $TEMP_ENV_FILE
+
+# How to get rid of temp directories after unmounting?
 
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))
 echo "RUFUS completed. Total run time: $elapsed"
-

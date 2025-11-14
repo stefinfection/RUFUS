@@ -64,6 +64,10 @@ if [ ${#CONTROLS[@]} -eq 0 ]; then
 	    echo "No controls provided, using internal control" >&2
 fi
 
+# Make supp directory
+SUPPLEMENTAL_DIR="${SOURCE_DIR}/rufus_supplementals/"
+mkdir -p $SUPPLEMENTAL_DIR
+
 # Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
 clean_up_early_intermeds() {
   local SUBJECT_FILE="$1"
@@ -219,7 +223,7 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 echo "Composing final vcfs..."
 $bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
 
-RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_resources/rufus.cmd"
+RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_supplementals/rufus.cmd"
 while read line; do
   echo -e "$line" >> $FINAL_VCF
 done < "$RUN_COMMAND_FILE"
@@ -255,10 +259,6 @@ echo "Cleaning up intermediate post-processing files..."
 rm $COINHERITED_REMOVED_VCF*
 #rm "normed.sorted.$TEMP_FINAL_VCF"*
 rm "$AF_ADDED_VCF"*
-
-# Combining supplementals
-SUPPLEMENTAL_DIR=${SOURCE_DIR}/rufus_supplementals/
-mkdir -p $SUPPLEMENTAL_DIR
 
 # TODO: only do this if not reporting in developer mode
 # ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam

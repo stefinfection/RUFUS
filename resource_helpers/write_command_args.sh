@@ -2,7 +2,7 @@
 # This is run within container
 
 # Constants
-CMD_OUT="/mnt/rufus_resources/rufus.cmd"
+CMD_OUT="/mnt/rufus_supplementals/rufus.cmd"
 GLOBALS_FILE="/opt/RUFUS/resources/globals.txt"
 
 # Required args
@@ -43,7 +43,7 @@ fi
 run_cmd="docker exec ${CONTAINER_ID} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_FILE $ctrl_arg -r $REFERENCE_FASTA -k $KMER_LENGTH -m $KMER_DEPTH_CUTOFF -t $THREAD_LIMIT $OTHER_FLAGS -e kg1_$KG1_HASH_VERSION"
 post_cmd="docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s /mnt/$SUBJECT_FILE -r $REFERENCE_FASTA -w $WINDOW_SIZE -d /mnt $ctrl_arg"
 
-mkdir -p /mnt/rufus_resources
+mkdir -p /mnt/rufus_supplementals
 
 echo "##RUFUSCommandLine=<ID=rufus, Branch=\"$RUFUS_BRANCH\", Version=\"$RUFUS_VERSION\", Command=\"$run_cmd\">" > "$CMD_OUT"
 echo "##RUFUSCommandLine=<ID=rufus, Branch=\"$RUFUS_BRANCH\", Version=\"$RUFUS_VERSION\", Command=\"$post_cmd\">" >> "$CMD_OUT"

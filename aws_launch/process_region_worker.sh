@@ -39,13 +39,13 @@ fetch_hash() {
         # If we don't have a region, use entire genome wide Jhash
         echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
         docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "wg"
-        hash="/mnt/rufus_resources/${hash_type}_hashes/wg_${hash_type}_${hash_version}.Jhash"
+        hash="/mnt/rufus_supplementals/${hash_type}_hashes/wg_${hash_type}_${hash_version}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
         echo "Fetching version ${hash_version} ${hash_type} hash for region: $region" >&2
         local fmtd_reg=$(echo "$region" | tr ':-' '_')
         docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "$fmtd_reg"
-        hash="/mnt/rufus_resources/${hash_type}_hashes/${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
+        hash="/mnt/rufus_supplementals/${hash_type}_hashes/${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
     fi
     
     echo "$hash"
@@ -70,7 +70,7 @@ get_hash() {
     # Get the user's original directory path for error messages
     local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
     local host_dir="${!env_var}"
-    local cont_dir="/mnt/rufus_resources/${hash_type}_hashes"
+    local cont_dir="/mnt/rufus_supplementals/${hash_type}_hashes"
         
     # Local hashes
     if [ "$geo_type" == "local" ]; then
@@ -185,20 +185,20 @@ RUFUS_CMD="/opt/RUFUS/runRufus.sh \
 
 docker exec "$CONTAINER_ID" bash -c \
     "$RUFUS_CMD \
-    > /mnt/rufus_resources/logs/${fmtd_reg}.out \
-    2> /mnt/rufus_resources/logs/${fmtd_reg}.err"
+    > /mnt/rufus_supplementals/logs/${fmtd_reg}.out \
+    2> /mnt/rufus_supplementals/logs/${fmtd_reg}.err"
 
 # Clean up hash files
 if [ "$REGION" == "" ]; then
     if [ "$KEEP_DOWNLOADED_HASHES" == "TRUE" ] || [ "$KEEP_DOWNLOADED_HASHES" == "true" ]; then
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/control_hashes/*wg*control*.Jhash
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/kg1_hashes/*wg*kg1*.Jhash
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_supplementals/control_hashes/*wg*control*.Jhash
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_supplementals/kg1_hashes/*wg*kg1*.Jhash
     fi
 else 
     fmtd_reg=$(echo "$REGION" | tr ':-' '_')
     if [ "$KEEP_DOWNLOADED_HASHES" == "TRUE" ] || [ "$KEEP_DOWNLOADED_HASHES" == "true" ]; then
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/control_hashes/*$fmtd_reg*.Jhash
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/kg1_hashes/*$fmtd_reg*.Jhash
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_supplementals/control_hashes/*$fmtd_reg*.Jhash
+        docker exec ${CONTAINER_ID} rm /mnt/rufus_supplementals/kg1_hashes/*$fmtd_reg*.Jhash
     fi
 fi
 

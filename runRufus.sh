@@ -665,7 +665,7 @@ else
 	region_postfix=".${formatted_region}"
 fi
 
-rufus_invoc_file="/mnt/rufus_resources/rufus_command_$formatted_region.txt"
+rufus_invoc_file="/mnt/rufus_supplementals/rufus_command_$formatted_region.txt"
 echo "$RUFUS_BRANCH" > $rufus_invoc_file
 echo "$RUFUS_VERSION" >> $rufus_invoc_file
 echo "$@" >> $rufus_invoc_file
