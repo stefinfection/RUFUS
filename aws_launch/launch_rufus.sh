@@ -79,6 +79,7 @@ check_inputs() {
         echo "Error: REFERENCE_FASTA $reference_path not found" >&2
         exit 1
     else
+	REFERENCE_FASTA=$reference_path
         echo "REFERENCE_FASTA=$reference_path" >> $TEMP_ENV_FILE
     fi
 
@@ -89,6 +90,7 @@ check_inputs() {
             echo "Error: REGION_FILE $region_path not found. Please provide valid file or leave empty for whole genome mode." >&2
             exit 1
         else
+	    REGION_FILE=$region_path
             echo "REGION_FILE=$region_path" >> $TEMP_ENV_FILE
         fi
     fi
@@ -312,9 +314,9 @@ set_up_ref() {
     
     # Check all required index files in one loop
     for ext in sa bwt pac amb ann fai; do
+	echo "checking for ${ref_file}.${ext}" >&2
         if [[ ! -e "${ref_file}.${ext}" ]]; then
             build_refs="TRUE"
-            mount_clause=""
             break
         fi
     done
@@ -345,7 +347,7 @@ control_mount=$(set_up_controls) || exit 1
 kg1_mount=$(set_up_kg1) || exit 1
 subject_path=$(realpath "${SUBJECT_FILE}")
 subject_base=$(basename ${subject_path})
-input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/${subject_base}"
+input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/${subject_base} "
 
 # Check for subject index if bam or cram
 if [[ "$subject_base" == *.bam ]]; then
@@ -439,3 +441,4 @@ rm $TEMP_ENV_FILE
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))
 echo "RUFUS completed. Total run time: $elapsed"
+
