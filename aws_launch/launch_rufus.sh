@@ -1,17 +1,14 @@
 #!/bin/bash
 
-# TODO: left off here - review everything and get realpaths for all input files
-# Try to mount to diff dirs - /mnt won't work try /home/subdirs
-
 # CONSTANTS
-DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
-  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
-  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
-  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
-  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
-  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh \
-  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
-#DEV_MOUNT=""
+#DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
+#  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
+#  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
+#  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
+#  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
+#  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh \
+#  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
+DEV_MOUNT=""
 
 # Check for required argument
 ENV_FILE="$1"
@@ -41,8 +38,6 @@ fi
 TEMP_ENV_FILE=${WORKING_DIR}/temp_rufus.env
 touch $TEMP_ENV_FILE
 cat $ENV_FILE > $TEMP_ENV_FILE
-
-echo "WORKING_DIR=$WORKING_DIR" >> $TEMP_ENV_FILE
 
 # Checks for required arguments and formatting + bounds of integer arguments
 check_inputs() {
@@ -150,6 +145,8 @@ check_inputs() {
             exit 1
         fi
     fi
+
+    echo "WORKING_DIR=$WORKING_DIR" >> $TEMP_ENV_FILE
 }
 export -f check_inputs
 
@@ -341,6 +338,7 @@ set_up_ref() {
 }
 export -f set_up_ref
 
+# Start work
 check_inputs
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
 control_mount=$(set_up_controls) || exit 1
@@ -374,6 +372,8 @@ fi
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -v ${WORKING_DIR}:/mnt \
+  --cap-add SYS_ADMIN \
+  --device /dev/fuse \
   $input_mount_clause \
   $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
@@ -385,8 +385,8 @@ start_time=$(date +%s)
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID" "$TEMP_ENV_FILE"
 
 # Pull out worker script
-docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/process_region_worker.sh
-PR_WORKER="${WORKING_DIR}/process_region_worker.sh"
+#docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/process_region_worker.sh
+PR_WORKER="${WORKING_DIR}/process_region_worker_temp.sh"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
@@ -402,7 +402,7 @@ docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_resources/logs
 # Start work
 echo "Starting RUFUS job(s)..."
 if [ -n "$REGION_FILE" ]; then
-    parallel -j "$JOB_THRESHOLD" bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$ENV_FILE" {} :::: "$REGION_FILE"
+    parallel -j "$JOB_THRESHOLD" bash ${PR_WORKER} "$CONTAINER_ID" "$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
 else
     bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
 fi
@@ -424,6 +424,12 @@ ref_base=$(basename ${REFERENCE_FASTA})
 # Wait for all jobs to finish before combining + post-processing
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
+
+# Move any files we want to keep into working dir
+keep_items=("/mnt/rufus_resources/logs")
+for item in $keep_items; do
+    mv $item $WORKING_DIR
+done
 
 # Stop container and clean up
 docker stop rufus-worker
