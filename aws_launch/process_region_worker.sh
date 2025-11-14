@@ -155,11 +155,11 @@ elif [ "$KG1_HASH_VERSION" != "" ]; then
 fi
 
 ref_base=$(basename "$REFERENCE_FASTA")
-ref_arg="-r /mnt/$ref_base"
+ref_arg="-r /mnt/bwa_indexes/$ref_base"
 # If subject_file ends with cram, need to change region_arg to -cr
 subject_base=$(basename "$SUBJECT_FILE")
 if [[ "$subject_base" == *.cram ]]; then
-    ref_arg="-cr /mnt/$ref_base"
+    ref_arg="-cr /mnt/bwa_indexes/$ref_base"
 fi
 
 # Region arg
@@ -169,6 +169,8 @@ if [ "$REGION" != "" ]; then
 else
     fmtd_reg="whole_genome"
 fi
+
+cd $WORKING_DIR
 
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
   -s /mnt/$subject_base \
@@ -199,3 +201,4 @@ else
         docker exec ${CONTAINER_ID} rm /mnt/rufus_resources/kg1_hashes/*$fmtd_reg*.Jhash
     fi
 fi
+
