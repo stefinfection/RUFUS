@@ -155,15 +155,12 @@ else
   echo "Windowed run performed, trimming and combining region vcfs..."
   bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
-
-exit
-
   # Get number of variants reported
   VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
 
   # Keep germline vcf
   cp $TEMP_FINAL_VCF $GERMLINE_VCF
-  mv $GERMLINE_VCF rufus_supplementals/
+  mv $GERMLINE_VCF $SUPPLEMENTAL_DIR
 
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
@@ -261,6 +258,8 @@ rm "$AF_ADDED_VCF"*
 
 # Combining supplementals
 SUPPLEMENTAL_DIR=${SOURCE_DIR}/rufus_supplementals/
+mkdir -p $SUPPLEMENTAL_DIR
+
 # TODO: only do this if not reporting in developer mode
 # ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
 # ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
