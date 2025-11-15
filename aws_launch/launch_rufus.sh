@@ -35,7 +35,8 @@ if [ -z "$WORKING_DIR" ]; then
 fi
 
 # Make temp env file with realpaths for all input files
-TEMP_ENV_FILE=${WORKING_DIR}/temp_rufus.env
+TEMP_ENV_FILE=${WORKING_DIR}/rufus_temp/temp_rufus.env
+mkdir -p ${WORKING_DIR}/rufus_temp
 touch $TEMP_ENV_FILE
 cat $ENV_FILE > $TEMP_ENV_FILE
 
@@ -155,7 +156,7 @@ export -f check_inputs
 # Check for correct controls setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to /mnt/rufus_supplementals/control_hashes within container
+# Hashes get mounted to /mnt/rufus_temp/control_hashes within container
 # Paired controls get mounted to /mnt/paired_controls/
 set_up_controls() {
     # Check for controls here and notify if using internal
@@ -188,7 +189,7 @@ set_up_controls() {
                     file_path=$(realpath "$file")
                     parent_dir_file=$(dirname "$file_path")
                     # Mount to realpath of file rather than parent dir because file may be symlinked
-                    mount_clause="-v ${parent_dir_file}:/mnt/rufus_supplementals/control_hashes "
+                    mount_clause="-v ${parent_dir_file}:/mnt/rufus_temp/control_hashes:ro "
                     echo "CONTROL_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                     accessible=true
                     break
@@ -209,25 +210,25 @@ set_up_controls() {
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
             ctrl_path=$(realpath "$control")
             ctrl_basename=$(basename "$ctrl_path")
-            ctrl_arg+="-v $ctrl_path:/mnt/paired_controls/$ctrl_basename "
+            ctrl_arg+="-v $ctrl_path:/mnt/rufus_temp/$ctrl_basename:ro "
             
             # Add index or error if not found
             if [[ "$ctrl_basename" == *.bam ]]; then
                 if [ -f "${ctrl_path}.bai" ]; then
-                    ctrl_arg+="-v ${ctrl_path}.bai:/mnt/paired_controls/${ctrl_basename}.bai "
+                    ctrl_arg+="-v ${ctrl_path}.bai:/mnt/rufus_temp/${ctrl_basename}.bai:ro "
                 elif [ -f "${ctrl_path%.bam}.bai" ]; then
                     bai_path="${ctrl_path%.bam}.bai"
-                    ctrl_arg+="-v $bai_path:/mnt/paired_controls/$(basename $bai_path) "
+                    ctrl_arg+="-v $bai_path:/mnt/rufus_temp/$(basename $bai_path):ro "
                 else
                     echo "ERROR: Could not find index file for control BAM ${ctrl_path}. Please ensure .bai file exists." >&2
                     return 1
                 fi
             elif [[ "$ctrl_basename" == *.cram ]]; then
                 if [ -f "${ctrl_path}.crai" ]; then
-                    ctrl_arg+="-v ${ctrl_path}.crai:/mnt/paired_controls/${ctrl_basename}.crai "
+                    ctrl_arg+="-v ${ctrl_path}.crai:/mnt/rufus_temp/${ctrl_basename}.crai:ro "
                 elif [ -f "${ctrl_path%.cram}.crai" ]; then
                     crai_path="${ctrl_path%.cram}.crai"
-                    ctrl_arg+="-v $crai_path:/mnt/paired_controls/$(basename $crai_path) "
+                    ctrl_arg+="-v $crai_path:/mnt/rufus_temp/$(basename $crai_path):ro "
                 else
                     echo "ERROR: Could not find index file for control CRAM ${ctrl_path}. Please ensure .crai file exists." >&2
                     return 1
@@ -243,7 +244,7 @@ export -f set_up_controls
 # Check for correct 1000G setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to /mnt/rufus_supplementals/kg1_hashes within container
+# Hashes get mounted to /mnt/rufus_temp/kg1_hashes within container
 set_up_kg1() {
     local mount_clause=""
 
@@ -274,7 +275,7 @@ set_up_kg1() {
                         file_path=$(realpath "$file")
                         parent_dir_file=$(dirname "$file_path")
                         # Mount to realpath of file rather than parent dir because file may be symlinked
-                        mount_clause="-v ${parent_dir_file}:/mnt/rufus_supplementals/kg1_hashes "
+                        mount_clause="-v ${parent_dir_file}:/mnt/rufus_temp/kg1_hashes:ro "
                         echo "KG1_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                         accessible=true
                         break
@@ -301,7 +302,7 @@ set_up_ref() {
     local build_refs="FALSE"
 
     # We'll assume indexes are in same dir as reference unless found otherwise
-    local mount_clause="-v ${path_to_ref}:/mnt/bwa_indexes "
+    local mount_clause="-v ${path_to_ref}:/mnt/rufus_temp/bwa_indexes:ro "
         
     # Determine the base filename (without .gz if present)
     if [[ "$ref_path" == *.gz ]]; then
@@ -316,6 +317,7 @@ set_up_ref() {
     for ext in sa bwt pac amb ann fai; do
         if [[ ! -e "${ref_file}.${ext}" ]]; then
             build_refs="TRUE"
+            mount_clause="-v ${path_to_ref}:/mnt/rufus_temp/bwa_indexes " # Don't make RO if we have to build
             break
         fi
     done
@@ -326,12 +328,13 @@ set_up_ref() {
         for ext in sa bwt pac amb ann fai; do
             if [[ ! -e "${path_to_ref}/bwa_indexes/${ref_file_base}.${ext}" ]]; then
                 build_refs="TRUE"
+                mount_clause="-v ${path_to_ref}:/mnt/rufus_temp/bwa_indexes " # Don't make RO if we have to build
                 break
             fi
         done
         
         if [ "$build_refs" == "FALSE" ]; then
-            mount_clause="-v ${path_to_ref}/bwa_indexes:/mnt/bwa_indexes "
+            mount_clause="-v ${path_to_ref}/bwa_indexes:/mnt/bwa_indexes:ro "
         fi
     fi
     
@@ -346,25 +349,25 @@ control_mount=$(set_up_controls) || exit 1
 kg1_mount=$(set_up_kg1) || exit 1
 subject_path=$(realpath "${SUBJECT_FILE}")
 subject_base=$(basename ${subject_path})
-input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/${subject_base} "
+input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/rufus_temp/${subject_base}:ro "
 
 # Check for subject index if bam or cram
 if [[ "$subject_base" == *.bam ]]; then
     if [ -f "${subject_path}.bai" ]; then
-        input_mount_clause+="-v ${subject_path}.bai:/mnt/${subject_base}.bai "
+        input_mount_clause+="-v ${subject_path}.bai:/mnt/rufus_temp/${subject_base}.bai:ro "
     elif [ -f "${subject_path%.bam}.bai" ]; then
         bai_path="${subject_path%.bam}.bai"
-        input_mount_clause+="-v $bai_path:/mnt/$(basename $bai_path) "
+        input_mount_clause+="-v $bai_path:/mnt/$(basename $bai_path):ro "
     else
         echo "ERROR: Could not find index file for subject BAM ${subject_path}. Please ensure .bai file exists." >&2
         exit 1
     fi
 elif [[ "$subject_base" == *.cram ]]; then
     if [ -f "${subject_path}.crai" ]; then
-        input_mount_clause+="-v ${subject_path}.crai:/mnt/${subject_base}.crai "
+        input_mount_clause+="-v ${subject_path}.crai:/mnt/rufus_temp/${subject_base}.crai:ro "
     elif [ -f "${subject_path%.cram}.crai" ]; then
         crai_path="${subject_path%.cram}.crai"
-        input_mount_clause+="-v $crai_path:/mnt/$(basename $crai_path) "
+        input_mount_clause+="-v $crai_path:/mnt/rufus_temp/$(basename $crai_path):ro "
     else
         echo "ERROR: Could not find index file for subject CRAM ${subject_path}. Please ensure .crai file exists." >&2
         exit 1
@@ -372,6 +375,7 @@ elif [[ "$subject_base" == *.cram ]]; then
 fi
 
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
+  -u $(id -u):$(id -g) \
   -v ${WORKING_DIR}:/mnt \
   --cap-add SYS_ADMIN \
   --device /dev/fuse \
@@ -382,12 +386,20 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
 
 start_time=$(date +%s)
 
+# Make resource directories referenced during run
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/logs
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/control_hashes
+docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/kg1_hashes
+
 # Write commands for final vcf (do inside container so have access to RUFUS versioning)
-docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID" "$TEMP_ENV_FILE"
+docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID"
 
 # Pull out worker script
-#docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${WORKING_DIR}/rufus_supplementals/process_region_worker.sh
-PR_WORKER="${WORKING_DIR}/rufus_supplementals/process_region_worker_temp.sh"
+# TODO: udpate to container path before pushing
+PR_WORKER="${WORKING_DIR}/rufus_temp/process_region_worker.sh"
+docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${PR_WORKER}
+#PR_WORKER="${WORKING_DIR}/process_region_worker_temp.sh"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
@@ -395,18 +407,13 @@ if [ "$build_refs" == "TRUE" ]; then
     docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/build_bwa_indexes.sh "${REFERENCE_FASTA}"
 fi
 
-# Make rufus resource dirs inside container
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/control_hashes
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/kg1_hashes
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/logs
-
 # Start work
-#echo "Starting RUFUS job(s)..."
-#if [ -n "$REGION_FILE" ]; then
-#    parallel -j "$JOB_THRESHOLD" bash ${PR_WORKER} "$CONTAINER_ID" "$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
-#else
-#    bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
-#fi
+echo "Starting RUFUS job(s)..."
+if [ -n "$REGION_FILE" ]; then
+   parallel -j "$JOB_THRESHOLD" bash ${PR_WORKER} "$CONTAINER_ID" "$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
+else
+   bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
+fi
 
 concat_ctrl_post_arg=""
 if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
@@ -414,7 +421,7 @@ if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
     concat_ctrls=""
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
         ctrl_base=$(basename ${control})
-        concat_ctrls+="/mnt/$ctrl_base "
+        concat_ctrls+="/mnt/rufus_temp/$ctrl_base "
     done
     concat_ctrl_post_arg="-c $concat_ctrls"
 fi
@@ -424,14 +431,20 @@ ref_base=$(basename ${REFERENCE_FASTA})
 
 # Wait for all jobs to finish before combining + post-processing
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
-docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
+docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/rufus_temp/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
 
-# Stop container and clean up
+# If we did build indexes, keep them in rufus_supplementals
+if [ "$build_refs" == "TRUE" ]; then
+    docker exec $CONTAINER_ID mv /mnt/rufus_temp/bwa_indexes /mnt/rufus_supplementals/bwa_indexes
+fi
+
+# Clean up
+rm -rf ${WORKING_DIR}/rufus_temp
+rm -f ${WORKING_DIR}/rufus_supplementals/rufus_command_*txt
+
+# Stop container
 echo "Shutting down RUFUS container..."
 docker stop rufus-worker
-rm $TEMP_ENV_FILE
-
-# How to get rid of temp directories after unmounting?
 
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))

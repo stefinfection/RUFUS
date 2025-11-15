@@ -454,107 +454,112 @@ clean_up_files ()
 
 	echo "starting to clean up files..."
 
-  local probandGenerator="$1"
-  local probandFileName="$2"
-  local regionPostfix="$3"
-  local SUPP_DIR="rufus_supplementals"
+	local probandGenerator="$1"
+	local probandFileName="$2"
+	local regionPostfix="$3"
+	local SUPP_DIR="rufus_supplementals"
 
-  if [ "$_arg_dev_file_output" == "FALSE" ]; then
+	# Move files we want to keep into supplementals
+	# TODO: once we fix the pre-filtered header and update post processing, we can comment this back in
+	# if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
+	# 	mkdir -p $SUPP_DIR
+	# 	mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
+	# 	bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
+	# 	$bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
+	# fi
 
-    # Move files we want to keep into supplementals
-    if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
-      mkdir -p $SUPP_DIR
-      mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-      bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-      $bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
-    fi
+	# Remove files from sub directories for this region only
+	if [ -d "Intermediates" ]; then
+		rm Intermediates/*${regionPostfix}*
+	fi
 
-    # Remove files from sub directories for this region only
-    if [ -d "Intermediates" ]; then
-      rm Intermediates/*${regionPostfix}*
-    fi
+	if [ -d "TempOverlap" ]; then
+		rm TempOverlap/*${regionPostfix}*
+	fi
 
-    if [ -d "TempOverlap" ]; then
-      rm TempOverlap/*${regionPostfix}*
-    fi
+	if [ -e "${probandGenerator}.mer_counts_merged.jf" ]; then
+		rm "${probandGenerator}.mer_counts_merged.jf"
+	fi
 
-    if [ -e "${probandGenerator}.mer_counts_merged.jf" ]; then
-      rm "${probandGenerator}.mer_counts_merged.jf"
-    fi
+	control_files=(
+		"generator"
+		"generator.Jelly.chr"
+		"generator.Jhash"
+		"generator.Jhash.histo"
+		"generator.Jhash.histo.7.7.dist"
+		"generator.Jhash.histo.7.7.model"
+		"generator.Jhash.histo.7.7.out"
+		"generator.Jhash.histo.7.7.prob"
+	)
 
-    control_files=(
-      "generator"
-      "generator.Jelly.chr"
-      "generator.Jhash"
-      "generator.Jhash.histo"
-      "generator.Jhash.histo.7.7.dist"
-      "generator.Jhash.histo.7.7.model"
-      "generator.Jhash.histo.7.7.out"
-      "generator.Jhash.histo.7.7.prob"
-    )
+	# remove control files
+	for control in "${_arg_controls[@]}";
+	do
+		ctrl_prefix=$(basename "$control")
+		for postfix in "${control_files[@]}"
+		do
+		if [ -e "${ctrl_prefix}${regionPostfix}.${postfix}" ]; then
+			rm ${ctrl_prefix}${regionPostfix}.${postfix}
+		fi
+		done
+	done
 
-    # remove control files
-    for control in "${_arg_controls[@]}";
-    do
-      ctrl_prefix=$(basename "$control")
-      for postfix in "${control_files[@]}"
-      do
-        if [ -e "${ctrl_prefix}${regionPostfix}.${postfix}" ]; then
-          rm ${ctrl_prefix}${regionPostfix}.${postfix}
-        fi
-      done
-    done
-
-    # remove subject files
-    subject_files=(
-      "generator"
-      "generator.V2.overlap.fastqd"
-      "generator.Jelly.chr"
-      "generator.V2.overlap.hashcount.fastq"
-	  "generator.V2.overlap.hashcount.sorted.fastq"
-      "generator.Jhash"
-      "generator.Jhash.histo"
-      "generator.Jhash.histo.7.7.dist"
-      "generator.Jhash.histo.7.7.model"
-      "generator.Jhash.histo.7.7.out"
-      "generator.Jhash.histo.7.7.prob"
-      "generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
-      "generator.Mutations.Mate1.fastq"
-	  "generator.sorted.Mutations.Mate1.fastq"
-      "generator.filter.chr"
-      "generator.Mutations.Mate2.fastq"
-	  "generator.sorted.Mutations.Mate2.fastq"
-      "generator.temp"
-      "generator.temp.mate1.fastq"
-      "generator.V2.overlap.fastq"
-      "generator.temp.mate2.fastq"
-    )
-    for postfix in "${subject_files[@]}";
-    do
-      if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-        rm ${probandFileName}${regionPostfix}.${postfix}
-      fi
-    done
-
-    supplemental_files=(
+	# remove subject files
+	subject_files=(
+		"generator"
+		"generator.V2.overlap.fastqd"
+		"generator.Jelly.chr"
+		"generator.V2.overlap.hashcount.fastq"
+		"generator.V2.overlap.hashcount.sorted.fastq"
+		"generator.Jhash"
+		"generator.Jhash.histo"
+		"generator.Jhash.histo.7.7.dist"
+		"generator.Jhash.histo.7.7.model"
+		"generator.Jhash.histo.7.7.out"
+		"generator.Jhash.histo.7.7.prob"
+		"generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
+		"generator.Mutations.Mate1.fastq"
+		"generator.sorted.Mutations.Mate1.fastq"
+		"generator.filter.chr"
+		"generator.Mutations.Mate2.fastq"
+		"generator.sorted.Mutations.Mate2.fastq"
+		"generator.temp"
+		"generator.temp.mate1.fastq"
+		"generator.V2.overlap.fastq"
+		"generator.temp.mate2.fastq"
 		"generator.V2.overlap.hashcount.sorted.fastq.bam"
-        "generator.V2.overlap.hashcount.fastq.bam"
-        "generator.V2.overlap.hashcount.fastq.bam.bai"
-        "generator.V2.overlap.hashcount.fastq.bam.vcf"
-        "generator.k${K}_c${MutantMinCov}.HashList"
-        "generator.Mutations.fastq.bam"
-        "generator.Mutations.fastq.bam.bai"
-    )
+		"generator.V2.overlap.hashcount.fastq.bam"
+		"generator.V2.overlap.hashcount.fastq.bam.bai"
+		"generator.Mutations.fastq.bam"
+		"generator.Mutations.fastq.bam.bai"
+	)
+	for postfix in "${subject_files[@]}";
+	do
+		if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
+		rm ${probandFileName}${regionPostfix}.${postfix}
+		fi
+	done
 
-    for postfix in "${supplemental_files[@]}";
-    do
-      if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-        mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR
-      fi
-    done
-  else
-    echo "not cleaning up files"
-  fi
+	supplemental_files=(
+		"generator.V2.overlap.hashcount.fastq.bam.vcf"
+		"generator.k${K}_c${MutantMinCov}.HashList"
+	)
+	# Keep some intermediates if file output flag optioned
+	if [ "$_arg_dev_file_output" == "TRUE" ]; then
+		echo "Retaining intermediate files..." >&2
+		mkdir -p $SUPP_DIR/intermediates/
+		for postfix in "${supplemental_files[@]}"; do
+			if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
+				mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR/intermediates
+			fi
+		done
+	else
+		for postfix in "${supplemental_files[@]}"; do
+			if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
+				rm ${probandFileName}${regionPostfix}.${postfix}
+			fi
+		done
+	fi
 }
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.

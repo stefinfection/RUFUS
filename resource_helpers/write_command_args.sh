@@ -2,12 +2,12 @@
 # This is run within container
 
 # Constants
-CMD_OUT="/mnt/rufus_supplementals/rufus.cmd"
+CMD_OUT="/mnt/rufus_temp/rufus.cmd"
 GLOBALS_FILE="/opt/RUFUS/resources/globals.txt"
 
 # Required args
 CONTAINER_ID="$1"
-CONT_ENV_FILE="/mnt/rufus.env"  # Mounted into container
+CONT_ENV_FILE="/mnt/rufus_temp/temp_rufus.env"
 
 # Make env variables available
 if [ -f "$CONT_ENV_FILE" ]; then

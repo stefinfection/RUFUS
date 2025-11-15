@@ -66,7 +66,6 @@ fi
 
 # Make supp directory
 SUPPLEMENTAL_DIR="${SOURCE_DIR}/rufus_supplementals/"
-mkdir -p $SUPPLEMENTAL_DIR
 
 # Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
 clean_up_early_intermeds() {
@@ -159,12 +158,13 @@ else
   echo "Windowed run performed, trimming and combining region vcfs..."
   bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
-  # Get number of variants reported
-  VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
 
-  # Keep germline vcf
-  cp $TEMP_FINAL_VCF $GERMLINE_VCF
-  mv $GERMLINE_VCF $SUPPLEMENTAL_DIR
+# Get number of variants reported
+VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
+
+# Keep germline vcf - todo: need to only do this if we have control files and not just hashes
+# cp $TEMP_FINAL_VCF $GERMLINE_VCF
+# mv $GERMLINE_VCF $SUPPLEMENTAL_DIR
 
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
@@ -223,7 +223,7 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 echo "Composing final vcfs..."
 $bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
 
-RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_supplementals/rufus.cmd"
+RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_temp/rufus.cmd"
 while read line; do
   echo -e "$line" >> $FINAL_VCF
 done < "$RUN_COMMAND_FILE"
@@ -254,7 +254,6 @@ $bcftools index "$FINAL_VCF.gz"
 #echo "Separating snvs/indels and SVs..."
 
 # Cleanup
-echo "Cleaning up intermediate post-processing files..."
 #rm $TEMP_PREFILTERED_VCF*
 rm $COINHERITED_REMOVED_VCF*
 #rm "normed.sorted.$TEMP_FINAL_VCF"*

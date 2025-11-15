@@ -19,12 +19,12 @@ else
 fi
 
 if [ $count -eq 0 ]; then
-    echo "Error: No files found matching pattern '$FMTD_REGION'"
+    echo "Error: No files found matching pattern '$FMTD_REGION'" >&2
     exit 1
 elif [ $count -gt 1 ]; then
-    echo "Error: Multiple files found matching pattern '$FMTD_REGION':"
-    echo "$matches"
+    echo "Error: Multiple files found matching pattern '$FMTD_REGION':" >&2
+    echo "$matches" >&2
     exit 1
 else
-    aws s3 cp --no-sign-request "${s3_path}${matches}" "/mnt/rufus_supplementals/downloaded_${HASH_TYPE}_hashes/${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
+    aws s3 cp --no-sign-request "${s3_path}${matches}" "/mnt/rufus_temp/downloaded_${HASH_TYPE}_hashes/${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
 fi
