@@ -170,6 +170,8 @@ fi
 
 cd $WORKING_DIR
 
+echo "Running RUFUS for $REGION on $subject_base..."
+
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
   -s /mnt/rufus_temp/$subject_base \
   $ctrl_arg \

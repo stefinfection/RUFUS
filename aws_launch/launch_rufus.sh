@@ -385,10 +385,8 @@ docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/kg1_hashes
 docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID"
 
 # Pull out worker script
-# TODO: udpate to container path before pushing
 PR_WORKER="${WORKING_DIR}/rufus_temp/process_region_worker.sh"
 docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${PR_WORKER}
-#PR_WORKER="${WORKING_DIR}/process_region_worker_temp.sh"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
