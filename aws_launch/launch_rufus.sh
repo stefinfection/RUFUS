@@ -1,15 +1,5 @@
 #!/bin/bash
 
-# CONSTANTS
-DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
-  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
-  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
-  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
-  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources
-  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh"
-#  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
-#DEV_MOUNT=""
-
 # Check for required argument
 ENV_FILE="$1"
 if [ -z "$ENV_FILE" ]; then
@@ -380,7 +370,6 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   --cap-add SYS_ADMIN \
   --device /dev/fuse \
   $input_mount_clause \
-  $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
   tail -f /dev/null)
 
