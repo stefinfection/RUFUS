@@ -1,0 +1,26 @@
+  # ------------------------------------------------------------
+  # Marth Lab windowed mode - Move to separate file
+  # ------------------------------------------------------------
+  marth_windowed:
+    description: "For use on Marth lab machines"
+    mode: "region"                                   # explicit mode
+    inputs:
+      reference_fasta: "/path/to/DAC/ref/GRCh38.fa"  # override example
+    tools:
+      container_type: "singularity"
+      resource_mgmt: "slurm"
+    resources:
+      slurm:
+        nodes: 6
+        account: "marth-rw"
+        partition: "marth-rw"
+        time: "01-00:00:00"
+        job_name: "rufus"
+        email: "your_unid@utah.edu"
+    container:
+      singularity_image: "/path/to/rufus.sif"
+    prebuilt:
+      control:
+        control_hash_local_dir: "/path/to/prebuilt/control/v1.0"  # optional local override
+      kg1:
+        kg1_hash_local_dir: "/path/to/prebuilt/kg1/v3.0"

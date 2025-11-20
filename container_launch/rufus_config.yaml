@@ -1,0 +1,124 @@
+# ============================================================
+# RUFUS CONFIGURATION EXAMPLE
+# ============================================================
+# Precedence (highest → lowest):
+# 1) CLI args (e.g. --profile or explicit flags)
+# 2) Selected profile overrides
+# 3) top-level defaults
+# 4) pipeline hard-coded defaults
+# ============================================================
+
+# If no --profile is supplied, planner will use default_profile
+default_profile: "windowed_slurm"
+
+# -------------------------
+# INPUTS & GLOBAL DEFAULTS
+# -------------------------
+inputs:
+  subject_file: "path_to/your_subject.cram"   # required: subject sample
+  paired_control_files: []                    # array; fill when method == paired_files
+  reference_fasta: "path_to/GRCh38.fa"        # required: reference used for subject(/control) alignment
+
+algorithm:
+  kmer_length: 25
+  kmer_depth_cutoff: 5
+  other_flags: "-L -vs"
+
+working_dir: "."                              # where rufus writes outputs
+threads_per_job: 40
+
+# If true, keep variants in 1000G (overrides KG1 removal behavior)
+no_kg1_removal: false
+
+tools:
+  container_type: null                        # "singularity" or "docker"
+
+# -------------------------
+# CONTROL SELECTION
+# -------------------------
+controls:
+  method: null                                # "prebuilt", "paired_files", or "both"
+  paired_files: []                            # used only if method == "paired_files"
+
+# -------------------------
+# PREBUILT HASH SETTINGS
+# -------------------------
+prebuilt:
+  control:
+    control_hash_version: "v1.0"             # default version to fetch when needed
+    control_hash_local_dir: ""               # set in profile/here to use local prebuilt control hashes
+  kg1:
+    kg1_hash_version: "v3.0"
+    kg1_hash_local_dir: ""                   # set in profile/here to use local 1000G hashes
+
+# -------------------------
+# PROFILES
+# -------------------------
+profiles:
+
+  # ----------------------------------------------------------------
+  # Runs RUFUS on the entire genome on a single machine
+  # Recommended for SV detection
+  # ----------------------------------------------------------------
+  whole_genome_default:
+    description: "Whole-genome run on single machine using paired control(s)."
+    mode: "whole_genome"
+    controls:
+      method: "paired_files"
+    inputs:
+      paired_control_files: ["control_A.cram", "control_B.cram"]
+
+  # ----------------------------------------------------------------
+  # Shared windowed defaults
+  # ----------------------------------------------------------------
+  default_windowed: &default_windowed
+    mode: "region"
+    window:
+      window_size: 1000
+      region_file: "path_to/region_file.txt"
+    threads_per_job: 10
+    prebuilt:
+      control:
+        control_hash_version: "v1.0"
+      kg1:
+        kg1_hash_version: "v3.0"
+
+  # ----------------------------------------------------------------
+  # HPC Singularity + SLURM - Default Modality
+  # Runs RUFUS in windowed mode on {nodes} machines 
+  # Recommended for SNV/Indel detection
+  # Uses SLURM management
+  # Fetches prebuilt control and 1000G hashes on demand unless overriden above
+  # ----------------------------------------------------------------
+  windowed_slurm:
+    <<: *default_windowed
+    description: "Windowed mode (region) — recommended default. Uses prebuilt hashes by default."
+    controls:
+      method: "prebuilt"
+    tools:
+      container_type: "singularity"
+      resource_mgmt: "slurm"
+    resources:
+      slurm:
+        nodes: 6
+        account: "YOUR_ACCOUNT_HERE"            # placeholder — replace when using Slurm
+        partition: "YOUR_PARTITION_HERE"
+        time: "01-00:00:00"
+        job_name: "rufus_run"
+        email: "your_email@institution.edu"
+
+  # ----------------------------------------------------------------
+  # EC2 Docker + GNU parallel
+  # Runs RUFUS in windowed mode on a single machine
+  # Recommended for SNV/Indel detection
+  # Uses GNU parallel
+  # Fetches prebuilt control and 1000G hashes on demand unless overriden above
+  # ----------------------------------------------------------------
+  ec2_windowed:
+    <<: *default_windowed
+    description: "Windowed mode (region) using Docker + GNU parallel (for EC2/local)."
+    controls:
+      method: "prebuilt"
+    tools:
+      container_type: "docker"
+      resource_mgmt: "parallel"
