@@ -31,9 +31,10 @@ touch "$TEMP_ENV_FILE"
 cat "$ENV_FILE" > "$TEMP_ENV_FILE"
 
 # Checks for required arguments and formatting + bounds of integer arguments
+# Returns which type of containerization software we're running with
 check_inputs() {
     # Check for all required variables to be filled in rufus.env
-    REQUIRED_VARS=(SUBJECT_FILE KMER_DEPTH_CUTOFF THREAD_LIMIT REFERENCE_FASTA RUFUS_DOCKER_IMAGE)
+    REQUIRED_VARS=(SUBJECT_FILE KMER_DEPTH_CUTOFF THREAD_LIMIT REFERENCE_FASTA RUFUS_SINGULARITY_IMAGE)
     for var in "${REQUIRED_VARS[@]}"; do
         if [ -z "${!var}" ]; then
             echo "Error: Required variable $var is not set in rufus.env"
@@ -140,6 +141,8 @@ check_inputs() {
     fi
 
     echo "WORKING_DIR=$WORKING_DIR" >> "$TEMP_ENV_FILE"
+
+    echo "$cont_method"
 }
 export -f check_inputs
 
@@ -333,7 +336,9 @@ set_up_ref() {
 export -f set_up_ref
 
 # Start work
-check_inputs
+cont_method=$(check_inputs)
+# TODO: pass cont_method to all set up scripts
+# TODO: port setup scripts to use singularity syntax if using singularity
 IFS='|' read -r ref_mount build_refs < <(set_up_ref)
 control_mount=$(set_up_controls) || exit 1
 kg1_mount=$(set_up_kg1) || exit 1

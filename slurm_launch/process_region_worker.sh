@@ -5,7 +5,11 @@ CONTAINER_ID="$1"
 ENV_FILE="$2"
 REGION="$3"
 
+# TODO: is there anything in here that we do not have access to 
+# Note: I think these could be re-written in c++
+
 # Constants
+# TODO: put these in a globals file - how to make globals available here?
 DEFAULT_KG1_HASH_VERSION="v3.0"
 DEFAULT_CONTROL_HASH_VERSION="v1.0"
 
@@ -119,6 +123,10 @@ export -f get_hash
 
 
 # Compose control argument of both or one of control hashes and paired control files
+# Should pretty much just have to do
+
+control_hash=$(docker exec "$CONTAINER_ID" bash -c )
+
 ctrl_arg=""
 if [ "$CONTROL_HASH_LOCAL_DIR" != "" ]; then
     control_hash=$(get_hash $REGION "local" "control") || exit 1
@@ -172,15 +180,18 @@ cd $WORKING_DIR
 
 echo "Running RUFUS for $REGION on $subject_base..."
 
+# This will form line that goes into each of the N scripts (where N is # nodes)
+# TODO - won't have hash argument here - just the knowledge if local or fetch
+
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
   -s /mnt/rufus_temp/$subject_base \
-  $ctrl_arg \
+  $ctrl_arg \ # TODO: this will go away and just local vs remote
   $ref_arg \
   -m $KMER_DEPTH_CUTOFF \
   -k $KMER_LENGTH \
   -t $THREAD_LIMIT \
   $OTHER_FLAGS \
-  $kg1_hash_arg \
+  $kg1_hash_arg \ # TODO: this will go away and just local vs remote OR none
   $region_arg"
 
 docker exec "$CONTAINER_ID" bash -c \
@@ -190,6 +201,9 @@ docker exec "$CONTAINER_ID" bash -c \
 
 # Clean up hash files
 if [ "$REGION" == "" ]; then
+
+    # TODO: Move to inside container
+
     if [ -f "$/mnt/rufus_temp/downloaded_control_hashes/*wg*.Jhash" ]; then
         docker exec ${CONTAINER_ID} rm /mnt/rufus_temp/downloaded_control_hashes/*wg*control*.Jhash
     fi
