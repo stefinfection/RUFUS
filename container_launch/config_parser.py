@@ -22,6 +22,17 @@ Usage (examples):
   ./plan.py --config /work/run-config.yaml --dump-effective resolved.yaml --workdir /work
 """
 
+# Arg rules:
+# Required inputs: subject, reference, kmer_length, kmer_depth_cutoff, threads_per_job, container_type, controls.method  - if any empty, exit with error
+# Check for indexes on subject and controls if exist .crai for .cram and .bai for .bam - if any fail, exit with error
+# If control.method=prebuilt, must have control_hash_verion or control_hash_local_dir filled out - if not, warn fetching default version on demand
+# If control.method=paired_files, must have at least one file in paired_control_files - if not, exit with error
+# If control.method=both, must have at at least one file in paired controls - if not, exit with error
+# If control.method=both, must also have control_hash_version or control_hash_local_dir filled out - if not, warn fetching default versions on demand
+# kg1 precedence -> no_kg1_removal=true do not add, if kg1_hash_local_dir full, use local, else if kg1_hash_version full, use it, else warn using default version on demand
+# if mode=region, require window.window_size=1000 and window.region_file
+# if resource_mgmt=slurm, require slurm.nodes, slurm.account, slurm.partition, slurm.time
+
 import argparse
 import copy
 import os

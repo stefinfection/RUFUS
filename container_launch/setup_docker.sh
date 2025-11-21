@@ -1,23 +1,83 @@
 # Generates launch script that uses GNU parallel; runs inside container
 
+container_type="$1"
+
+# Constants
 config_file=/temp/rufus_config.yaml
+SINGULARITY="singularity"
+DOCKER="docker"
 
-# Parse config file
-# Import bash helper module
+# Parse config file and write to temp.env file
+parse_config_file
 
-# check_for_bwa_indexes()
-    # TODO: when do I call this - do I just add it to the bash script at the top?
-    # notify user that index refs are being built and that this step can be skipped next time to save time
+exist=$(check_for_bwa_indexes)
+if [ ${exist} == "false" ]; then
+    echo "# Generate BWA indexes for reference fasta" >> "$launch_out"
+    echo "# Note: this step can be skipped next time you run by copying indexes into same location of $REFERENCE_FASTA" >> "$launch_out"
+    echo "docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/build_bwa_indexes.sh ${REFERENCE_FASTA}" >> "$launch_out"
+fi
 
-# get_container_mount_clause()
-    # IFS='|' read -r ref_mount build_refs < <(set_up_ref)
-    # control_mount=$(set_up_controls) || exit 1
-    # kg1_mount=$(set_up_kg1) || exit 1 
-    # input_mount_clause="$ref_mount $control_mount $kg1_mount -v ${subject_path}:/mnt/rufus_temp/${subject_base}:ro "
+# Returns mount clause for controls, 1000G, subject, and references/indexes
+get_container_mount_clause() {
+    # Get option flag based on container type
+    mount_opt="-v"
+    if [ "$container_type" == "$SINGULARITY" ]; then
+        mount_opt="--bind"
+    fi
 
-# get_input_files (subject + check for index)
-    # subject_path=$(realpath "${SUBJECT_FILE}")
-    # subject_base=$(basename "${subject_path}")
+    mount_clause=""
+
+    # Add subject file + index
+    subject_mount_array=$(set_up_subject) # TODO: Return both cram/bam AND crai/bai here
+    for sub in "${subject_mount_array[@]}"; do
+        sub_basename=$(basename $sub)
+        mount_clause+="$mount_opt $sub:/mnt/rufus_temp/$sub_basename:ro"
+    done
+
+    control_mount_array=$(set_up_controls) # TODO: Return both cram/bam AND crai/bai here
+    for ctrl in "${control_mount_array[@]}"; do
+        ctrl_basename=$(basename $ctrl)
+        mount_clause+="$mount_opt $ctrl:/mnt/rufus_temp/$ctrl_basename:ro "
+    done
+    
+    kg1_mount=$(set_up_kg1)
+    mount_clause+="$mount_opt $kg1_mount"
+
+    ref_mount_array=$(set_up_ref) # TODO: return all indexes too if they exist
+    for ref in "${ref_mount_array[@]}"; do
+        mount_clause+="$mount_opt $ref"
+    done
+
+    echo "$mount_clause"
+}
+
+write_out_script() {
+    out_script="rufus_launch.sh"
+
+    # TODO: echo some sort of header here
+
+    if [ "$container_type" == "$SINGULARITY" ]; then
+        out_script="rufus_launch.slurm"
+
+        # TODO: how to echo this human readably
+        # TODO: split the last two lines off so we can add mount_clause in between
+        echo "$CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
+            -u "$(id -u):$(id -g)" \
+            -v "${WORKING_DIR}:/mnt" \
+            --cap-add SYS_ADMIN \
+            --device /dev/fuse \" >> $output_script
+        
+        local mount_clause=$(get_container_mount_clause)
+        echo "$mount_clause"
+        
+        echo "$RUFUS_DOCKER_IMAGE" \
+            tail -f /dev/null)" >> $output_script
+    else
+        # TODO: put singularity container output here
+    fi
+        echo "start_time=$(date +%s)" >> $out_script
+
+}
 
 # Write out bash script
     # get_container_mount_clause
@@ -32,12 +92,10 @@ config_file=/temp/rufus_config.yaml
 
 
 # Returns the clause to add after `singularity instance start`
-get_container_start_args(cont_type) {}
+get_container_start_args(cont_type) {
 
+}
 
-# It starts the singularity container
-# It gets the regional specific arguments for control and kg1 hashes (these functions will be internal to rufus container now)
-# It sruns the individual region jobs
 get_slurm_script () {
        
 

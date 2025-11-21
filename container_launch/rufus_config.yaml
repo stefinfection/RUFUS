@@ -22,7 +22,7 @@ inputs:
 algorithm:
   kmer_length: 25
   kmer_depth_cutoff: 5
-  other_flags: "-L -vs"
+  other_flags: "-L -vs"                       # see rufus github page for all possible options
 
 working_dir: "."                              # where rufus writes outputs
 threads_per_job: 40

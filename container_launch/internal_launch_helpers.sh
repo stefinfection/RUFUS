@@ -4,6 +4,15 @@
 
 # Write command args
 
+# Takes in /temp/rufus_config.yaml
+# Parses and error checks arguments
+parse_config_file() {
+    # call config parser.py - do all parsing and input checking here
+    # TODO: write out rules
+
+    # have it write to temp_env file in safe way
+}
+
 # Make run time directories
 
 # Get 1KG Hash

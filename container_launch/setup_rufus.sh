@@ -62,7 +62,7 @@ if [ "$container_type" == "$DOCKER" ]; then
         "$image" 3600 >/dev/null
         
     echo "[launcher] Generating bash script for RUFUS launch..."
-    docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$setup_script"
+    docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$setup_script" "$container_type"
 
     docker stop "${CONTAINER_NAME}" >/dev/null
     echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/run_rufus_docker.sh\""
@@ -73,7 +73,7 @@ else
     singularity instance start --bind "${workdir}:/work" --bind "${config}:/temp/rufus_config.yaml" "$image" "${INSTANCE_NAME}"
 
     echo "[launcher] Generating launch script inside singularity instance..."
-    singularity exec instance://"${INSTANCE_NAME}" "$setup_script" /work/"$(basename "$config")"
+    singularity exec instance://"${INSTANCE_NAME}" "$setup_script" "$container_type"
     singularity instance stop "${INSTANCE_NAME}"
     echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/run_rufus_singularity.sh\""
 fi

@@ -6,3 +6,7 @@
     # write post-process script
     # slurm_id=sbatch slurm script
     # sbatch post-process script --depend-on:slurm_id
+
+    # It starts the singularity container
+# It gets the regional specific arguments for control and kg1 hashes (these functions will be internal to rufus container now)
+# It sruns the individual region jobs
