@@ -53,6 +53,7 @@ trap 'cleanup_docker; cleanup_singularity' EXIT
 # Ephemeral container spin up to parse yaml + pull out helper functions
 if [ "$container_type" == "$DOCKER" ]; then
     setup_script="/opt/RUFUS/container_launch/build_launch_script.sh"
+    launch_out="${workdir}/launch_rufus.sh"
 
     echo "[launcher] Starting ephemeral docker container to generate launch script..."  
     # run detached container as same uid so files are written with correct ownership
@@ -65,18 +66,19 @@ if [ "$container_type" == "$DOCKER" ]; then
         "$image" 3600 >/dev/null
         
     echo "[launcher] Generating bash script for RUFUS launch..."
-    docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$setup_script" "$container_type"
+    docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$setup_script" "$container_type" "$config"
 
     docker stop "${CONTAINER_NAME}" >/dev/null
-    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/launch_rufus.sh\""
+    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh $launch_out\""
 else 
     setup_script="/opt/RUFUS/container_launch/build_launch_script.sh"
+    launch_out="${workdir}/launch_rufus.slurm"
 
     echo "[launcher] Starting singularity instance to run planner..."
     singularity instance start --bind "${workdir}:/work" --bind "${config}:/temp/rufus_config.yaml" "$image" "${INSTANCE_NAME}"
 
     echo "[launcher] Generating launch script inside singularity instance..."
-    singularity exec instance://"${INSTANCE_NAME}" "$setup_script" "$container_type"
+    singularity exec instance://"${INSTANCE_NAME}" "$setup_script" "$container_type" "$config"
     singularity instance stop "${INSTANCE_NAME}"
-    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/launch_rufus.slurm\""
+    echo "[launcher] Slurm launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sbatch $launch_out\""
 fi
