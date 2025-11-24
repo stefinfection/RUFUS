@@ -1,4 +1,4 @@
-# Generates launch script that uses GNU parallel; runs inside container
+# Generates launch script that using either GNU Parallel or Singularity
 
 container_type="$1"
 
@@ -51,16 +51,26 @@ get_container_mount_clause() {
     echo "$mount_clause"
 }
 
+# TODO: should this be write out main portion and then have a nother function to write out post-process piece?
 write_out_script() {
-    out_script="rufus_launch.sh"
-
-    # TODO: echo some sort of header here
-
     if [ "$container_type" == "$SINGULARITY" ]; then
-        out_script="rufus_launch.slurm"
+        out_script="run_rufus_singularity.slurm"
 
-        # TODO: how to echo this human readably
-        # TODO: split the last two lines off so we can add mount_clause in between
+        # get #SBATCH header file for job run script (TODO: how to code this human readable that will echo correctly)
+
+        # write out regional specific arg fxn calls
+        # It gets the regional specific arguments for control and kg1 hashes (these functions will be internal to rufus container now)
+        # It sruns the individual region jobs
+        
+        # write post-process script
+        # slurm_id=sbatch slurm script
+        # sbatch post-process script --depend-on:slurm_id
+
+
+
+    else
+        out_script="run_rufus_docker.sh"
+
         echo "$CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
             -u "$(id -u):$(id -g)" \
             -v "${WORKING_DIR}:/mnt" \
@@ -72,8 +82,6 @@ write_out_script() {
         
         echo "$RUFUS_DOCKER_IMAGE" \
             tail -f /dev/null)" >> $output_script
-    else
-        # TODO: put singularity container output here
     fi
         echo "start_time=$(date +%s)" >> $out_script
 

@@ -1,5 +1,8 @@
 #!/bin/bash
 # Sets up slurm or bash script for RUFUS run according to config_parser.yaml
+# Checks user environment for Singularity or Docker as input in args
+# Spins up ephemeral container to build launch script
+# Stops container safely and prompts user how to run container
 
 # Args
 container_type="${1:-}"             # "docker" or "singularity"
@@ -49,7 +52,7 @@ trap 'cleanup_docker; cleanup_singularity' EXIT
 
 # Ephemeral container spin up to parse yaml + pull out helper functions
 if [ "$container_type" == "$DOCKER" ]; then
-    setup_script="/opt/RUFUS/container_launch/setup_docker.sh"
+    setup_script="/opt/RUFUS/container_launch/build_launch_script.sh"
 
     echo "[launcher] Starting ephemeral docker container to generate launch script..."  
     # run detached container as same uid so files are written with correct ownership
@@ -65,9 +68,9 @@ if [ "$container_type" == "$DOCKER" ]; then
     docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$setup_script" "$container_type"
 
     docker stop "${CONTAINER_NAME}" >/dev/null
-    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/run_rufus_docker.sh\""
+    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/launch_rufus.sh\""
 else 
-    setup_script="/opt/RUFUS/container_launch/setup_singularity.sh"
+    setup_script="/opt/RUFUS/container_launch/build_launch_script.sh"
 
     echo "[launcher] Starting singularity instance to run planner..."
     singularity instance start --bind "${workdir}:/work" --bind "${config}:/temp/rufus_config.yaml" "$image" "${INSTANCE_NAME}"
@@ -75,5 +78,5 @@ else
     echo "[launcher] Generating launch script inside singularity instance..."
     singularity exec instance://"${INSTANCE_NAME}" "$setup_script" "$container_type"
     singularity instance stop "${INSTANCE_NAME}"
-    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/run_rufus_singularity.sh\""
+    echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh ${workdir}/launch_rufus.slurm\""
 fi
