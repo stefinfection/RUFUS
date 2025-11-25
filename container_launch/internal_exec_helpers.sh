@@ -1,73 +1,19 @@
 #!/bin/bash
-# A collection of functions run inside the container used to build the launch script
+# A collection of functions run inside the container to get command line arguments 
+# for RUFUS and post-process execution.
+# Requires the RUFUS config yaml to be parsed and translated into a cleaned env file.
 # SJ Georges Nov2025
-
-# Takes in /temp/rufus_config.yaml
-# Parses and error checks arguments
-# Writes arguments to temp.env
-parse_config_file() {
-    config_file=/temp/rufus_config.yaml
-    # call config parser.py - do all parsing and input checking here
-    # have it write to temp_env file in safe way
-}
-
-# Returns TRUE if we don't have all of the BWA indexes of our reference file in the same directory as the original
-check_for_bwa_indexes() {
-    local build_refs="FALSE"
-    local ref_base=""
-    ref_base=$(basename "$REFERENCE_FASTA")
-    local internal_ref_path="/mnt/rufus_temp/bwa_indexes/$ref_base"
-
-    # Determine the base filename (without .gz if present)
-    if [[ "$internal_ref_path" == *.gz ]]; then
-        ref_file="${internal_ref_path%.gz}"
-    else
-        ref_file="$internal_ref_path"
-    fi
-
-    for ext in sa bwt pac amb ann fai; do
-        if [[ ! -e "${ref_file}.${ext}" ]]; then
-            build_refs="TRUE"
-            break
-        fi
-    done
-
-    echo "$build_refs"
-}
-export -f check_for_bwa_indexes
-
-# Returns slurm specs for regional job
-get_slurm_specs() {
-
-    # TODO: how to consolidate if user provides thread limit that doesn't make sense with cpus-per-task
-
-    # Default is split jobs evenly on num nodes provided
-    local num_regions=$(wc -l "$REGION_FILE")
-    local ntasks=$($num_regions/$SLURM_NODES) # TODO: need to account for uneven job #
-
-    local cpus_per_task="10"
-    if [ -n "$SLURM_CPUS_PER_TASK" ]; then
-        cpus_per_task=$SLURM_CPUS_PER_TASK
-    fi
-
-    local mem_per_task="8G"
-    if [ -n "$SLURM_MEM_PER_TASK" ]; then
-        mem_per_task=$SLURM_MEM_PER_TASK
-    fi
-
-    echo "$ntasks $cpus_per_task $mem_per_task"
-}
-export -f get_slurm_specs
 
 # ----------------- EXEC FUNCTIONS ----------------- #
 
+# TODO: do I need to resource env file here?
+
 # TODO: left off here - need to adapt all of these functions like mount section
 # should I return string array for these and mount_clause below and then printf in write functions?
-# separate exec functions from  mount functions?
-# have to sort out hash downloading in parallel vs slurm
 
 # Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
-# Returns path inside container to downloaded hash (/mnt/rufus_temp/downloaded_{type}_hashes/{Jhash})
+# Returns path inside container to downloaded hash directory (named REMOTE_CONTROL/KG1_HASH_DIR in globals.env)
+# Hash type
 fetch_hash() {
     local region="$1"
     local hash_type="$2"
@@ -79,6 +25,9 @@ fetch_hash() {
     # Get the hash version - use specific version if set, otherwise use default
     local version_var="${hash_type_upper}_HASH_VERSION"
     local hash_version="${!version_var}"
+
+    local remote_dir="INTERNAL_REMOTE_${hash_type_upper}_HASH_DIR"
+    local remote_hash_dir="${!remote_dir}"
     
     if [ -z "$hash_version" ]; then
         local default_var="DEFAULT_${hash_type_upper}_HASH_VERSION"
@@ -88,21 +37,21 @@ fetch_hash() {
     if [ -z "$region" ]; then
         # If we don't have a region, use entire genome wide Jhash
         echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "wg" >&2
-        hash="/mnt/rufus_temp/downloaded_${hash_type}_hashes/wg_${hash_type}_${hash_version}.Jhash"
+        docker exec ${CONTAINER_ID} bash "$DOWNLOAD_HASH_SCRIPT" "${hash_type}" "${hash_version}" "wg" >&2
+        hash="${remote_hash_dir}wg_${hash_type}_${hash_version}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
         echo "Fetching version ${hash_version} ${hash_type} hash for region: $region" >&2
         local fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "$fmtd_reg" >&2
-        hash="/mnt/rufus_temp/downloaded_${hash_type}_hashes/${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
+        docker exec ${CONTAINER_ID} bash "${DOWNLOAD_HASH_SCRIPT}" "${hash_type}" "${hash_version}" "$fmtd_reg" >&2
+        hash="${remote_hash_dir}${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
     fi
 
     echo "$hash"
 }
 export -f fetch_hash
 
-# Looks for control or kg1 hashes in ${type_HASH_LOCAL_DIR} first
+# Looks for control or kg1 hashes (in $LOCAL_{CONTROL/KG1}_HASH_DIR in globals.env) first
 # At this point, we know that if a local directory has been provided and mounted, it contains at least one *.Jhash file
 # If local directory contains multiple *.Jhash files matching region or WG, will return error code
 # If can't find, will pull from S3
@@ -120,8 +69,8 @@ get_hash() {
     # Get the user's original directory path for error messages
     local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
     local host_dir="${!env_var}"
-    local cont_dir="/mnt/rufus_temp/${hash_type}_hashes"
-        
+    local cont_dir="${RUNTIME_TEMP_DIR}${hash_type}_hashes"
+
     # Local hashes
     if [ "$geo_type" == "local" ]; then
         # Whole genome mode and we're looking locally
@@ -192,7 +141,7 @@ get_rufus_control_arg() {
         # Concatenate controls into -c delimited string
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
             control_base=$(basename "$control")
-            ctrl_arg+="-c /mnt/rufus_temp/$control_base "
+            ctrl_arg+="-c ${RUNTIME_TEMP_DIR}${control_base} "
         done
     fi
 
@@ -219,35 +168,36 @@ export -f get_rufus_kg1_arg
 # Agnostic to BWA index status
 get_rufus_ref_arg() {
     ref_base=$(basename "$REFERENCE_FASTA")
-    ref_arg="-r /mnt/rufus_temp/bwa_indexes/$ref_base"
+    ref_arg="-r ${REF_INDEX_DIR}${ref_base}"
 
     # If subject_file ends with cram, need to change region_arg to -cr
     subject_base=$(basename "$SUBJECT_FILE")
     if [[ "$subject_base" == *.cram ]]; then
-        ref_arg="-cr /mnt/rufus_temp/bwa_indexes/$ref_base"
+        ref_arg="-cr ${REF_INDEX_DIR}${ref_base}"
     fi
 }
 export -f get_rufus_ref_arg
 
 # Returns single string of arguments provided directly to RUFUS run script
 # All args here are not relative to a region
+# TODO: do I want to return array of strings here and do printf at PoC to ensure proper formatting?
 get_rufus_args() {
     local rufus_args=""
 
     subject_base=$(basename "${SUBJECT_FILE}")
     ref_base=$(basename "${REFERENCE_FASTA}")
-    ref_arg="-r /mnt/rufus_temp/bwa_indexes/$ref_base"
+    ref_arg="-r ${REF_INDEX_DIR}$ref_base"
 
     if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
         # Concatenate controls into -c delimited string
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
             control_base=$(basename "$control")
-            ctrl_arg+="-c /mnt/rufus_temp/$control_base "
+            ctrl_arg+="-c ${RUNTIME_TEMP_DIR}${control_base} "
         done
     fi
 
     rufus_args+="\
-    -s /mnt/rufus_temp/$subject_base \
+    -s ${RUNTIME_TEMP_DIR}${subject_base} \
     $ctrl_arg \
     $ref_arg \
     -m $KMER_DEPTH_CUTOFF \
@@ -269,145 +219,76 @@ get_post_process_args() {
         concat_ctrls=""
         for control in "${CONTROL_FILE_ARRAY[@]}"; do
             ctrl_base=$(basename "${control}")
-            concat_ctrls+="/mnt/rufus_temp/$ctrl_base "
+            concat_ctrls+="${RUNTIME_TEMP_DIR}${ctrl_base} "
         done
         concat_ctrl_post_arg="-c $concat_ctrls"
     fi
 
-    echo "-s /mnt/rufus_temp/$subject_base \
-        -r /mnt/${ref_base} \
+    echo "-s ${RUNTIME_TEMP_DIR}${subject_base} \
+        -r ${REF_INDEX_DIR}${ref_base} \
         -w $WINDOW_SIZE \
-        -d /mnt \
+        -d $RUNTIME_TEMP_DIR \
         $concat_ctrl_post_arg"
 }
 export -f get_post_process_args
 
-# ----------------- MOUNT FUNCTIONS ----------------- #
+# ----------------- OTHER HELPERS ----------------- #
 
-# Returns array of subject file + index
-get_subject_array() {
-    local subj_array=()
-
-    # Add index
-    if [[ "$SUBJECT_FILE" == *.cram ]]; then
-        post_fix="crai"
-    elif [[ "$SUBJECT_FILE" == *.bam ]]; then
-        post_fix="bai"
-    fi
-
-    subj_array=(
-        "$SUBJECT_FILE"
-        "$SUBJECT_FILE.$post_fix"
-    )
-
-    echo "${subj_array[@]}" #TODO: is this the right way to return array?
-}
-export -f get_subject_array
-
-# Returns array of all paired controls + indexes, if they exist
-get_paired_ctrl_array() {
-    local ctrl_array=()
-
-    if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
-        # Concatenate controls into -c delimited string
-        for control in "${CONTROL_FILE_ARRAY[@]}"; do
-                if [[ "$control" == *.cram ]]; then
-                    post_fix="crai"
-                elif [[ "$control" == *.bam ]]; then
-                    post_fix="bai"
-                fi
-                ctrl_array+=("$control" "$control.postfix")
-        done
-    fi
-
-    echo "${ctrl_array[@]}" #TODO: is this the right way to return array?
-}
-export -f get_paired_ctrl_array
-
-# Returns mount clause for prebuilt hashes
-get_hash_mount() {
-    local hash_type="$1"
-    local mount_op="$2"
-
-    local hash_clause=""
-
-    if [ "$hash_type" == "ctrl" ] && [ -n "$CONTROL_HASH_LOCAL_DIR" ]; then
-        control_path=$(dirname "$CONTROL_HASH_LOCAL_DIR")
-        hash_clause="$mount_op $control_path:/mnt/rufus_temp/control_hashes"
-    elif [ "$hash_type" == "kg1" ] && [ -n "$KG1_HASH_LOCAL_DIR" ]; then
-        kg1_path=$(dirname "$KG1_HASH_LOCAL_DIR")
-        hash_clause="$mount_op $kg1_path:/mnt/rufus_temp/kg1_hashes"
-    fi
-
-    echo "$hash_clause"
+# Takes in /temp/rufus_config.yaml
+# Parses and error checks arguments
+# Writes arguments to temp.env
+parse_config_file() {
+    # TODO: when create cleaned env file, also source globals so we have access
+    # Globals will have $CONFIG_PATH that parser should have access to
+    # call config parser.py - do all parsing and input checking here
+    # have it write to temp_env file in safe way
 }
 
-# Returns array of reference file + all corresponding BWA indexes
-get_ref_array() {
-    local ref_array=("$REFERENCE_FASTA")
+# Returns TRUE if we don't have all of the BWA indexes of our reference file in the same directory as the original
+check_for_bwa_indexes() {
+    local build_refs="FALSE"
+    local ref_base=""
+    ref_base=$(basename "$REFERENCE_FASTA")
+    local internal_ref_path="/mnt/rufus_temp/bwa_indexes/$ref_base"
 
     # Determine the base filename (without .gz if present)
-    if [[ "$REFERENCE_FASTA" == *.gz ]]; then
-        ref_file="${REFERENCE_FASTA%.gz}"
+    if [[ "$internal_ref_path" == *.gz ]]; then
+        ref_file="${internal_ref_path%.gz}"
     else
-        ref_file="$REFERENCE_FASTA"
+        ref_file="$internal_ref_path"
     fi
 
-    # Add indexes
     for ext in sa bwt pac amb ann fai; do
-        ref_array+=("${ref_file}.${ext}")
+        if [[ ! -e "${ref_file}.${ext}" ]]; then
+            build_refs="TRUE"
+            break
+        fi
     done
 
-    echo "${ref_array[@]}" # TODO: is this the correct way to return array?
+    echo "$build_refs"
 }
+export -f check_for_bwa_indexes
 
-# Returns mount clause for controls, 1000G, subject, and references/indexes
-# For either container technology
-get_container_mount_clause() {
-    local container_type="$1"
+# Returns slurm specs for regional job
+get_slurm_specs() {
 
-    # Get option flag based on container type
-    mount_opt="-v"
-    if [ "$container_type" == "$SINGULARITY" ]; then
-        mount_opt="--bind"
+    # TODO: how to consolidate if user provides thread limit that doesn't make sense with cpus-per-task
+
+    # Default is split jobs evenly on num nodes provided
+    local num_regions=$(wc -l "$REGION_FILE")
+    local ntasks=$($num_regions/$SLURM_NODES) # TODO: need to account for uneven job #
+
+    local cpus_per_task="10"
+    if [ -n "$SLURM_CPUS_PER_TASK" ]; then
+        cpus_per_task=$SLURM_CPUS_PER_TASK
     fi
 
-    mount_lines=()
+    local mem_per_task="8G"
+    if [ -n "$SLURM_MEM_PER_TASK" ]; then
+        mem_per_task=$SLURM_MEM_PER_TASK
+    fi
 
-    # Add subject file + index
-    subject_mount_array=$(get_subject_array)
-    for sub in "${subject_mount_array[@]}"; do
-        sub_basename=$(basename $sub)
-        mount_lines+=("$mount_opt $sub:/mnt/rufus_temp/$sub_basename:ro")
-    done
-
-    # Add paired controls, if optioned
-    control_mount_array=$(get_paired_ctrl_array)
-    for ctrl in "${control_mount_array[@]}"; do
-        ctrl_basename=$(basename "$ctrl")
-        mount_lines+=("$mount_opt $ctrl:/mnt/rufus_temp/$ctrl_basename:ro")
-    done
-
-    # Add control hashes, if optioned
-    ctrl_hash_clause=$(get_hash_mount "ctrl" "$mount_op")
-    mount_lines+=("$ctrl_hash_clause")
-    
-    # Add 1000G hashes, if optioned
-    kg1_hash_clause=$(get_hash_mount "kg1" "$mount_op")
-    mount_lines+=("$kg1_hash_clause")
-
-    # Add reference + bwa indexes
-    ref_mount_array=$(get_ref_array)
-    for ref in "${ref_mount_array[@]}"; do
-        mount_lines+=("$mount_opt $ref:/mnt/rufus_temp/bwa_indexes/")
-    done
-
-    # Write out readably
-    mount_clause=""
-    for clause in "${mount_lines[@]}"; do
-        printf -v mount_clause '%s%s \\\n' "$mount_clause" "$clause"
-    done
-
-    echo "$mount_clause"
+    echo "$ntasks $cpus_per_task $mem_per_task"
 }
-export -f get_container_mount_clause
+export -f get_slurm_specs
+

@@ -1,17 +1,26 @@
 #!/bin/bash
 # Generates and writes launch script according to args in rufus_config.yaml
+# Run from within the container.
 # SJ Georges Nov2025
 
 container_type="$1"
 host_config_file="$2"
 
+# Import cleaned env file here to access globals
+ENV_FILE="/mnt/rufus_temp/cleaned.env"
+set -a
+source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
+set +a
+
+# Import helper functions
+source "${MOUNT_HELPERS}"
+source "${EXEC_HELPERS}"
+
 # Constants
 SINGULARITY="singularity"
+PR_WRAPPER="${WORKING_DIR}rufus_temp/process_region.sh" #TODO: need to pull this out and put in a temp dir for host access if using parallel
 
-# Import helpers
-source "/opt/RUFUS/container_launch/internal_launch_helpers.sh"
-
-#-------------------WRITE FUNCTIONS -------------------#
+# ------------------- WRITE FUNCTIONS ------------------- #
 
 # Writes out #SBATCH header or bash directive according to container type
 # Writes out small instruction piece and version
@@ -116,7 +125,7 @@ EOF
         cat <<EOF >> "$out_script" 
 \${CONTAINER_ID}=\$(docker run -d --rm --name rufus-worker \
 -u "\$(id -u):\$(id -g)" \
--v "${WORKING_DIR}:/mnt" \
+-v "${WORKING_DIR}:${RUN_DIR}" \
 $mount_clause \
 --cap-add SYS_ADMIN \
 --device /dev/fuse \
@@ -130,7 +139,6 @@ export -f write_container_start_piece
 
 write_bwa_index_pieces() {
     local out_script="$1"
-    local index_build_script="/opt/RUFUS/resource_helpers/build_bwa_indexes.sh"
 
     exist=$(check_for_bwa_indexes)
     if [ "${exist}" == "false" ]; then
@@ -145,10 +153,10 @@ EOF
         # TODO: what is in-dir and out here? should already have dirs bound from start?
             cat <<EOF >> "$out_script" 
 srun --nodes=1 --ntasks=1 --nodelist=\${FIRST_NODE}" \
-     singularity exec instance://rufus_instance_\${SLURM_NODEID} bash -lc "echo 'Building reference indexes on ' \$(hostname); ${index_build_script} --in-dir /shared/path --out /shared/path/final_output"
+     singularity exec instance://rufus_instance_\${SLURM_NODEID} bash -lc "echo 'Building reference indexes on ' \$(hostname); ${INDEX_BUILD_SCRIPT} --in-dir /shared/path --out /shared/path/final_output"
 EOF
         else
-            echo -e "docker exec \${CONTAINER_ID} bash ${index_build_script} ${REFERENCE_FASTA}" >> "$out_script"
+            echo -e "docker exec \${CONTAINER_ID} bash ${INDEX_BUILD_SCRIPT} ${REFERENCE_FASTA}" >> "$out_script"
         fi
     fi
 }
@@ -156,8 +164,6 @@ export -f write_bwa_indexes
 
 write_rufus_execution_piece() {
     local out_script="$1"
-    local hash_script="/opt/RUFUS/container_launch/internal_launch_helpers/get_hash_arg.sh" # TODO: make this file
-    local entry_script="/opt/RUFUS/runRufus.sh"
 
     # Some args will be region agnostic
     rufus_args=$(get_rufus_args)
@@ -167,7 +173,7 @@ write_rufus_execution_piece() {
         cat <<EOF >> "$out_script"
 # Get regional specific run-time args
 region=$(head -n "\$(\$SLURM_NODEID + 1)" "$REGION_FILE" | tail -n 1)
-hash_arg=\$(singularity exec instance://rufus_instance_\${SLURM_NODEID} "$hash_script" "\$region" "kg1")
+hash_arg=\$(singularity exec instance://rufus_instance_\${SLURM_NODEID} "$HASH_SCRIPT" "\$region" "kg1")
 
 EOF
         # Get spec args
@@ -185,7 +191,7 @@ srun --ntasks=${ntasks} \
      --mem=${mem_per_task} \
      --kill-on-bad-exit=1 \
      --output=task_logs/task_%t_%N_%j.out \
-     bash -lc "singularity exec instance://rufus_instance_\${SLURM_NODEID} $entry_script $rufus_args \$hash_arg -r \$region"
+     bash -lc "singularity exec instance://rufus_instance_\${SLURM_NODEID} $ENTRY_SCRIPT $rufus_args \$hash_arg -r \$region"
 EOF
 
         else
@@ -195,13 +201,14 @@ EOF
             fi
 
             # Regional, using docker
+            # TODO: how should I access PR_WRAPPER? Pull it on to host machine?
             cat <<EOF >> "$out_script"
-parallel "$job_phrase" bash "${PR_WORKER}" "\$CONTAINER_ID" "\$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
+parallel "$job_phrase" bash "${PR_WRAPPER}" "\$CONTAINER_ID" {} :::: "$REGION_FILE"
 EOF
         fi
     else 
         cat <<EOF >> "$out_script"
-RUFUS_CMD="/opt/RUFUS/runRufus.sh \
+RUFUS_CMD="$ENTRY_SCRIPT \
 $rufus_args"
 
 EOF
@@ -216,8 +223,8 @@ EOF
             cat <<EOF >> "$out_script"
 docker exec "\$CONTAINER_ID" "bash -lc \
     \$RUFUS_CMD \
-    > /mnt/rufus_supplementals/logs/wg.out \
-    2> /mnt/rufus_supplementals/logs/wg.err"
+    > ${LOGS_DIR}wg.out \
+    2> ${LOGS_DIR}wg.err"
 EOF
         fi
     fi
@@ -226,8 +233,8 @@ export -f write_rufus_execution_piece
 
 write_post_process_piece() {
     local out_script="$1"
-    local post_script="/opt/RUFUS/post_process/post_process.sh"
-    local post_args=$(get_post_string)
+    local post_args=""
+    post_args=$(get_post_string)
 
     if [ "$container_type" == "$SINGULARITY" ]; then
         # TODO: verify that I don't need to add a --depend arg here on the main parallel execution
@@ -237,11 +244,11 @@ FIRST_NODE=\$(scontrol show hostnames "\$SLURM_JOB_NODELIST" | head -n1)
 echo "Running final aggregation on first node: \${FIRST_NODE}"
 
 srun --nodes=1 --ntasks=1 --nodelist="\${FIRST_NODE}" \
-     singularity exec instance://rufus_instance_\${SLURM_NODEID} bash -lc "echo 'Final aggregation running on ' \$(hostname); ${post_script} ${post_args} --in-dir /shared/path --out /shared/path/final_output"
+     singularity exec instance://rufus_instance_\${SLURM_NODEID} bash -lc "echo 'Final aggregation running on ' \$(hostname); ${POST_SCRIPT} ${post_args} --in-dir /shared/path --out /shared/path/final_output"
 
 EOF
     else
-        echo -e "docker exec \${CONTAINER_ID} bash ${post_script} ${post_args}" >> "$out_script"
+        echo -e "docker exec \${CONTAINER_ID} bash ${POST_SCRIPT} ${post_args}" >> "$out_script"
     fi
 }
 export -f write_post_process_piece

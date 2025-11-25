@@ -1,22 +1,16 @@
 #!/bin/bash
+# A collection of functions related to retrieving prebuilt hashes.
+# Returns local version, or fetches remote with S3, as configured in yaml file.
+# Must have access to cleaned env file.
+# Run internally within container.
+# SJ Georges Nov2025
 
-# Arguments
-CONTAINER_ID="$1"
-ENV_FILE="$2"
-REGION="$3"
-
-# TODO: is there anything in here that we do not have access to 
-# Note: I think these could be re-written in c++
-
-# Constants
-# TODO: put these in a globals file - how to make globals available here?
-DEFAULT_KG1_HASH_VERSION="v3.0"
-DEFAULT_CONTROL_HASH_VERSION="v1.0"
-
-# Import env file now that we're inside of container
-set -a
-source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
-set +a
+# TODO: do I need to redo this? - Called from internal exec and get_hash_args, which should both have access?
+# Import cleaned env file
+# ENV_FILE=
+# set -a
+# source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
+# set +a
 
 # Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
 # Returns path inside container to downloaded hash (/mnt/rufus_temp/downloaded_{type}_hashes/{Jhash})

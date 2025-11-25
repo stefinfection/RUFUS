@@ -1,8 +1,9 @@
 #!/bin/bash
 # Sets up slurm or bash script for RUFUS run according to config_parser.yaml
-# Checks user environment for Singularity or Docker as input in args
-# Spins up ephemeral container to build launch script
-# Stops container safely and prompts user how to run container
+# Checks user environment for Singularity or Docker as input in args.
+# Spins up ephemeral container to build launch script.
+# Stops container safely and prompts user how to run container.
+# Run externally/directly on host.
 
 # Args
 container_type="${1:-}"             # "docker" or "singularity"
@@ -15,6 +16,12 @@ DOCKER="docker"
 SINGULARITY="singularity"
 INSTANCE_NAME="rufus_setup_instance"
 CONTAINER_NAME="rufus_setup"
+BUILD_SCRIPT="/opt/RUFUS/container_launch/build_launch_script.sh"
+
+# NOTE: these paths must match those in globals.env
+RUN_DIR="/work/"
+RUNTIME_TEMP_DIR="$RUN_DIR/rufus_temp/"
+INTERNAL_CONFIG_PATH="${RUNTIME_TEMP_DIR}rufus_config.yaml"
 
 # Check for required args
 if [[ -z "$container_type" || -z "$image" ]]; then
@@ -52,33 +59,31 @@ trap 'cleanup_docker; cleanup_singularity' EXIT
 
 # Ephemeral container spin up to parse yaml + pull out helper functions
 if [ "$container_type" == "$DOCKER" ]; then
-    setup_script="/opt/RUFUS/container_launch/build_launch_script.sh"
     launch_out="${workdir}/launch_rufus.sh"
 
     echo "[launcher] Starting ephemeral docker container to generate launch script..."  
     # run detached container as same uid so files are written with correct ownership
     docker run -d --rm --name "${CONTAINER_NAME}" \
         -u "$(id -u):$(id -g)" \
-        -v "${workdir}:/work" \
-        -v "${config}:/temp/rufus_config.yaml" \
+        -v "${workdir}:${RUN_DIR}" \
+        -v "${config}:${INTERNAL_CONFIG_PATH}" \
         --cap-add SYS_ADMIN \
         --entrypoint sleep \
         "$image" 3600 >/dev/null
         
     echo "[launcher] Generating bash script for RUFUS launch..."
-    docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$setup_script" "$container_type" "$config"
+    docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$BUILD_SCRIPT" "$container_type" "$config"
 
     docker stop "${CONTAINER_NAME}" >/dev/null
     echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh $launch_out\""
 else 
-    setup_script="/opt/RUFUS/container_launch/build_launch_script.sh"
     launch_out="${workdir}/launch_rufus.slurm"
 
     echo "[launcher] Starting singularity instance to run planner..."
-    singularity instance start --bind "${workdir}:/work" --bind "${config}:/temp/rufus_config.yaml" "$image" "${INSTANCE_NAME}"
+    singularity instance start --bind "${workdir}:/work" --bind "${config}:${INTERNAL_CONFIG_PATH}" "$image" "${INSTANCE_NAME}"
 
     echo "[launcher] Generating launch script inside singularity instance..."
-    singularity exec instance://"${INSTANCE_NAME}" "$setup_script" "$container_type" "$config"
+    singularity exec instance://"${INSTANCE_NAME}" "$BUILD_SCRIPT" "$container_type" "$config"
     singularity instance stop "${INSTANCE_NAME}"
     echo "[launcher] Slurm launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sbatch $launch_out\""
 fi

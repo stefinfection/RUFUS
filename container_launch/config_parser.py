@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 """
+
+TODO: needs to parse yaml file + then check that rules are fulfilled as listed below
+This is run inside of the container, so needs to look at paths relative to container
+
 plan.py - config loader / merger / validator / reporter for RUFUS.
 
 Usage (examples):
