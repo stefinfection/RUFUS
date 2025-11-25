@@ -1,30 +1,70 @@
 #!/bin/bash
-# A collection of functions used to set up the run and build the launch script
+# A collection of functions run inside the container used to build the launch script
 # SJ Georges Nov2025
 
 # Takes in /temp/rufus_config.yaml
 # Parses and error checks arguments
 # Writes arguments to temp.env
 parse_config_file() {
+    config_file=/temp/rufus_config.yaml
     # call config parser.py - do all parsing and input checking here
     # have it write to temp_env file in safe way
 }
 
+# Returns TRUE if we don't have all of the BWA indexes of our reference file in the same directory as the original
 check_for_bwa_indexes() {
+    local build_refs="FALSE"
+    local ref_base=""
+    ref_base=$(basename "$REFERENCE_FASTA")
+    local internal_ref_path="/mnt/rufus_temp/bwa_indexes/$ref_base"
 
+    # Determine the base filename (without .gz if present)
+    if [[ "$internal_ref_path" == *.gz ]]; then
+        ref_file="${internal_ref_path%.gz}"
+    else
+        ref_file="$internal_ref_path"
+    fi
+
+    for ext in sa bwt pac amb ann fai; do
+        if [[ ! -e "${ref_file}.${ext}" ]]; then
+            build_refs="TRUE"
+            break
+        fi
+    done
+
+    echo "$build_refs"
 }
+export -f check_for_bwa_indexes
 
-# Looks in temp.env and pulls out subject fields
-set_up_subject() {
-    # todo: declare file array to be returned
-    sub_files=()
+# Returns slurm specs for regional job
+get_slurm_specs() {
 
-    # add subject and either .bai or .crai depending on subject postfix type
+    # TODO: how to consolidate if user provides thread limit that doesn't make sense with cpus-per-task
 
+    # Default is split jobs evenly on num nodes provided
+    local num_regions=$(wc -l "$REGION_FILE")
+    local ntasks=$($num_regions/$SLURM_NODES) # TODO: need to account for uneven job #
 
-    # echo array
+    local cpus_per_task="10"
+    if [ -n "$SLURM_CPUS_PER_TASK" ]; then
+        cpus_per_task=$SLURM_CPUS_PER_TASK
+    fi
 
+    local mem_per_task="8G"
+    if [ -n "$SLURM_MEM_PER_TASK" ]; then
+        mem_per_task=$SLURM_MEM_PER_TASK
+    fi
+
+    echo "$ntasks $cpus_per_task $mem_per_task"
 }
+export -f get_slurm_specs
+
+# ----------------- EXEC FUNCTIONS ----------------- #
+
+# TODO: left off here - need to adapt all of these functions like mount section
+# should I return string array for these and mount_clause below and then printf in write functions?
+# separate exec functions from  mount functions?
+# have to sort out hash downloading in parallel vs slurm
 
 # Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
 # Returns path inside container to downloaded hash (/mnt/rufus_temp/downloaded_{type}_hashes/{Jhash})
@@ -170,6 +210,8 @@ get_rufus_kg1_arg() {
         kg1_hash=$(get_hash $REGION "remote" "kg1") || exit 1
         kg1_hash_arg="-e $kg1_hash"
     fi
+
+    echo "$kg1_hash"
 }
 export -f get_rufus_kg1_arg
 
@@ -184,54 +226,188 @@ get_rufus_ref_arg() {
     if [[ "$subject_base" == *.cram ]]; then
         ref_arg="-cr /mnt/rufus_temp/bwa_indexes/$ref_base"
     fi
-
-    if [ "$REGION" != "" ]; then
-    region_arg="-R $REGION"
-    fmtd_reg=$(echo "$REGION" | tr ':-' '_')
-else
-    fmtd_reg="whole_genome"
-fi
 }
 export -f get_rufus_ref_arg
 
+# Returns single string of arguments provided directly to RUFUS run script
+# All args here are not relative to a region
+get_rufus_args() {
+    local rufus_args=""
+
+    subject_base=$(basename "${SUBJECT_FILE}")
+    ref_base=$(basename "${REFERENCE_FASTA}")
+    ref_arg="-r /mnt/rufus_temp/bwa_indexes/$ref_base"
+
+    if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
+        # Concatenate controls into -c delimited string
+        for control in "${CONTROL_FILE_ARRAY[@]}"; do
+            control_base=$(basename "$control")
+            ctrl_arg+="-c /mnt/rufus_temp/$control_base "
+        done
+    fi
+
+    rufus_args+="\
+    -s /mnt/rufus_temp/$subject_base \
+    $ctrl_arg \
+    $ref_arg \
+    -m $KMER_DEPTH_CUTOFF \
+    -k $KMER_LENGTH \
+    -t $THREAD_LIMIT \
+    $OTHER_FLAGS"
+
+    echo "$rufus_args"
+}
+export -f get_rufus_args
+
+get_post_process_args() {
+    subject_base=$(basename "${SUBJECT_FILE}")
+    ref_base=$(basename "${REFERENCE_FASTA}")
+
+    concat_ctrl_post_arg=""
+    if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
+        # Concatenate controls without -c delimiters
+        concat_ctrls=""
+        for control in "${CONTROL_FILE_ARRAY[@]}"; do
+            ctrl_base=$(basename "${control}")
+            concat_ctrls+="/mnt/rufus_temp/$ctrl_base "
+        done
+        concat_ctrl_post_arg="-c $concat_ctrls"
+    fi
+
+    echo "-s /mnt/rufus_temp/$subject_base \
+        -r /mnt/${ref_base} \
+        -w $WINDOW_SIZE \
+        -d /mnt \
+        $concat_ctrl_post_arg"
+}
+export -f get_post_process_args
+
+# ----------------- MOUNT FUNCTIONS ----------------- #
+
+# Returns array of subject file + index
+get_subject_array() {
+    local subj_array=()
+
+    # Add index
+    if [[ "$SUBJECT_FILE" == *.cram ]]; then
+        post_fix="crai"
+    elif [[ "$SUBJECT_FILE" == *.bam ]]; then
+        post_fix="bai"
+    fi
+
+    subj_array=(
+        "$SUBJECT_FILE"
+        "$SUBJECT_FILE.$post_fix"
+    )
+
+    echo "${subj_array[@]}" #TODO: is this the right way to return array?
+}
+export -f get_subject_array
+
+# Returns array of all paired controls + indexes, if they exist
+get_paired_ctrl_array() {
+    local ctrl_array=()
+
+    if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
+        # Concatenate controls into -c delimited string
+        for control in "${CONTROL_FILE_ARRAY[@]}"; do
+                if [[ "$control" == *.cram ]]; then
+                    post_fix="crai"
+                elif [[ "$control" == *.bam ]]; then
+                    post_fix="bai"
+                fi
+                ctrl_array+=("$control" "$control.postfix")
+        done
+    fi
+
+    echo "${ctrl_array[@]}" #TODO: is this the right way to return array?
+}
+export -f get_paired_ctrl_array
+
+# Returns mount clause for prebuilt hashes
+get_hash_mount() {
+    local hash_type="$1"
+    local mount_op="$2"
+
+    local hash_clause=""
+
+    if [ "$hash_type" == "ctrl" ] && [ -n "$CONTROL_HASH_LOCAL_DIR" ]; then
+        control_path=$(dirname "$CONTROL_HASH_LOCAL_DIR")
+        hash_clause="$mount_op $control_path:/mnt/rufus_temp/control_hashes"
+    elif [ "$hash_type" == "kg1" ] && [ -n "$KG1_HASH_LOCAL_DIR" ]; then
+        kg1_path=$(dirname "$KG1_HASH_LOCAL_DIR")
+        hash_clause="$mount_op $kg1_path:/mnt/rufus_temp/kg1_hashes"
+    fi
+
+    echo "$hash_clause"
+}
+
+# Returns array of reference file + all corresponding BWA indexes
+get_ref_array() {
+    local ref_array=("$REFERENCE_FASTA")
+
+    # Determine the base filename (without .gz if present)
+    if [[ "$REFERENCE_FASTA" == *.gz ]]; then
+        ref_file="${REFERENCE_FASTA%.gz}"
+    else
+        ref_file="$REFERENCE_FASTA"
+    fi
+
+    # Add indexes
+    for ext in sa bwt pac amb ann fai; do
+        ref_array+=("${ref_file}.${ext}")
+    done
+
+    echo "${ref_array[@]}" # TODO: is this the correct way to return array?
+}
+
 # Returns mount clause for controls, 1000G, subject, and references/indexes
+# For either container technology
 get_container_mount_clause() {
+    local container_type="$1"
+
     # Get option flag based on container type
     mount_opt="-v"
     if [ "$container_type" == "$SINGULARITY" ]; then
         mount_opt="--bind"
     fi
 
-    mount_clause=""
+    mount_lines=()
 
     # Add subject file + index
-    subject_mount_array=$(set_up_subject) # TODO: Return both cram/bam AND crai/bai here
+    subject_mount_array=$(get_subject_array)
     for sub in "${subject_mount_array[@]}"; do
         sub_basename=$(basename $sub)
-        mount_clause+="$mount_opt $sub:/mnt/rufus_temp/$sub_basename:ro"
+        mount_lines+=("$mount_opt $sub:/mnt/rufus_temp/$sub_basename:ro")
     done
 
-    control_mount_array=$(set_up_controls) # TODO: Return both cram/bam AND crai/bai here
+    # Add paired controls, if optioned
+    control_mount_array=$(get_paired_ctrl_array)
     for ctrl in "${control_mount_array[@]}"; do
-        ctrl_basename=$(basename $ctrl)
-        mount_clause+="$mount_opt $ctrl:/mnt/rufus_temp/$ctrl_basename:ro "
+        ctrl_basename=$(basename "$ctrl")
+        mount_lines+=("$mount_opt $ctrl:/mnt/rufus_temp/$ctrl_basename:ro")
     done
-    
-    kg1_mount=$(set_up_kg1)
-    mount_clause+="$mount_opt $kg1_mount"
 
-    ref_mount_array=$(set_up_ref) # TODO: return all indexes too if they exist
+    # Add control hashes, if optioned
+    ctrl_hash_clause=$(get_hash_mount "ctrl" "$mount_op")
+    mount_lines+=("$ctrl_hash_clause")
+    
+    # Add 1000G hashes, if optioned
+    kg1_hash_clause=$(get_hash_mount "kg1" "$mount_op")
+    mount_lines+=("$kg1_hash_clause")
+
+    # Add reference + bwa indexes
+    ref_mount_array=$(get_ref_array)
     for ref in "${ref_mount_array[@]}"; do
-        mount_clause+="$mount_opt $ref"
+        mount_lines+=("$mount_opt $ref:/mnt/rufus_temp/bwa_indexes/")
+    done
+
+    # Write out readably
+    mount_clause=""
+    for clause in "${mount_lines[@]}"; do
+        printf -v mount_clause '%s%s \\\n' "$mount_clause" "$clause"
     done
 
     echo "$mount_clause"
 }
-
-make_temp_dirs() {
-
-}
-
-clean_up() {
-
-}
+export -f get_container_mount_clause

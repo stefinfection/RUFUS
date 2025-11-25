@@ -6,22 +6,19 @@ container_type="$1"
 host_config_file="$2"
 
 # Constants
-config_file=/temp/rufus_config.yaml
 SINGULARITY="singularity"
-DOCKER="docker"
 
 # Import helpers
 source "/opt/RUFUS/container_launch/internal_launch_helpers.sh"
 
-
 #-------------------WRITE FUNCTIONS -------------------#
 
 # Writes out #SBATCH header or bash directive according to container type
-# Writes out small instruction piece, date stamp, and version
+# Writes out small instruction piece and version
 write_header() {
     local out_script="$1"
-    # get #SBATCH header file for job run script (TODO: how to code this human readable that will echo correctly
 
+    # Singularity version run on SLURM_NODES nodes
     if [ "$container_type" == "$SINGULARITY" ]; then
 
         # Output required slurm args
@@ -32,8 +29,9 @@ write_header() {
 #SBATCH --partition=${SLURM_PARTITION}
 #SBATCH --time=${SLURM_TIME}
 #SBATCH --output=logs/%x.%j.out
-#SBATCH --error=logs/%x.%j.err
+#SBATCH --error=logs/%x.%j.err"
 EOF
+
 
         # Output optional slurm args
         if [ -n "${SLURM_JOB_NAME}" ]; then
@@ -51,11 +49,12 @@ EOF
         cat <<EOF >> "$out_script"
 
 This script was automatically generated with RUFUS ${RUFUS_VERSION} based on the config file ${host_config_file}.
-Review, and then launch with: sbatch "$out_script"
+Review, and then launch with: sbatch $out_script
 
 EOF
 
-        # This function outputs the script that will be launched once on each node
+
+    # Docker version run on a single node
     else
         echo -e "#!/bin/bash" > "$out_script"
         echo -e "This script was automatically generated with RUFUS ${RUFUS_VERSION} based on the config file ${host_config_file}." >> "$out_script"
@@ -69,101 +68,262 @@ export -f write_header
 # Writes out fail trap
 write_container_start_piece() {
     local out_script="$1"
+    local mount_clause=$(get_container_mount_clause "$container_type")
+    echo "Start single container per node..." >> "$out_script"
 
+    
     if [ "$container_type" == "$SINGULARITY" ]; then
+        
+        # Write out singularity trap
+        cat <<EOF >> "$out_script"
+cleanup() {
+    echo "Something went wrong, stopping instances on all nodes..."
+    # attempt to stop on every allocated node
+    srun --ntasks-per-node=1 --exclusive \
+        bash -lc "singularity instance stop rufus_instance_\${SLURM_NODEID} || true"
+}
+trap cleanup EXIT
+
+EOF
+
+        # Start one instance per node (blocking: returns after instance started on each node)
+        cat <<EOF >> "$out_script"
+# Start one instance per node
+srun --ntasks-per-node --exclusive
+bash -lc \"hostname; singularity instance start \
+--writable-tmpfs \
+--bind "${WORKING_DIR}:/work" \
+"$mount_clause"
+"$RUFUS_SINGULARITY_IMAGE" \
+"rufus_instance_\${SLURM_NODEID}"\"
+
+EOF
 
     else
-        echo "$CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
-        -u "$(id -u):$(id -g)" \
-        -v "${WORKING_DIR}:/mnt" \
-        --cap-add SYS_ADMIN \ 
-        --device /dev/fuse \" >> $out_script
 
-        local mount_clause=$(get_container_mount_clause)
-        echo "$mount_clause"
-        
-        echo "$RUFUS_DOCKER_IMAGE" \
-            tail -f /dev/null)" >> $out_script
+        # Write out docker trap
+        cat <<EOF >> "$out_script"
+cleanup() {
+    echo "Something went wrong, stopping container..."
+    if docker ps -a --format '{{.Names}}' | grep -q "^rufus_worker\$"; then
+        docker stop rufus_worker >/dev/null 2>&1 || true
     fi
-
 }
+trap cleanup EXIT
+
+EOF
+        # Start docker container on single node
+        cat <<EOF >> "$out_script" 
+\${CONTAINER_ID}=\$(docker run -d --rm --name rufus-worker \
+-u "\$(id -u):\$(id -g)" \
+-v "${WORKING_DIR}:/mnt" \
+$mount_clause \
+--cap-add SYS_ADMIN \
+--device /dev/fuse \
+$RUFUS_DOCKER_IMAGE \
+tail -f /dev/null) # TODO: do I need this line
+
+EOF
+    fi
+}
+export -f write_container_start_piece
+
+write_bwa_index_pieces() {
+    local out_script="$1"
+    local index_build_script="/opt/RUFUS/resource_helpers/build_bwa_indexes.sh"
+
+    exist=$(check_for_bwa_indexes)
+    if [ "${exist}" == "false" ]; then
+
+        cat <<EOF >> "$out_script"
+# Generate BWA indexes for reference fasta
+# Note: this step can be skipped next time you run by copying indexes into same location of $REFERENCE_FASTA
+EOF
+
+        if [ "$container_type" == "$SINGULARITY" ]; then
+
+        # TODO: what is in-dir and out here? should already have dirs bound from start?
+            cat <<EOF >> "$out_script" 
+srun --nodes=1 --ntasks=1 --nodelist=\${FIRST_NODE}" \
+     singularity exec instance://rufus_instance_\${SLURM_NODEID} bash -lc "echo 'Building reference indexes on ' \$(hostname); ${index_build_script} --in-dir /shared/path --out /shared/path/final_output"
+EOF
+        else
+            echo -e "docker exec \${CONTAINER_ID} bash ${index_build_script} ${REFERENCE_FASTA}" >> "$out_script"
+        fi
+    fi
+}
+export -f write_bwa_indexes
+
+write_rufus_execution_piece() {
+    local out_script="$1"
+    local hash_script="/opt/RUFUS/container_launch/internal_launch_helpers/get_hash_arg.sh" # TODO: make this file
+    local entry_script="/opt/RUFUS/runRufus.sh"
+
+    # Some args will be region agnostic
+    rufus_args=$(get_rufus_args)
+
+    if [ "$WINDOWED_MODE" ]; then
+
+        cat <<EOF >> "$out_script"
+# Get regional specific run-time args
+region=$(head -n "\$(\$SLURM_NODEID + 1)" "$REGION_FILE" | tail -n 1)
+hash_arg=\$(singularity exec instance://rufus_instance_\${SLURM_NODEID} "$hash_script" "\$region" "kg1")
+
+EOF
+        # Get spec args
+        spec_args=$(get_slurm_specs "$WINDOWED_MODE" "$container_type")
+
+        if [ "$container_type" == "$SINGULARITY" ]; then
+            # Regional, using singularity
+            ntasks="${spec_args[0]}"
+            cpus_per_task="${spec_args[1]}"
+            mem_per_task="${spec_args[2]}"
+
+            cat <<EOF >> "$out_script"
+srun --ntasks=${ntasks} \
+     --cpus-per-task=${cpus_per_task} \
+     --mem=${mem_per_task} \
+     --kill-on-bad-exit=1 \
+     --output=task_logs/task_%t_%N_%j.out \
+     bash -lc "singularity exec instance://rufus_instance_\${SLURM_NODEID} $entry_script $rufus_args \$hash_arg -r \$region"
+EOF
+
+        else
+            job_phrase=""
+            if [ -n "$PARALLEL_JOBS" ]; then
+                job_phrase="-j $PARALLEL_JOBS"
+            fi
+
+            # Regional, using docker
+            cat <<EOF >> "$out_script"
+parallel "$job_phrase" bash "${PR_WORKER}" "\$CONTAINER_ID" "\$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
+EOF
+        fi
+    else 
+        cat <<EOF >> "$out_script"
+RUFUS_CMD="/opt/RUFUS/runRufus.sh \
+$rufus_args"
+
+EOF
+        if [ "$container_type" == "$SINGULARITY" ]; then
+            # Full genome, no parallelism, using singularity
+            cat <<EOF >> "$out_script"
+srun singularity exec "instance://rufus_instance_\${SLURM_NODEID}" "bash -lc \
+    \$RUFUS_CMD"
+EOF
+        else
+            # Full genome, no parallelism, using docker
+            cat <<EOF >> "$out_script"
+docker exec "\$CONTAINER_ID" "bash -lc \
+    \$RUFUS_CMD \
+    > /mnt/rufus_supplementals/logs/wg.out \
+    2> /mnt/rufus_supplementals/logs/wg.err"
+EOF
+        fi
+    fi
+}
+export -f write_rufus_execution_piece
+
+write_post_process_piece() {
+    local out_script="$1"
+    local post_script="/opt/RUFUS/post_process/post_process.sh"
+    local post_args=$(get_post_string)
+
+    if [ "$container_type" == "$SINGULARITY" ]; then
+        # TODO: verify that I don't need to add a --depend arg here on the main parallel execution
+
+        cat <<EOF >> "$out_script"
+FIRST_NODE=\$(scontrol show hostnames "\$SLURM_JOB_NODELIST" | head -n1)
+echo "Running final aggregation on first node: \${FIRST_NODE}"
+
+srun --nodes=1 --ntasks=1 --nodelist="\${FIRST_NODE}" \
+     singularity exec instance://rufus_instance_\${SLURM_NODEID} bash -lc "echo 'Final aggregation running on ' \$(hostname); ${post_script} ${post_args} --in-dir /shared/path --out /shared/path/final_output"
+
+EOF
+    else
+        echo -e "docker exec \${CONTAINER_ID} bash ${post_script} ${post_args}" >> "$out_script"
+    fi
+}
+export -f write_post_process_piece
 
 write_container_stop_piece() {
     local out_script="$1"
 
     if [ "$container_type" == "$SINGULARITY" ]; then
 
+        cat <<EOF >> "$out_script"
+echo "Stopping instances on all nodes..."
+srun --ntasks-per-node=1 --exclusive \
+     bash -lc "singularity instance stop "rufus_instance_\${SLURM_NODEID}" || echo 'stop failed or already stopped on' \$(hostname)"
+
+EOF
     else
 
+        cat <<EOF >> "$out_script"
+echo "Stopping docker container..."
+echo docker stop "${CONTAINER_NAME}" >/dev/null
+
+EOF
     fi
 }
+export -f write_container_stop_piece
 
-write_bwa_indexes() {
-    # TODO: wrap this in appropriate srun if singularity + depend regional jobs on finish
-    echo "# Generate BWA indexes for reference fasta" >> "$launch_out"
-    echo "# Note: this step can be skipped next time you run by copying indexes into same location of $REFERENCE_FASTA" >> "$launch_out"
-    echo "docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/build_bwa_indexes.sh ${REFERENCE_FASTA}" >> "$launch_out"
-}
-
-write_rufus_execution_piece() {
-    local out_script="$1"
-
-    # pull out region worker/internal launch helpers script
-    # start container with srun
-
-    # If attempt to use more nodes than region (in case doing whole genome mode), warn only using one
-
-
-    # write out regional specific arg fxn calls
-    # It gets the regional specific arguments for control and kg1 hashes (these functions will be internal to rufus container now)
-    # It sruns the individual region jobs
-    # use srun to start array jobs, instead of writing another script to sbatch (just fill in cpus-per-task and mem to have slurm max parallelism)
-    # try 8G mem and 10 cpus per task (so 20 threads to rufus) if region - otherwise do whole genome
-
-}
-
-write_post_process_piece() {
-    local out_script="$1"
-
-    if [ "$container_type" == "$SINGULARITY" ]; then
-
-    else
-
-    fi
-
-    # write post-process script
-    # slurm_id=sbatch slurm script
-    # sbatch post-process script --depend-on:slurm_id
-    # If first script in all nodes queued (FIRST_NODE=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n1)), then run post-process
-    # get control argument formatted for post process (will use for both so do before if statement)
-
-}
-
+# Writes entire slurm or bash script that user will execute to launch RUFUS
 write_out_script() {
     if [ "$container_type" == "$SINGULARITY" ]; then
         out_script="${WORKING_DIR}/run_rufus_singularity.slurm"
     else
         out_script="${WORKING_DIR}/run_rufus_docker.sh"
     fi
-        write_header
+        write_header "$out_script"
+        write_container_start_piece "$out_script"
 
-        write_container_start_piece
+        cat <<EOF >> "$out_script"
+start_time=\$(date +%s)" 
+"absolute_start=\$start_time"
 
-        echo "start_time=$(date +%s)" >> $out_script
+EOF
+        write_bwa_index_piece "$out_script"
 
-        # write out arguments to rufus.cmd for final vcf header
+        cat <<EOF >> "$out_script"
+end_time=\$(date +%s)
+elapsed=\$((end_time - start_time))
+printf -v human "%02d:%02d:%02d" \$((elapsed/3600)) \$(((elapsed%3600)/60)) \$((elapsed%60))
+echo "BWA index creation complete. Step run time: \$human"
+start_time=\$(date +%s)
 
-        write_rufus_execution_piece
+EOF
 
-        # TODO: echo time stamp for rufus small jobs piece
+        write_rufus_execution_piece "$out_script"
 
-        write_post_process_piece
+        cat <<EOF >> "$out_script"
+end_time=\$(date +%s)
+elapsed=\$((end_time - start_time))
+printf -v human "%02d:%02d:%02d" \$((elapsed/3600)) \$(((elapsed%3600)/60)) \$((elapsed%60))
+echo "RUFUS calling stage complete. Step run time: \$human"
+start_time=\$(date +%s)
 
-        # TODO: echo total run time including post-processing
+EOF
+        write_post_process_piece "$out_script"
 
-        write_container_stop_piece
+        cat <<EOF >> "$out_script"
+end_time=\$(date +%s)
+elapsed=\$((end_time - start_time))
+printf -v human "%02d:%02d:%02d" \$((elapsed/3600)) \$(((elapsed%3600)/60)) \$((elapsed%60))
+echo "RUFUS post-processing stage complete. Step run time: \$human"
 
+EOF
+
+        write_container_stop_piece "$out_script"
+
+        cat <<EOF >> "$out_script"
+end_time=\$(date +%s)
+elapsed=\$((end_time - absolute_start))
+printf -v human "%02d:%02d:%02d" \$((elapsed/3600)) \$(((elapsed%3600)/60)) \$((elapsed%60))
+Entire RUFUS run time: \$human
+EOF
 }
+export -f write_out_script
 
 
 #------------------- DO WORK -------------------#
@@ -171,10 +331,5 @@ write_out_script() {
 # Parse config file and write to temp.env file
 parse_config_file
 
-# Write BWA 
-exist=$(check_for_bwa_indexes)
-if [ ${exist} == "false" ]; then
-    write_bwa_indexes
-fi
-
+# Write out launch script
 write_out_script
