@@ -202,7 +202,7 @@ export get_kg1_hash_flag
 # Returns RUFUS argument string for reference
 # Agnostic to BWA index status
 # Run at setup time
-get_rufus_ref_arg() {
+get_ref_arg() {
     ref_base=$(basename "$REFERENCE_FASTA")
     ref_arg="-r ${REF_INDEX_DIR}${ref_base}"
 
@@ -212,7 +212,7 @@ get_rufus_ref_arg() {
         ref_arg="-cr ${REF_INDEX_DIR}${ref_base}"
     fi
 }
-export -f get_rufus_ref_arg
+export -f get_ref_arg
 
 # Returns single string of arguments provided directly to RUFUS run script
 # All args here are not relative to a region
@@ -222,8 +222,6 @@ get_rufus_args() {
     local rufus_args=""
 
     subject_base=$(basename "${SUBJECT_FILE}")
-    ref_base=$(basename "${REFERENCE_FASTA}")
-    ref_arg="-r ${REF_INDEX_DIR}$ref_base"
 
     if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
         # Concatenate controls into -c delimited string
@@ -235,6 +233,7 @@ get_rufus_args() {
 
     ctrl_hash_flag=$(get_control_hash_flag)
     kg1_hash_flag=$(get_kg1_hash_flag)
+    ref_arg=$(get_ref_arg)
 
     rufus_args+="\
     -s ${RUNTIME_TEMP_DIR}${subject_base} \
@@ -333,4 +332,3 @@ get_slurm_specs() {
     echo "$ntasks $cpus_per_task $mem_per_task"
 }
 export -f get_slurm_specs
-

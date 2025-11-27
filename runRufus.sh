@@ -8,6 +8,13 @@ set +a
 echo -n "You are running the $RUFUS_BRANCH"
 echo " version of RUFUS: $RUFUS_VERSION"
 
+# TODO: left off here - need to add parse hash flags and then call internal_exec_helper fxns
+# have to mimic -e flag
+
+# TODO: then go through and think about cleanup
+
+# TODO: then ask codex to look at file flow one by one and in total
+
 # Check for correct version of gcc
 # gcc_expected="10.2.0"
 # gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
