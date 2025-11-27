@@ -7,14 +7,11 @@
 # ----------------- EXEC FUNCTIONS ----------------- #
 
 # TODO: do I need to resource env file here?
-
-# TODO: left off here - need to adapt all of these functions like mount section
-# should I return string array for these and mount_clause below and then printf in write functions?
-# This is going to be called by docker wrapper AND 
+# TODO: left off still connecting the dots for docker to here
 
 # Returns Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
 # Returns path inside container to downloaded hash directory (named REMOTE_CONTROL/KG1_HASH_DIR in globals.env)
-# Will be executed AT runtime initiated by user
+# Called indirectly from main runRufus.sh script
 fetch_hash() {
     local region="$1"
     local hash_type="$2"
@@ -59,11 +56,11 @@ fetch_hash() {
 }
 export -f fetch_hash
 
-# Looks for control or kg1 hashes (in $LOCAL_{CONTROL/KG1}_HASH_DIR in globals.env) first
+# Looks for control or kg1 hashes (in $LOCAL_{CONTROL/KG1}_HASH_DIR in clean.env) first
 # At this point, we know that if a local directory has been provided and mounted, it contains at least one *.Jhash file
 # If local directory contains multiple *.Jhash files matching region or WG, will return error code
 # If can't find, will pull from S3
-# Will be executed AT runtime initiated by user
+# Called indirectly from main runRufus.sh script
 get_hash() {
     local region="$1"
     local geo_type="$2"
@@ -127,73 +124,84 @@ get_hash() {
 }
 export -f get_hash
 
-
-# Returns RUFUS argument string for control prebuilt hashes, if optioned
-# Otherwise, returns empty string
-# At this point, we know directory exists and at least one *.Jhash file is in it
-# Run at setup time
-get_control_hash_arg() {
-    hash_arg=""
-
-    if [ -s "$EXTERNAL_LOCAL_KG1_HASH_DIR" ]; then
-        hash_arg="-e \$reg_ctrl_file "
-    fi
-
-    echo "$hash_arg"
-}
-
-get_kg1_hash_arg() {
-    
-}
-
-# Returns RUFUS argument string for paired controls and prebuilt hashes as appropriate
-# Assumes required args met and parsing into temp env file completed
-get_rufus_control_arg() {
+# Returns RUFUS argument string for 1000G hashes as appropriate
+# Called by main rufus script
+# TODO: call it in runRufus.sh after parsing
+get_control_arg() {
+    flag="$1"
     ctrl_arg=""
-    if [ "$CONTROL_HASH_LOCAL_DIR" != "" ]; then
-        control_hash=$(get_hash $REGION "local" "control") || exit 1
-        ctrl_arg+="-e $control_hash "
-    elif [ "$CONTROL_HASH_VERSION" != "" ]; then
-        echo "Using control hash version: $CONTROL_HASH_VERSION" >&2
-        control_hash=$(get_hash $REGION "remote" "control") || exit 1
-        ctrl_arg+="-e $control_hash "
-    elif [ "${#CONTROL_FILE_ARRAY[@]}" -eq 0 ]; then
-        echo "No local control hashes, paired controls, or control hash version provided, fetching default $DEFAULT_CONTROL_HASH_VERSION hashes piecemeal" >&2
-        CONTROL_HASH_VERSION="$DEFAULT_CONTROL_HASH_VERSION"
-        control_hash=$(get_hash $REGION "remote" "control") || exit 1
-        ctrl_arg+="-e $control_hash "
-    fi
 
-    # If we have paired controls provided, also use those
-    if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
-        # Concatenate controls into -c delimited string
-        for control in "${CONTROL_FILE_ARRAY[@]}"; do
-            control_base=$(basename "$control")
-            ctrl_arg+="-c ${RUNTIME_TEMP_DIR}${control_base} "
-        done
+    if [ "$flag" == "--local" ]; then
+        ctrl_hash=$(get_hash $REGION "local" "control") || exit 1
+    else
+        ctrl_hash=$(get_hash $REGION "remote" "control") || exit 1
     fi
+    ctrl_arg+="-e $ctrl_hash "
 
+    echo "$ctrl_arg"
 }
-export -f get_rufus_control_arg
+export -f get_control_arg
 
-# TODO: only call this if override skip arg not set
-# Returns RUFUS argument string for 1000G prebuilt hashes as appropriate
-# Assumes required args met and parsing into temp env file completed
-get_rufus_kg1_arg() {
-    if [ "$KG1_HASH_LOCAL_DIR" != "" ]; then
+# Returns RUFUS argument string for 1000G hashes as appropriate
+# Called by main rufus script
+# TODO: call it in runRufus.sh after parsing
+get_kg1_arg() {
+    flag="$1"
+    kg1_arg=""
+
+    if [ "$flag" == "--local" ]; then
         kg1_hash=$(get_hash $REGION "local" "kg1") || exit 1
-        kg1_hash_arg="-e $kg1_hash"
-    elif [ "$KG1_HASH_VERSION" != "" ]; then
+    else
         kg1_hash=$(get_hash $REGION "remote" "kg1") || exit 1
-        kg1_hash_arg="-e $kg1_hash"
+    fi
+    kg1_arg+="-e $kg1_hash "
+
+    echo "$kg1_arg"
+}
+export -f get_kg1_arg
+
+
+# Returns RUFUS flag for control prebuilt hashes, if optioned
+# Otherwise, returns empty string
+# Run at setup time
+get_control_hash_flag() {
+    local ctrl_hash_arg=""
+
+    # Get control region specific line, if optioned
+    if [ "$NO_CONTROL_REMOVAL" != "TRUE" ]; then
+        if [ -n "$EXTERNAL_LOCAL_CONTROL_HASH_DIR" ]; then
+            ctrl_hash_arg+="--local-ctrl"
+        else
+            ctrl_hash_arg+="--remote-ctrl"
+        fi
     fi
 
-    echo "$kg1_hash"
+    echo "$ctrl_hash_arg"
 }
-export -f get_rufus_kg1_arg
+export get_control_hash_flag
+
+# Returns RUFUS flag for kg1 prebuilt hashes, if optioned
+# Otherwise, returns empty string
+# Run at setup time
+get_kg1_hash_flag() {
+    local kg1_hash_arg=""
+
+    # Get KG1 region specific line, if optioned
+    if [ "$NO_KG1_REMOVAL" != "TRUE" ]; then
+        if [ -n "$EXTERNAL_LOCAL_KG1_HASH_DIR" ]; then
+            kg1_hash_arg+="--local-kg1"
+        else
+            kg1_hash_arg+="--remote-kg1"
+        fi
+    fi
+
+    echo "$kg1_hash_arg"
+}
+export get_kg1_hash_flag
 
 # Returns RUFUS argument string for reference
 # Agnostic to BWA index status
+# Run at setup time
 get_rufus_ref_arg() {
     ref_base=$(basename "$REFERENCE_FASTA")
     ref_arg="-r ${REF_INDEX_DIR}${ref_base}"
@@ -208,6 +216,7 @@ export -f get_rufus_ref_arg
 
 # Returns single string of arguments provided directly to RUFUS run script
 # All args here are not relative to a region
+# TODO: can put hash flags in here?s
 # TODO: do I want to return array of strings here and do printf at PoC to ensure proper formatting?
 get_rufus_args() {
     local rufus_args=""
@@ -224,10 +233,15 @@ get_rufus_args() {
         done
     fi
 
+    ctrl_hash_flag=$(get_control_hash_flag)
+    kg1_hash_flag=$(get_kg1_hash_flag)
+
     rufus_args+="\
     -s ${RUNTIME_TEMP_DIR}${subject_base} \
     $ctrl_arg \
     $ref_arg \
+    $kg1_hash_flag \
+    $ctrl_hash_flag \
     -m $KMER_DEPTH_CUTOFF \
     -k $KMER_LENGTH \
     -t $THREAD_LIMIT \

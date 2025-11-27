@@ -13,8 +13,9 @@ REGION="$2"
 echo "Running RUFUS for $REGION..."
 
 # Get rufus args
-GET_ARG_SCRIPT="/opt/RUFUS/container_launch/"
-rufus_args=$(docker exec "$CONTAINER_ID" bash -c $GET_ARG_SCRIPT)
+# NOTE: script needs to match location in globals file
+GET_ARGS_SCRIPT="/opt/RUFUS/container_launch/external_scripts/docker_only/get_args.sh"
+rufus_args=$(docker exec "$CONTAINER_ID" bash -c $GET_ARGS_SCRIPT)
 
 # RUFUS call
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
