@@ -10,13 +10,15 @@
 
 # TODO: left off here - need to adapt all of these functions like mount section
 # should I return string array for these and mount_clause below and then printf in write functions?
+# This is going to be called by docker wrapper AND 
 
-# Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
+# Returns Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
 # Returns path inside container to downloaded hash directory (named REMOTE_CONTROL/KG1_HASH_DIR in globals.env)
-# Hash type
+# Will be executed AT runtime initiated by user
 fetch_hash() {
     local region="$1"
     local hash_type="$2"
+
     # Capitalize all letters in hash_type
     local hash_type_upper=$(echo "$hash_type" | tr '[:lower:]' '[:upper:]')
     # Output var
@@ -37,7 +39,13 @@ fetch_hash() {
     if [ -z "$region" ]; then
         # If we don't have a region, use entire genome wide Jhash
         echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
-        docker exec ${CONTAINER_ID} bash "$DOWNLOAD_HASH_SCRIPT" "${hash_type}" "${hash_version}" "wg" >&2
+        
+        if [ "$container_type" == "$SINGULARITY" ]; then
+            # TODO: finish this
+            singularity
+        else
+            docker exec ${CONTAINER_ID} bash "$DOWNLOAD_HASH_SCRIPT" "${hash_type}" "${hash_version}" "wg" >&2
+        fi
         hash="${remote_hash_dir}wg_${hash_type}_${hash_version}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
@@ -55,6 +63,7 @@ export -f fetch_hash
 # At this point, we know that if a local directory has been provided and mounted, it contains at least one *.Jhash file
 # If local directory contains multiple *.Jhash files matching region or WG, will return error code
 # If can't find, will pull from S3
+# Will be executed AT runtime initiated by user
 get_hash() {
     local region="$1"
     local geo_type="$2"
@@ -117,6 +126,25 @@ get_hash() {
     echo "$hash"
 }
 export -f get_hash
+
+
+# Returns RUFUS argument string for control prebuilt hashes, if optioned
+# Otherwise, returns empty string
+# At this point, we know directory exists and at least one *.Jhash file is in it
+# Run at setup time
+get_control_hash_arg() {
+    hash_arg=""
+
+    if [ -s "$EXTERNAL_LOCAL_KG1_HASH_DIR" ]; then
+        hash_arg="-e \$reg_ctrl_file "
+    fi
+
+    echo "$hash_arg"
+}
+
+get_kg1_hash_arg() {
+    
+}
 
 # Returns RUFUS argument string for paired controls and prebuilt hashes as appropriate
 # Assumes required args met and parsing into temp env file completed

@@ -52,29 +52,26 @@ get_paired_ctrl_array() {
 }
 export -f get_paired_ctrl_array
 
-# Returns mount clause for prebuilt hashes
-# ALWAYS mounts remote hash directory, in case we're missing any within local + need to download
+# Returns mount clause for local prebuilt hashes, if optioned
 get_hash_mount() {
     local hash_type="$1"
     local mount_op="$2"
 
     local hash_clause=""
 
-    # TODO: rename dirs in globals.env to EXTERNAL to avoid confusion
-    # TODO: always mount remote one anyways because might need a single download
-
-
-    if [ "$hash_type" == "ctrl" ] && [ -n "$CONTROL_HASH_LOCAL_DIR" ]; then
-        control_path=$(dirname "$CONTROL_HASH_LOCAL_DIR")
-        hash_clause="$mount_op $control_path:$LOCAL_CTRL_HASH_DIR"
-    elif [ "$hash_type" == "kg1" ] && [ -n "$KG1_HASH_LOCAL_DIR" ]; then
-        kg1_path=$(dirname "$KG1_HASH_LOCAL_DIR")
-        hash_clause="$mount_op $kg1_path:$LOCAL_KG1_HASH_DIR"
+    if [ "$hash_type" == "ctrl" ] && [ -n "$EXTERNAL_LOCAL_CONTROL_HASH_DIR" ]; then
+        control_path=$(dirname "$EXTERNAL_LOCAL_CONTROL_HASH_DIR")
+        hash_clause="$mount_op $control_path:$INTERNAL_LOCAL_CONTROL_HASH_DIR"
+    elif [ "$hash_type" == "kg1" ] && [ -n "$EXTERNAL_LOCAL_KG1_HASH_DIR" ]; then
+        kg1_path=$(dirname "$EXTERNAL_LOCAL_KG1_HASH_DIR")
+        hash_clause="$mount_op $kg1_path:$INTERNAL_LOCAL_KG1_HASH_DIR"
     fi
 
     echo "$hash_clause"
 }
+export -f get_hash_mount
 
+# TODO: should I just mount to dir here instead of individually? Enforcing they have to be in same dir anyways
 # Returns array of reference file + all corresponding BWA indexes
 get_ref_array() {
     local ref_array=("$REFERENCE_FASTA")
@@ -93,6 +90,7 @@ get_ref_array() {
 
     echo "${ref_array[@]}" # TODO: is this the correct way to return array?
 }
+export -f get_ref_array
 
 # Returns mount clause for controls, 1000G, subject, and references/indexes
 # For either container technology

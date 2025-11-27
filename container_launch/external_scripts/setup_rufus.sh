@@ -62,7 +62,7 @@ if [ "$container_type" == "$DOCKER" ]; then
     launch_out="${workdir}/launch_rufus.sh"
 
     echo "[launcher] Starting ephemeral docker container to generate launch script..."  
-    # run detached container as same uid so files are written with correct ownership
+    # Run detached container as same uid so files are written with correct ownership
     docker run -d --rm --name "${CONTAINER_NAME}" \
         -u "$(id -u):$(id -g)" \
         -v "${workdir}:${RUN_DIR}" \
@@ -73,6 +73,14 @@ if [ "$container_type" == "$DOCKER" ]; then
         
     echo "[launcher] Generating bash script for RUFUS launch..."
     docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" "$BUILD_SCRIPT" "$container_type" "$config"
+
+    # TODO: is this the correct way to copy over file?
+    # TODO: can I get access to env file here? If not, could return region mode from $BUILD_SCRIPT call above?
+    if [ "$WINDOWED_MODE" ]; then
+      echo "[launcher] Creating RUFUS temporary run files..."
+      docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" mkdir "${RUN_DIR}/rufus_temp"
+      docker exec --user "$(id -u):$(id -g)" "${CONTAINER_NAME}" cp "$DOCKER_REG_WRAPPER" "${RUN_DIR}/rufus_temp"
+    fi
 
     docker stop "${CONTAINER_NAME}" >/dev/null
     echo "[launcher] Launch script generated for RUFUS run. Review script in ${workdir} and then run with \"sh $launch_out\""

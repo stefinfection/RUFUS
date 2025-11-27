@@ -18,7 +18,7 @@ source "${EXEC_HELPERS}"
 
 # Constants
 SINGULARITY="singularity"
-PR_WRAPPER="${WORKING_DIR}rufus_temp/process_region.sh" #TODO: need to pull this out and put in a temp dir for host access if using parallel
+EXTERNAL_WRAPPER="${WORKING_DIR}rufus_temp/process_region.sh"
 
 # ------------------- WRITE FUNCTIONS ------------------- #
 
@@ -169,21 +169,38 @@ write_rufus_execution_piece() {
     rufus_args=$(get_rufus_args)
 
     if [ "$WINDOWED_MODE" ]; then
-
-        cat <<EOF >> "$out_script"
-# Get regional specific run-time args
-region=$(head -n "\$(\$SLURM_NODEID + 1)" "$REGION_FILE" | tail -n 1)
-hash_arg=\$(singularity exec instance://rufus_instance_\${SLURM_NODEID} "$HASH_SCRIPT" "\$region" "kg1")
-
-EOF
-        # Get spec args
-        spec_args=$(get_slurm_specs "$WINDOWED_MODE" "$container_type")
-
         if [ "$container_type" == "$SINGULARITY" ]; then
             # Regional, using singularity
             ntasks="${spec_args[0]}"
             cpus_per_task="${spec_args[1]}"
             mem_per_task="${spec_args[2]}"
+
+        # Get region line
+        cat <<EOF >> "$out_script"
+# Get region specific run-time args
+region=$(head -n "\$(\$SLURM_NODEID + 1)" "$REGION_FILE" | tail -n 1)
+EOF
+        # Get KG1 region specific line, if optioned
+        if [ "$NO_KG1_REMOVAL" != "TRUE" ]; then
+            if [ -n "$EXTERNAL_LOCAL_KG1_HASH_DIR" ]; then
+                rufus_args+="--local-kg1"
+            else
+                rufus_args+="--remote-kg1"
+            fi
+        fi
+
+        # Get control region specific line, if optioned
+        if [ "$NO_CONTROL_REMOVAL" != "TRUE" ]; then
+            if [ -n "$EXTERNAL_LOCAL_CONTROL_HASH_DIR" ]; then
+                rufus_args+="--local-ctrl"
+            else
+                rufus_args+="--remote-ctrl"
+            fi
+        fi
+
+        # Get spec args
+        spec_args=$(get_slurm_specs "$WINDOWED_MODE" "$container_type")
+            
 
             cat <<EOF >> "$out_script"
 srun --ntasks=${ntasks} \
@@ -191,7 +208,7 @@ srun --ntasks=${ntasks} \
      --mem=${mem_per_task} \
      --kill-on-bad-exit=1 \
      --output=task_logs/task_%t_%N_%j.out \
-     bash -lc "singularity exec instance://rufus_instance_\${SLURM_NODEID} $ENTRY_SCRIPT $rufus_args \$hash_arg -r \$region"
+     bash -lc "singularity exec instance://rufus_instance_\${SLURM_NODEID} $ENTRY_SCRIPT $rufus_args -r \$region"
 EOF
 
         else
@@ -201,9 +218,8 @@ EOF
             fi
 
             # Regional, using docker
-            # TODO: how should I access PR_WRAPPER? Pull it on to host machine?
             cat <<EOF >> "$out_script"
-parallel "$job_phrase" bash "${PR_WRAPPER}" "\$CONTAINER_ID" {} :::: "$REGION_FILE"
+parallel "$job_phrase" bash "${EXTERNAL_WRAPPER}" "\$CONTAINER_ID" {} :::: "$REGION_FILE"
 EOF
         fi
     else 

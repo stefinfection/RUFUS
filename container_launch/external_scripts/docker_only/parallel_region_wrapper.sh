@@ -12,15 +12,13 @@ REGION="$2"
 
 echo "Running RUFUS for $REGION..."
 
-# Get hash args
-HASH_CMD="/opt/RUFUS/get_hash_args.sh" # TODO: if this ends up being array, printf instead of simple assign
-hash_args=$(docker exec "$CONTAINER_ID bash -c $HASH_CMD") # TODO: will this output as expected?
+# Get rufus args
+GET_ARG_SCRIPT="/opt/RUFUS/container_launch/"
+rufus_args=$(docker exec "$CONTAINER_ID" bash -c $GET_ARG_SCRIPT)
 
 # RUFUS call
-reg_agnostic_args=get_rufus_args
 RUFUS_CMD="/opt/RUFUS/runRufus.sh \
-    $reg_agnostic_args \
-    $hash_args \
+    $rufus_args \
     -r $REGION"
 
 # Convert region to proper format
