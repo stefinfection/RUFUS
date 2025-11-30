@@ -4,16 +4,8 @@ rufus_version="v.0.1.0"
 rufus_invoc_file="rufus_command.txt"
 
 echo -n "You are running the $rufus_branch"
-echo -n " version of RUFUS: $rufus_version"
+echo " version of RUFUS: $rufus_version"
 echo "$rufus_version" > $rufus_invoc_file
-
-# Check for correct version of gcc
-gcc_expected="10.2.0"
-gcc_actual=$(gcc --version | grep -oP "(?<=gcc \(GCC\) )\d+\.\d+\.\d+")
-if [[ "$gcc_expected" != "$gcc_actual" ]]; then
-    echo "It looks like you have the wrong version of gcc loaded to run RUFUS: please use the module system to load gcc/10.2.0"
-    exit 0
-fi
 
 set -e 
 
