@@ -9,3 +9,4 @@ cloud/1000G.RUFUSreference.sorted.min45.tab
 .idea/*
 cmake-build-debug/*
 cmake-build-debug/
+singularity/rufus_v1.0.0-epsilon.sif
