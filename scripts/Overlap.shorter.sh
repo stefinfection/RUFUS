@@ -98,8 +98,8 @@ else
     sortedFastq="sorted."$File
     cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
     
-	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | samtools sort -T $File -O bam - > $File.bam
-	samtools index $File.bam 
+	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | $samtools sort -T $File -O bam - > $File.bam
+	$samtools index $File.bam 
 fi
 
 if [ $( $samtools view $File.bam| head | wc -l | awk '{print $1}') -eq "0" ]; then
@@ -235,7 +235,7 @@ then
 	echo "skipping contig alignment" 
 else
     $bwa mem -t $Threads -Y  $humanRefBwa ./$sortedFastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-	samtools index ./$NameStub.overlap.hashcount.fastq.bam
+	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
 if [ $( $samtools view ./$NameStub.overlap.hashcount.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
