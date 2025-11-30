@@ -1406,7 +1406,7 @@ grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
-	echo "including mosaic"; 
+	echo "including mosaic"
 	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
