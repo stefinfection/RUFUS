@@ -5286,7 +5286,7 @@ int main(int argc, char *argv[]) {
     string rufusVersion = "";
     string rufusCommandLineInvoc = "";
     ifstream ArgFile;
-    ArgFile.open("rufus_command.txt");
+    ArgFile.open("/mnt/rufus_command.txt");
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
         while(getline(ArgFile, line)) {
@@ -5305,7 +5305,6 @@ int main(int argc, char *argv[]) {
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
     // Write out final header line with sample names
-    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
     string samplename = outStub.substr(0, outStub.find(".generator"));
     VCFOutFile << samplename;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
