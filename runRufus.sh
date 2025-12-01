@@ -1399,10 +1399,7 @@ PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf
 
 grep ^# ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
-echo "arg_mosaic = $_arg_mosaic"
-if [ "$_arg_mosaic" = "TRUE" ]
-grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
