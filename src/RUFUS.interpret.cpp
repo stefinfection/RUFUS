@@ -5268,8 +5268,7 @@ int main(int argc, char *argv[]) {
     Translocationsbed.open(boom + ".vcf.Translocations.bed");
     Unaligned.open(boom + "vcf.Unaligned");
 
-    //write VCF header
-    // TODO: update to v4.3
+    // Write VCF header
     VCFOutFile << "##fileformat=VCFv4.1" << endl;
     VCFOutFile << "##fileDate=" << time(0) << endl;
 
@@ -5301,6 +5300,49 @@ int main(int argc, char *argv[]) {
     else {
         cout << "Error, ArgFile could not be opened";
     }
+
+    int lines = 0;
+    line = "";
+    unsigned long LongHash;
+
+    cout << "Reading in Sam File" << endl;
+    map<string, int> Names;
+    vector <SamRead> reads;
+    int counter = 0;
+    while (getline(SamFile, line)) {
+        if (line.c_str()[0] == '@') {
+            vector <string> temp = Split(line, '\t');
+            if (temp[0] == "@SQ") {
+                //	cout << temp[1] << endl;
+                vector <string> chr = Split(temp[1], ':');
+                vector <string> len = Split(temp[2], ':');
+                VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
+            }
+        } else {
+            counter++;
+            SamRead read;
+            read.parse(line);
+            if (read.FlagBits[2] != 1) //verify if read is mapped
+            {
+                read.parsed = true;
+                read.getRefSeq();
+                read.createPeakMap();
+                read.checkMob(mobs);
+                if (AlignmentAllA(read) > .9) {
+                    read.mapQual = 0;
+                    read.AllA = true;
+                }
+                int a;
+                string b;
+                if (read.CheckBasesAligned() > 50 or read.CheckEndsAlign()) { reads.push_back(read); }
+                else {}//cout << "SKIPPING Alignment" << endl; read.write();}
+                if (counter % 100 == 0)
+                    cout << "read " << counter << " entries " << char(13);
+            }
+            //else do I want to track unaliged alignments?
+        }
+    }
+
     VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
@@ -5317,65 +5359,10 @@ int main(int argc, char *argv[]) {
     }
     VCFOutFile << endl;
 
-    int lines = 0;
-
-    line = "";
-
-    unsigned long LongHash;
-
-    cout << "Reading in Sam File" << endl;
-    map<string, int> Names;
-    vector <SamRead> reads;
-    int counter = 0;
-    while (getline(SamFile, line)) {
-        if (line.c_str()[0] == '@') {
-            //cout << " HEADER LINE = " << line << endl;
-            vector <string> temp = Split(line, '\t');
-            //cout << temp[0] << endl;
-            if (temp[0] == "@SQ") {
-                //	cout << temp[1] << endl;
-                vector <string> chr = Split(temp[1], ':');
-                vector <string> len = Split(temp[2], ':');
-
-                //	cout << "##contig=<ID=" <<  chr[1]<<",length=" << len[1] << ">"<< endl;
-                VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
-            }
-        } else {
-            counter++;
-            SamRead read;
-            read.parse(line);
-            //if (read.mapQual > 0)
-            if (read.FlagBits[2] != 1) //verify if read is mapped
-            {
-                read.parsed = true;
-                read.getRefSeq();
-                read.createPeakMap();
-                read.checkMob(mobs);
-                if (AlignmentAllA(read) > .9) {
-                    read.mapQual = 0;
-                    read.AllA = true;
-                }
-                int a;
-                string b;
-                //			cout << "Aligned bases = " << read.CheckBasesAligned() << endl;
-                if (read.CheckBasesAligned() > 50 or read.CheckEndsAlign()) { reads.push_back(read); }
-                else {}//cout << "SKIPPING Alignment" << endl; read.write();}
-                if (counter % 100 == 0)
-                    cout << "read " << counter << " entries " << char(13);
-            }
-            //else do I want to track unaliged alignments?
-        }
-    }
-    //cout << endl;
-    //cout << "Read in " << reads.size() << " reads " << endl;
     if (reads.size() == 0) {
         cout << "no reads were passed to RUFUS.interpret exiting" << endl;
         return 0;
     }
-
-    //  VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-    //VCFOutFile << outStub << endl;
-
 
     cout << "procesing split reads" << endl;
     for (int i = 0; i < reads.size(); i++) {
