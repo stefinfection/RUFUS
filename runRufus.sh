@@ -8,8 +8,12 @@ set +a
 echo -n "You are running the $RUFUS_BRANCH"
 echo " version of RUFUS: $RUFUS_VERSION"
 
+# TODO Import internal exec helpers
+
+
 # TODO: left off here - need to add parse hash flags and then call internal_exec_helper fxns
 # have to mimic -e flag
+
 
 # TODO: then go through and think about cleanup
 
@@ -115,6 +119,9 @@ _arg_dev_reporting="FALSE"
 _arg_dev_file_output="FALSE"
 _arg_slurm_array_index=0
 _arg_abs_coord_index=0
+_arg_kg1_hash=""
+_arg_ctrl_hash=""
+
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
@@ -145,18 +152,22 @@ print_devhelp ()
 s-n>] ...\n' "$0"
 	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multiple times)"
-  printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
-  printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
-  printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
-  printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
-  printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
-  printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
-  printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
-  printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
-  printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-  printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
-  printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
+	printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
+	printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
+	printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
+	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
+	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
+	printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
+	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
+	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
+	printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
+	printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
 	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
+	printf "\t%s\n" "--remote-kg1: Fetches 1000G hash(es) on demand from S3; cannot be used with --local-kg1"
+	printf "\t%s\n" "--local-kg1: Uses 1000G hash(es) located in the assigned variable in yaml config; cannot be used with remote--kg1"
+	printf "\t%s\n" "--remote-ctrl: Fetches 1000G hash(es) on demand from S3; cannot be used with --local-ctrl"
+	printf "\t%s\n" "--local-ctrl: Uses technical control hash(es) located in the assigned variable in yaml config; cannot be used with --remote-ctrl"
 
 	printf "\t%s\n" "################################################################################################"	
 	printf "\t%s\n" "Extra options, mosstly experimental or algorithm parameters that you normaly dont need to adjust"
@@ -422,6 +433,43 @@ parse_commandline ()
 		_arg_dev_file_output="TRUE"
 		echo "Retain all intermediate files created by RUFUS run"
 		;;
+	--remote-kg1)
+		for arg in "$@"; do
+			if [[ "$arg" == "--local-kg1" ]]; then
+				echo "ERROR: --remote-kg1 cannot be used with --local-kg1"
+				exit 100
+			fi
+		done
+		_arg_kg1_hash="remote"
+		;;
+	--remote-ctrl)
+		for arg in "$@"; do
+			if [[ "$arg" == "--local-ctrl" ]]; then
+				echo "ERROR: --remote-ctrl cannot be used with --local-ctrl"
+				exit 100
+			fi
+		done
+		_arg_ctrl_hash="remote"
+		;;
+	--local-kg1)
+		for arg in "$@"; do
+			if [[ "$arg" == "--remote-kg1" ]]; then
+				echo "ERROR: --local-kg1 cannot be used with --remote-kg1"
+				exit 100
+			fi
+		done
+		_arg_kg1_hash="local"
+		;;
+	--local-ctrl)
+		for arg in "$@"; do
+			if [[ "$arg" == "--remote-ctrl" ]]; then
+				echo "ERROR: --local-ctrl cannot be used with --remote-ctrl"
+				exit 100
+			fi
+		done
+		_arg_ctrl_hash="local"
+		;;
+
 	-CLEAN)
 		echo "Cleaning up intermediate files";
 		rm *generator.Jhash *generator.Jhash.histo *generator.Jhash.histo.7.7.dist *generator.Jhash.histo.7.7.out *generator.Jhash.histo.7.7.prob *generator.k25_c4.HashList *generator.Mutations.Mate1.fastq *generator.Mutations.Mate2.fastq *.generator.temp *.generator.temp.mate1.fastq *.temp.mate2.fastq *.generator.V2.overlap.fastq *.generator.V2.overlap.fastqd *.generator.V2.overlap.hashcount.fastq *.generator.V2.overlap.hashcount.fastq.bam.vcf *.generator.V2.overlap.hashcount.fastq.bam.vcf.bed;  
@@ -464,6 +512,7 @@ clean_up_files ()
 	local probandGenerator="$1"
 	local probandFileName="$2"
 	local regionPostfix="$3"
+
 	local SUPP_DIR="rufus_supplementals"
 
 	# Move files we want to keep into supplementals
@@ -543,7 +592,7 @@ clean_up_files ()
 	for postfix in "${subject_files[@]}";
 	do
 		if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-		rm ${probandFileName}${regionPostfix}.${postfix}
+		rm "${probandFileName}${regionPostfix}.${postfix}"
 		fi
 	done
 
@@ -557,16 +606,24 @@ clean_up_files ()
 		mkdir -p $SUPP_DIR/intermediates/
 		for postfix in "${supplemental_files[@]}"; do
 			if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-				mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR/intermediates
+				mv "${probandFileName}${regionPostfix}.${postfix}" $SUPP_DIR/intermediates
 			fi
 		done
 	else
 		for postfix in "${supplemental_files[@]}"; do
 			if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-				rm ${probandFileName}${regionPostfix}.${postfix}
+				rm "${probandFileName}${regionPostfix}.${postfix}"
 			fi
 		done
 	fi
+
+	# Remove hash download if it exists
+	fmtd_reg=${region_postfix#.}
+	downloaded_hash="${INTERNAL_REMOTE_CONTROL_HASH_DIR}${fmtd_reg}_CONTROL_${HASH_VERSION}.Jhash"
+	if [ -f "$downloaded_hash" ]; then
+		rm "$downloaded_hash"
+	fi
+
 }
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
@@ -665,6 +722,18 @@ check_empty_hashes ()
 	  rm "$subject_code_file"
 }
 
+# Updates exclude array to include 1000G and/or technical control hashes
+update_exclude_array() {
+	local kg1_flag="$1"
+	local ctrl_flag="$2"
+
+	kg1_file=$(get_kg1_arg "$kg1_flag")
+	_arg_exclude+=("$kg1_file")
+
+	ctrl_file=$(get_control_arg "$ctrl_flag")
+	_arg_exclude+=("$ctrl_file")
+}
+
 
 parse_commandline "$@"
 
@@ -750,8 +819,10 @@ then
     kill -9 $$
 fi
 
+# TODO: should I move all input checks into another file and then allow for optional checking here in case someone wants to run outside container?
 
-#########__remove -e and --exclude from _arg_exclude array__################
+#########__strip off -e and --exclude from _arg_exclude array__################
+# TODO: I think this is redundant?
 new_array=()
 for value in "${_arg_exclude[@]}"
 do
@@ -1010,6 +1081,9 @@ do
   #echo "parent is  $parent "
   parentsString=$parentsString$space$parent$jhash
 done
+
+# Add unpaired control and 1000G hashes if flagged
+update_exclude_array $_arg_kg1_hash $_arg_ctrl_hash
 for exclude in "${_arg_exclude[@]}"
 do
     parentsExcludeString=$parentsExcludeString$space$exclude

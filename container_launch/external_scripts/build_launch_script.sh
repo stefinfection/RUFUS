@@ -175,31 +175,13 @@ write_rufus_execution_piece() {
             cpus_per_task="${spec_args[1]}"
             mem_per_task="${spec_args[2]}"
 
-        # Get region line
-        cat <<EOF >> "$out_script"
+            # Get region line
+            cat <<EOF >> "$out_script"
 # Get region specific run-time args
 region=$(head -n "\$(\$SLURM_NODEID + 1)" "$REGION_FILE" | tail -n 1)
 EOF
-        # Get KG1 region specific line, if optioned
-        if [ "$NO_KG1_REMOVAL" != "TRUE" ]; then
-            if [ -n "$EXTERNAL_LOCAL_KG1_HASH_DIR" ]; then
-                rufus_args+="--local-kg1"
-            else
-                rufus_args+="--remote-kg1"
-            fi
-        fi
-
-        # Get control region specific line, if optioned
-        if [ "$NO_CONTROL_REMOVAL" != "TRUE" ]; then
-            if [ -n "$EXTERNAL_LOCAL_CONTROL_HASH_DIR" ]; then
-                rufus_args+="--local-ctrl"
-            else
-                rufus_args+="--remote-ctrl"
-            fi
-        fi
-
-        # Get spec args
-        spec_args=$(get_slurm_specs "$WINDOWED_MODE" "$container_type")
+            # Get spec args
+            spec_args=$(get_slurm_specs "$WINDOWED_MODE" "$container_type")
             
 
             cat <<EOF >> "$out_script"
@@ -210,7 +192,6 @@ srun --ntasks=${ntasks} \
      --output=task_logs/task_%t_%N_%j.out \
      bash -lc "singularity exec instance://rufus_instance_\${SLURM_NODEID} $ENTRY_SCRIPT $rufus_args -r \$region"
 EOF
-
         else
             job_phrase=""
             if [ -n "$PARALLEL_JOBS" ]; then

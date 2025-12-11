@@ -5,6 +5,7 @@
 HASH_TYPE="$1"
 HASH_VERSION="$2"
 FMTD_REGION="$3" # Must be "wg" if not a region
+DEST_DIR="$4"
 
 s3_path="s3://rufus.marth.lab/public_access_data/rufus_resources/${HASH_TYPE}_hashes/${HASH_VERSION}/"
 
@@ -26,5 +27,5 @@ elif [ $count -gt 1 ]; then
     echo "$matches" >&2
     exit 1
 else
-    aws s3 cp --no-sign-request "${s3_path}${matches}" "/mnt/rufus_temp/downloaded_${HASH_TYPE}_hashes/${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
+    aws s3 cp --no-sign-request "${s3_path}${matches}" "${DEST_DIR}${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
 fi

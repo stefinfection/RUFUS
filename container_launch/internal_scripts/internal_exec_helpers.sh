@@ -6,12 +6,11 @@
 
 # ----------------- EXEC FUNCTIONS ----------------- #
 
-# TODO: do I need to resource env file here?
-# TODO: left off still connecting the dots for docker to here
+# TODO: do I need to resource env + globals file here?
 
 # Returns Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
 # Returns path inside container to downloaded hash directory (named REMOTE_CONTROL/KG1_HASH_DIR in globals.env)
-# Called indirectly from main runRufus.sh script
+# Called indirectly from main runRufus.sh script (inside the container)
 fetch_hash() {
     local region="$1"
     local hash_type="$2"
@@ -36,31 +35,24 @@ fetch_hash() {
     if [ -z "$region" ]; then
         # If we don't have a region, use entire genome wide Jhash
         echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
-        
-        if [ "$container_type" == "$SINGULARITY" ]; then
-            # TODO: finish this
-            singularity
-        else
-            docker exec ${CONTAINER_ID} bash "$DOWNLOAD_HASH_SCRIPT" "${hash_type}" "${hash_version}" "wg" >&2
-        fi
+        bash "$DOWNLOAD_HASH_SCRIPT" "${hash_type}" "${hash_version}" "wg" "$remote_hash_dir" >&2
         hash="${remote_hash_dir}wg_${hash_type}_${hash_version}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
         echo "Fetching version ${hash_version} ${hash_type} hash for region: $region" >&2
         local fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker exec ${CONTAINER_ID} bash "${DOWNLOAD_HASH_SCRIPT}" "${hash_type}" "${hash_version}" "$fmtd_reg" >&2
+        bash "${DOWNLOAD_HASH_SCRIPT}" "${hash_type}" "${hash_version}" "$fmtd_reg" "$remote_hash_dir" >&2
         hash="${remote_hash_dir}${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
     fi
 
     echo "$hash"
 }
-export -f fetch_hash
 
 # Looks for control or kg1 hashes (in $LOCAL_{CONTROL/KG1}_HASH_DIR in clean.env) first
 # At this point, we know that if a local directory has been provided and mounted, it contains at least one *.Jhash file
 # If local directory contains multiple *.Jhash files matching region or WG, will return error code
 # If can't find, will pull from S3
-# Called indirectly from main runRufus.sh script
+# Called indirectly from main runRufus.sh script (inside container)
 get_hash() {
     local region="$1"
     local geo_type="$2"
@@ -73,88 +65,89 @@ get_hash() {
     local output_echo=""
     
     # Get the user's original directory path for error messages
-    local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
-    local host_dir="${!env_var}"
-    local cont_dir="${RUNTIME_TEMP_DIR}${hash_type}_hashes"
+    local external_local_hash_var="EXTERNAL_LOCAL_${hash_type_upper}_HASH_DIR" # Must correspond to that in rufus.env
+    local external_local_hash_dir="${!external_local_hash_var}"
+
+    # Get container visible directory path for actual work
+    local internal_local_hash_var="INTERNAL_LOCAL_${hash_type_upper}_HASH_DIR" # Must correspond to that in globals.env
+    local internal_local_hash_dir="${!internal_local_hash_var}"
 
     # Local hashes
     if [ "$geo_type" == "local" ]; then
         # Whole genome mode and we're looking locally
         if [ "$region" == "" ]; then
-            file_count=$(docker exec "$CONTAINER_ID" bash -c "ls ${cont_dir}/*wg*.Jhash 2>/dev/null | wc -l")
+            # Check that we have a single wg file
+            file_count=$(bash -c "ls ${internal_local_hash_dir}*wg*.Jhash 2>/dev/null | wc -l")    
             if [ "$file_count" -gt 1 ]; then
-                echo "ERROR: Multiple whole genome ${hash_type} hash files found in ${host_dir}:" >&2
-                ls "${host_dir}"/*wg*.Jhash >&2
+                echo "ERROR: Multiple whole genome ${hash_type} hash files found in ${external_local_hash_dir}:" >&2
+                ls "${internal_local_hash_dir}"*wg*.Jhash >&2
                 echo "Please ensure only one *wg*.Jhash file exists in the directory." >&2
                 return 1
             elif [ "$file_count" -eq 1 ]; then
-                hash=$(docker exec "$CONTAINER_ID" bash -c "ls ${cont_dir}/*wg*.Jhash")
-                output_echo+="Using local whole genome ${hash_type} hash at $hash"
+                hash=$(bash -c "ls ${internal_local_hash_dir}*wg*.Jhash")
+                output_echo+="Using local whole genome ${hash_type}: $hash"
             else
                 # File does not exist locally, fetch from S3
-                output_echo+="Could not find local whole genome ${hash_type} hash in ${host_dir}. The file in this directory must be named like \"*wg*.Jhash\" for RUFUS to recognize it. Will attempt to fetch from S3."
+                output_echo+="Could not find local whole genome ${hash_type} hash in ${external_local_hash_dir}. The file in this directory must be named like \"*wg*.Jhash\" for RUFUS to recognize it. Fetching hash from RUFUS S3 repository."
                 hash=$(fetch_hash "$region" "$hash_type")
             fi
         # Region mode and we're looking locally
         else
             fmtd_reg=$(echo "$region" | tr ':-' '_')
-            file_count=$(docker exec "$CONTAINER_ID" bash -c "ls ${cont_dir}/*${fmtd_reg}*.Jhash 2>/dev/null | wc -l")
+            file_count=$(bash -c "ls ${internal_local_hash_dir}*${fmtd_reg}*.Jhash 2>/dev/null | wc -l")
             if [ "$file_count" -gt 1 ]; then
-                echo "ERROR: Multiple ${hash_type} hash files for region $region found in ${host_dir}:" >&2
-                ls "${host_dir}"/*${fmtd_reg}*.Jhash >&2
+                echo "ERROR: Multiple ${hash_type} hash files for region $region found in ${external_local_hash_dir}:" >&2
+                ls "${internal_local_hash_dir}"*${fmtd_reg}*.Jhash >&2
                 echo "Please ensure only one *${fmtd_reg}*.Jhash file exists in the directory." >&2
                 return 1
             elif [ "$file_count" -eq 1 ]; then
-                hash=$(docker exec "$CONTAINER_ID" bash -c "ls ${cont_dir}/*${fmtd_reg}*.Jhash")
+                hash=$(bash -c "ls ${internal_local_hash_dir}*${fmtd_reg}*.Jhash")
                 output_echo+="Using local ${hash_type} hash for region $region at: $hash"
             else
                 # File does not exist locally, fetch from S3
-                output_echo+="Could not find local ${hash_type} hash for region $region in ${host_dir}. The file in this directory must be named like \"*${fmtd_reg}*.Jhash\" for RUFUS to recognize it. Will attempt to fetch from S3."
+                output_echo+="Could not find local ${hash_type} hash for region $region in ${external_local_hash_dir}. The file in this directory must be named like \"*${fmtd_reg}*.Jhash\" for RUFUS to recognize it. Fetching hash from RUFUS S3 repository."
                 hash=$(fetch_hash "$region" "$hash_type")
             fi
         fi
     # Remote fetching of hashes
     else
-        output_echo+="Fetching ${hash_type} hash from S3."
+        output_echo+="Fetching ${hash_type} hash from RUFUS S3 repository."
         hash=$(fetch_hash "$region" "$hash_type")
     fi
     
     echo -e "$output_echo" >&2
     echo "$hash"
 }
-export -f get_hash
 
-# Returns RUFUS argument string for 1000G hashes as appropriate
+# Returns RUFUS argument string for 1000G hashes as appropriate (without -e)
 # Called by main rufus script
-# TODO: call it in runRufus.sh after parsing
 get_control_arg() {
     flag="$1"
     ctrl_arg=""
 
-    if [ "$flag" == "--local" ]; then
+    if [ "$flag" == "local" ]; then
         ctrl_hash=$(get_hash $REGION "local" "control") || exit 1
     else
         ctrl_hash=$(get_hash $REGION "remote" "control") || exit 1
     fi
-    ctrl_arg+="-e $ctrl_hash "
+    ctrl_arg+="$ctrl_hash "
 
     echo "$ctrl_arg"
 }
 export -f get_control_arg
 
-# Returns RUFUS argument string for 1000G hashes as appropriate
+# Returns RUFUS argument string for 1000G hashes as appropriate (without -e)
 # Called by main rufus script
-# TODO: call it in runRufus.sh after parsing
 get_kg1_arg() {
     flag="$1"
     kg1_arg=""
 
-    if [ "$flag" == "--local" ]; then
+    if [ "$flag" == "local" ]; then
         kg1_hash=$(get_hash $REGION "local" "kg1") || exit 1
     else
         kg1_hash=$(get_hash $REGION "remote" "kg1") || exit 1
     fi
-    kg1_arg+="-e $kg1_hash "
+    kg1_arg+="$kg1_hash "
 
     echo "$kg1_arg"
 }
@@ -216,7 +209,6 @@ export -f get_ref_arg
 
 # Returns single string of arguments provided directly to RUFUS run script
 # All args here are not relative to a region
-# TODO: can put hash flags in here?s
 # TODO: do I want to return array of strings here and do printf at PoC to ensure proper formatting?
 get_rufus_args() {
     local rufus_args=""
