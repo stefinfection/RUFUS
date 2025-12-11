@@ -10,14 +10,15 @@ echo " version of RUFUS: $RUFUS_VERSION"
 
 # TODO Import internal exec helpers
 
+# TODO: review entire launch process, cleanup TODOs
 
-# TODO: left off here - need to add parse hash flags and then call internal_exec_helper fxns
-# have to mimic -e flag
-
+# TODO: implement yaml file parser
+# potentially adapt parser to be able to do functional checks that are in this file, so we allow user to runRufus.sh directly, docker, or sing and have a single
+# location for the input checks
 
 # TODO: then go through and think about cleanup
 
-# TODO: then ask codex to look at file flow one by one and in total
+# TODO: then start testing
 
 # Check for correct version of gcc
 # gcc_expected="10.2.0"
