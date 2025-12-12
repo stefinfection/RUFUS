@@ -3,7 +3,7 @@ rufus_branch="Epsilon"
 rufus_version="v.0.1.0"
 rufus_invoc_file="/mnt/rufus_command.txt"
 
-echo -n "You are running the $rufus_branch version of RUFUS: $rufus_version"
+echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
 echo "$rufus_version" > $rufus_invoc_file
 
 set -e 
