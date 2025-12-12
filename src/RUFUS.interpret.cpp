@@ -5350,7 +5350,7 @@ int main(int argc, char *argv[]) {
     string samplename = outStub.substr(0, outStub.find(".generator"));
 
     string cleanSampleName = "";
-    string regionStubs[2] = (".chr", ".wg");
+    string regionStubs[] = {".chr", ".wg"};
     for (int i = 0; i < regionStubs->length(); i++) {
         if (samplename.find_last_of(regionStubs[i]) != string::npos) {
             cleanSampleName = samplename.substr(0, samplename.find_last_of(regionStubs[i]));
