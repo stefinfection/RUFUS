@@ -1,10 +1,9 @@
 #!/bin/bash
-rufus_branch="Epsilon "
+rufus_branch="Epsilon"
 rufus_version="v.0.1.0"
 rufus_invoc_file="/mnt/rufus_command.txt"
 
-echo -n "You are running the $rufus_branch"
-echo " version of RUFUS: $rufus_version"
+echo -n "You are running the $rufus_branch version of RUFUS: $rufus_version"
 echo "$rufus_version" > $rufus_invoc_file
 
 set -e 
@@ -26,7 +25,6 @@ set -e
 # Generated online by https://argbash.io/generate
 
 start_time=$(date +"%s")
-echo "RUFUS version V1.0.1-delta-ip"
 echo -e "RUFUS command was: $0 $@"
 date
 
