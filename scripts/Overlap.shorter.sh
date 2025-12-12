@@ -28,14 +28,10 @@ HashSize=$6
 Threads=$7
 MaxAlleleSize=$8
 speed=$9
-
 SampleJhash=${10}
 ParentsJhash=${11}
-
 humanRefBwa=${12}
 refHash=${13}
-
-rufusPath=${14}
 
 MaxCov=100000
 #echo " you gave
@@ -264,7 +260,7 @@ fi
 
 if [ -e ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ]
 then 
-	echo "skipping var hash generationr"
+	echo "skipping var hash generation"
 else
 	#echo "$JellyFish count -m $HashSize -s 1G -t 20 -o ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ./$NameStub.overlap.hashcount.fastq"
 	$JellyFish count -m $HashSize -s 1G -t 1 -o ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash ./$NameStub.overlap.hashcount.fastq

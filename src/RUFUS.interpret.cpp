@@ -5348,14 +5348,29 @@ int main(int argc, char *argv[]) {
 
     // Write out final header line with sample names
     string samplename = outStub.substr(0, outStub.find(".generator"));
-    VCFOutFile << samplename;
+
+    string cleanSampleName = "";
+    string regionStubs[2] = (".chr", ".wg");
+    for (int i = 0; i < regionStubs->length(); i++) {
+        if (samplename.find_last_of(regionStubs[i]) != string::npos) {
+            cleanSampleName = samplename.substr(0, samplename.find_last_of(regionStubs[i]));
+        }
+    }
+
+    VCFOutFile << cleanSampleName;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
         string ParPath = argv[ParentHashFilePaths[i]];
         int startpos = ParPath.find("overlap.asembly.hash.fastq.");
         int endpos = ParPath.find(".generator.Jhash");
         string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
-        ParNames.push_back(Par);
-        VCFOutFile << "\t" << Par;
+        string cleanPar="";
+        for (int i = 0; i < regionStubs->length(); i++) {
+            if (Par.find_last_of(regionStubs[i]) != string::npos) {
+                cleanPar = Par.substr(0, Par.find_last_of(regionStubs[i]));
+            }
+        }
+        ParNames.push_back(cleanPar);
+        VCFOutFile << "\t" << cleanPar;
     }
     VCFOutFile << endl;
 
