@@ -26,8 +26,21 @@ clean_up_early_intermeds() {
   local CONTROLS=("${ALL_ARGS[@]:1}")
 
   # TODO: will need to not hard code eventually to accommodate other builds/species
-  # NOTE: don't need chr10-22 because 1* and 2* will get rid of these
+  # NOTE: have to do 10/20 first because arg list too long if just use "chr1"
   chroms=(
+    "chr10"
+    "chr11"
+    "chr12"
+    "chr13"
+    "chr14"
+    "chr15"
+    "chr16"
+    "chr17"
+    "chr18"
+    "chr19"
+    "chr20"
+    "chr21"
+    "chr22"
     "chr1"
     "chr2"
     "chr3"
@@ -131,27 +144,24 @@ if [ "$WINDOW_SIZE" = "0" ]; then
 	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
-# Check to see if final vcf exists, if not report empty results and exit
-if [ ! -e "$TEMP_FINAL_VCF" ]; then
+# Check to see if temp vcf(s) exists, if not report empty results and exit
+if read -r first_match < <(compgen -G "temp.RUFUS.Final*vcf.gz"); then
+    echo "Found temporary vcf(s)"
+else
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
   report_empty_and_exit
   exit 0
 fi
 
-# Get number of variants reported
-VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
-
-# Keep germline vcf
-cp $TEMP_FINAL_VCF $GERMLINE_VCF
-mv $GERMLINE_VCF rufus_supplementals/
-
 # If windowed mode, trim and combine region
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
-	TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
 	echo "Windowed run performed, trimming and combining region vcfs..."
-	bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
+	bash ${POST_PROCESS_DIR}trim_and_combine.sh "$SUBJECT_FILE" "${CONTROLS[@]}" "$WINDOW_SIZE" 
 fi
+
+# Get number of variants reported
+VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
 
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
@@ -163,11 +173,11 @@ fi
 # Check for empty lines
 echo "Checking vcf formatting..."
 bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
+#bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
 rm $TEMP_FINAL_VCF
-rm $TEMP_PREFILTERED_VCF
+#rm $TEMP_PREFILTERED_VCF
 mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
-mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
+#mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 
 # Sort
 echo "Sorting..."
@@ -217,11 +227,11 @@ $bcftools index "$FINAL_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
 
 # Only need to move and rename if did a windowed run
-if [ "$WINDOW_SIZE" != "0" ]; then
-	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
-	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
-	mv prefiltered.vcf.gz* rufus_supplementals/
-fi
+# if [ "$WINDOW_SIZE" != "0" ]; then
+# 	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+# 	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+# 	mv prefiltered.vcf.gz* rufus_supplementals/
+# fi
 
 
 # TODO: Separate SVs and SNV/Indels
@@ -255,7 +265,7 @@ rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
 cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
 rm ${SUPPLEMENTAL_DIR}*.HashList
 
-clean_up_early_intermeds() "$SUBJECT_FILE" "${CONTROLS[@]}"
+clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
 
 echo "Post-processing complete."
 end_time=$(date +"%s")
