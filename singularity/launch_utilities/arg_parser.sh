@@ -142,7 +142,7 @@ for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${control}" ]; then
 		echo "ERROR: provided control file $control does not exist in the provided data directory or cannot be read." >&2
 	else
-		if [ -z $CONTROL_STRING_RUFUS_ARG ]; then
+		if [ "$CONTROL_STRING_RUFUS_ARG" == "" ]; then
 			CONTROL_STRING_RUFUS_ARG="$control"
 		else
 			CONTROL_STRING_RUFUS_ARG="${CONTROL_STRING_RUFUS_ARG}, $control"
