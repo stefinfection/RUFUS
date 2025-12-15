@@ -1,10 +1,7 @@
 #!/bin/bash
 rufus_branch="Epsilon"
 rufus_version="v.0.1.0"
-rufus_invoc_file="/mnt/rufus_command.txt"
-
 echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
-echo "$rufus_version" > $rufus_invoc_file
 
 set -e 
 
@@ -534,6 +531,8 @@ clean_up_files ()
         mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR
       fi
     done
+
+	rm "/mnt/rufus_command${regionPostfix}.txt"
   else
     echo "not cleaning up files"
   fi
@@ -625,7 +624,6 @@ check_empty_hashes ()
     rm "$subject_code_file"
 }
 parse_commandline "$@"
-echo "$@" >> $rufus_invoc_file
 
 region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
@@ -635,6 +633,10 @@ else
 	formatted_region="wg"
 	region_postfix=".${formatted_region}"
 fi
+
+rufus_invoc_file="/mnt/rufus_command${region_postfix}.txt"
+echo "$rufus_version" > $rufus_invoc_file
+echo "$@" >> $rufus_invoc_file
 
 
 # [ <-- needed because of Argbash
@@ -1390,7 +1392,6 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-rm "rufus_command.txt"
 echo "cleaning up VCF"
 
 PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
