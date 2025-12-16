@@ -181,15 +181,13 @@ $bcftools sort "$TEMP_FINAL_VCF" | bgzip > "sorted.${TEMP_FINAL_VCF}"
 rm "$TEMP_FINAL_VCF"*
 $bcftools index "sorted.$TEMP_FINAL_VCF"
 
-
 # Remove coinheriteds
 echo "Removing coinheriteds..."
 IFS=$','
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "${CONTROLS[@]}"
 
-echo "made it past coinherited removal"
-exit
+# TODO: left off here testing - look to see if finished correctly in amy_test and then execute below
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
