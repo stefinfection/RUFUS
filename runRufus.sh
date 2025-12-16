@@ -439,7 +439,7 @@ clean_up_files ()
 {
   local probandGenerator="$1"
   local probandFileName="$2"
-  local regionPostfix="$3"
+  local formatted_region="$3"
   local SUPP_DIR="rufus_supplementals"
 
   if [ "$_arg_dev_file_output" = "FALSE" ]; then
@@ -447,18 +447,18 @@ clean_up_files ()
     # Move files we want to keep into supplementals
     if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
       mkdir -p $SUPP_DIR
-      mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-      bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-      $bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
+      mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}.${formatted_region}.vcf"
+      bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}.${formatted_region}.vcf"
+      $bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}.${formatted_region}.vcf.gz"
     fi
 
     # Remove files from sub directories for this region only
     if [ -d "Intermediates" ]; then
-      rm Intermediates/*${regionPostfix}*
+      rm Intermediates/*"${formatted_region}"*
     fi
 
     if [ -d "TempOverlap" ]; then
-      rm TempOverlap/*${regionPostfix}*
+      rm TempOverlap/*"${formatted_region}"*
     fi
 
     if [ -e "${probandGenerator}.mer_counts_merged.jf" ]; then
@@ -482,8 +482,8 @@ clean_up_files ()
       ctrl_prefix=$(basename "$control")
       for postfix in "${control_files[@]}"
       do
-        if [ -e "${ctrl_prefix}${regionPostfix}.${postfix}" ]; then
-          rm ${ctrl_prefix}${regionPostfix}.${postfix}
+        if [ -e "${ctrl_prefix}${formatted_region}.${postfix}" ]; then
+          rm "${ctrl_prefix}.${formatted_region}.${postfix}"
         fi
       done
     done
@@ -511,8 +511,8 @@ clean_up_files ()
     )
     for postfix in "${subject_files[@]}";
     do
-      if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-        rm ${probandFileName}${regionPostfix}.${postfix}
+      if [ -e "${probandFileName}${formatted_region}.${postfix}" ]; then
+        rm "${probandFileName}.${formatted_region}.${postfix}"
       fi
     done
 
@@ -527,12 +527,12 @@ clean_up_files ()
 
     for postfix in "${supplemental_files[@]}";
     do
-      if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-        mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR
+      if [ -e "${probandFileName}${formatted_region}.${postfix}" ]; then
+        mv "${probandFileName}.${formatted_region}.${postfix}" $SUPP_DIR
       fi
     done
 
-	rm "/mnt/rufus_command${regionPostfix}.txt"
+	rm "/mnt/rufus_command.${formatted_region}.txt"
   else
     echo "not cleaning up files"
   fi
@@ -634,7 +634,7 @@ else
 	region_postfix=".${formatted_region}"
 fi
 
-rufus_invoc_file="/mnt/rufus_command${region_postfix}.txt"
+rufus_invoc_file="/mnt/rufus_command.${region_postfix}.txt"
 echo "$rufus_version" > $rufus_invoc_file
 echo "$@" >> $rufus_invoc_file
 

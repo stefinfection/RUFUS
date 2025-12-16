@@ -11,7 +11,7 @@ SRC_DIR=$4
 ARG_LIST=("$@")
 CONTROL_BAM_LIST=("${ARG_LIST[@]:4}") # Remaining args, all control bams
 
-cd $SRC_DIR
+cd "$SRC_DIR" || exit 1
 
 # static vars
 CONTROL_ALIGNED="temp_aligned.bam"
@@ -19,6 +19,7 @@ CONTROL_VCF="isec_control.vcf.gz"
 NORMED_VCF="normed.${RUFUS_VCF}"
 BWA="/opt/RUFUS/bin/externals/bwa/src/bwa_project/bwa"
 BCFTOOLS="/opt/bcftools/bcftools"
+SAMTOOLS="/opt/samtools/samtools"
 PILEUP_SCRIPT="/opt/RUFUS/post_process/single_pileup.sh"
 
 # make intersection directory
@@ -26,19 +27,20 @@ ISEC_OUT_DIR="temp_isecs"
 mkdir -p $ISEC_OUT_DIR
 
 #format final rufus vcf for intersections
-vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $NORMED_VCF
-$BCFTOOLS index -t $NORMED_VCF
+vt normalize -n "$RUFUS_VCF" -r "$REFERENCE_FILE" | vt decompose_blocksub - | bgzip > "$NORMED_VCF"
+$BCFTOOLS index -t "$NORMED_VCF"
 
 #for loop for each control file provided by user
 for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     MADE_ALIGN_CONTROL=false
-	CONTROL_BAM=""   
+	CONTROL_BAM=""
  
     #check to see if the provided bam file is aligned
-    if [ "$(samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
+    if [ "$($SAMTOOLS view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
         CONTROL_BAM=$CONTROL
     else
-        $BWA mem -t 40 $REFERENCE_FILE $CONTROL | samtools view -S -@ 12 -b - > $CONTROL_ALIGNED
+		# todo: need to not hard code thread count here
+        $BWA mem -t 40 "$REFERENCE_FILE" "$CONTROL" | $SAMTOOLS view -S -@ 12 -b - > $CONTROL_ALIGNED
         CONTROL_BAM=$CONTROL_ALIGNED
 	    MADE_ALIGN_CONTROL=true
     fi
@@ -48,7 +50,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	echo "Starting parallel mpileup..."
 	
 	# Split pileup by chromosomes
-	$BCFTOOLS query -f '%CHROM\n' $NORMED_VCF | sort | uniq | \
+	$BCFTOOLS query -f '%CHROM\n' "$NORMED_VCF" | sort | uniq | \
 	awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" bam "\t" ref}' > arguments.txt
 	cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3}
 	
@@ -78,7 +80,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	
     #intersect the control vcf with formatted rufus vcf
 	echo "Starting intersection..."
-    $BCFTOOLS isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
+    $BCFTOOLS isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR "$NORMED_VCF" "$CONTROL_VCF"
  
     # save the new vcf as rufus final vcf
     OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
@@ -89,9 +91,8 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	rm "$CONTROL_VCF"*
 
     # clean up aligned control file, if it exists
-	if [ "$MADE_ALIGN_CONTROL" = "true" ]; then
+	if [ "$MADE_ALIGN_CONTROL" == "true" ]; then
     	rm $CONTROL_ALIGNED
 	fi
-
 	rm -r $ISEC_OUT_DIR
 done

@@ -15,16 +15,16 @@
 cd /mnt || exit 1
 
 SUBJECT_FILE=$1
+WINDOW_SIZE=$2
 shift
-WINDOW_SIZE=${!#}
+shift
 CONTROLS=("$@")
-
 
 BCFTOOLS="/opt/bcftools/bcftools"
 
 COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
 #COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
-IFS=$'\t' read -r COMBINED_SAMPLE_STRING <<<"$SUBJECT_FILE	${CONTROLS[*]}"
+COMBINED_SAMPLE_STRING=$(printf '%s' "$SUBJECT_FILE"; printf '\t%s' "${CONTROLS[@]}")
 
 #SUPP_DIR="rufus_supplementals/"
 
@@ -39,6 +39,8 @@ PRE_HEADER_START="/opt/RUFUS/post_process/file_stubs/combined.preheader.start"
 # Records that get written to vcf (non-header)
 COMBINED_RECORDS="combined.records"
 #COMBINED_PRE_RECORDS="combined.prerecords"
+
+contig_temp="contig_temp.txt"
 
 CHRS=(
 "1"  
@@ -126,7 +128,7 @@ do
             # Write out trimmed region to final vcf
             $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
             $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
-            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_HEADER 
+            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp 
            
 			# Write out trimmed region to prefiltered vcf 
             #$BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
@@ -134,7 +136,7 @@ do
             #$BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $COMBINED_PRE_HEADER 
 
 	    	# Remove vcf and indexes
-	    	rm $CURR_VCF*
+	    	rm "$CURR_VCF"*
 	    	#rm $CURR_PRE_VCF*
         fi
     
@@ -144,9 +146,10 @@ do
     echo "Done combining chr${curr_chr}"
 done
 
-cat $COMBINED_HEADER | uniq > $COMBINED_VCF
-echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_VCF
-cat $COMBINED_RECORDS >> $COMBINED_VCF
+sort -hu $contig_temp >> "$COMBINED_HEADER"
+cat $COMBINED_HEADER | uniq > "$COMBINED_VCF"
+echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> "$COMBINED_VCF"
+cat $COMBINED_RECORDS >> "$COMBINED_VCF"
 
 # cat $COMBINED_PRE_HEADER | uniq > $COMBINED_PRE_VCF
 # echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$COMBINED_SAMPLE_STRING" >> $COMBINED_PRE_VCF
@@ -159,6 +162,7 @@ $BCFTOOLS index -t "${COMBINED_VCF}.gz"
 # $BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
 
 # Clean up temp files
+rm $contig_temp
 rm $TEMP_TRIMMED
 rm $COMBINED_HEADER
 # rm $COMBINED_PRE_HEADER

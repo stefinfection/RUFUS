@@ -59,16 +59,16 @@ clean_up_early_intermeds() {
 
   # Have to do this piecemeal because too many files with windowed mode for single rm command
   for chrom in "${chroms[@]}"; do
-    if ls /mnt/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
-      rm /mnt/${SUBJECT_FILE}*${chrom}*.generator*
+    if ls /mnt/"${SUBJECT_FILE}"*"${chrom}"*.generator* 1> /dev/null 2>&1; then
+      rm /mnt/"${SUBJECT_FILE}"*"${chrom}"*.generator*
     fi
   done
 
   for control in "${CONTROLS[@]}"; do
     # Have to do this piecemeal because too many files with windowed mode for single rm command
     for chrom in "${chroms[@]}"; do
-        if ls /mnt/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
-          rm /mnt/${control}*${chrom}*.generator*
+        if ls /mnt/"${control}"*"${chrom}"*.generator* 1> /dev/null 2>&1; then
+          rm /mnt/"${control}"*"${chrom}"*.generator*
         fi
       done
   done
@@ -128,8 +128,8 @@ if [ ${#CONTROLS[@]} -eq 0 ]; then
 	    echo "ERROR: Must supply at least one control bam" >&2
 fi
 
-cd $SOURCE_DIR
-echo "RUFUS post-process version D-1.0.1"
+cd "$SOURCE_DIR" || exit 1
+echo "RUFUS post-process version E-0.1.0"
 date
 start_time=$(date +"%s")
 
@@ -141,7 +141,6 @@ GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 # Slight name change if not doing a windowed run
 if [ "$WINDOW_SIZE" = "0" ]; then
 	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
-	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 fi
 
 # Check to see if temp vcf(s) exists, if not report empty results and exit
@@ -150,18 +149,17 @@ if read -r first_match < <(compgen -G "temp.RUFUS.Final*vcf.gz"); then
 else
   clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
   report_empty_and_exit
-  exit 0
 fi
 
 # If windowed mode, trim and combine region
 if [ "$WINDOW_SIZE" != "0" ]; then
 	IFS=$'\t'
 	echo "Windowed run performed, trimming and combining region vcfs..."
-	bash ${POST_PROCESS_DIR}trim_and_combine.sh "$SUBJECT_FILE" "${CONTROLS[@]}" "$WINDOW_SIZE" 
+	bash ${POST_PROCESS_DIR}trim_and_combine.sh "$SUBJECT_FILE"  "$WINDOW_SIZE" "${CONTROLS[@]}"
 fi
 
 # Get number of variants reported
-VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
+VARS_REPORTED=$($bcftools view -H "$TEMP_FINAL_VCF" | wc -l)
 
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
@@ -172,29 +170,26 @@ fi
 
 # Check for empty lines
 echo "Checking vcf formatting..."
-bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
-#bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
-rm $TEMP_FINAL_VCF
-#rm $TEMP_PREFILTERED_VCF
-mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
-#mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh "$TEMP_FINAL_VCF" "final_no_gx.vcf"
+rm "$TEMP_FINAL_VCF"
+mv "final_no_gx.vcf.gz" "$TEMP_FINAL_VCF"
 
 # Sort
 echo "Sorting..."
-$bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
-# TODO: when fix formatting on prefiltered vcf, comment two lines below back in
-#$bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
+$bcftools sort "$TEMP_FINAL_VCF" | bgzip > "sorted.${TEMP_FINAL_VCF}"
 
-rm $TEMP_FINAL_VCF
-#rm $TEMP_PREFILTERED_VCF
+rm "$TEMP_FINAL_VCF"*
 $bcftools index "sorted.$TEMP_FINAL_VCF"
+
 
 # Remove coinheriteds
 echo "Removing coinheriteds..."
 IFS=$','
-CONTROL_STRING="${CONTROLS[*]}"
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
-bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "${CONTROLS[@]}"
+
+echo "made it past coinherited removal"
+exit
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
@@ -204,34 +199,34 @@ bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUB
 $bcftools index $AF_ADDED_VCF 
 
 # Compose final vcfs
-SUBJECT_STRING=$(basename $SUBJECT_FILE)
+SUBJECT_STRING=$(basename "$SUBJECT_FILE")
 FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
 PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
-$bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
-cat /mnt/rufus.cmd >> $FINAL_VCF
-$bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
-$bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
-bgzip $FINAL_VCF
+$bcftools view -h $AF_ADDED_VCF | head -n -1 > "$FINAL_VCF"
+cat /mnt/rufus.cmd >> "$FINAL_VCF"
+$bcftools view -h $AF_ADDED_VCF | tail -n 1 >> "$FINAL_VCF"
+$bcftools view -H $AF_ADDED_VCF >> "$FINAL_VCF"
+bgzip "$FINAL_VCF"
 $bcftools index "$FINAL_VCF.gz"
 
 #TODO: Comment back in after prefiltered vcf cleaned up
-#$bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-#cat /mnt/rufus.cmd >> $PREFILTERED_VCF
-#$bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
-#$bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
-#bgzip $PREFILTERED_VCF
-#$bcftools index "$PREFILTERED_VCF.gz"
-#mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
+# $bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
+# cat /mnt/rufus.cmd >> $PREFILTERED_VCF
+# $bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
+# $bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
+# bgzip $PREFILTERED_VCF
+# $bcftools index "$PREFILTERED_VCF.gz"
+# mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
 
 # Only need to move and rename if did a windowed run
-# if [ "$WINDOW_SIZE" != "0" ]; then
-# 	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
-# 	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
-# 	mv prefiltered.vcf.gz* rufus_supplementals/
-# fi
+if [ "$WINDOW_SIZE" != "0" ]; then
+	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+	mv prefiltered.vcf.gz* rufus_supplementals/
+fi
 
 
 # TODO: Separate SVs and SNV/Indels
@@ -240,7 +235,7 @@ $bcftools index "$FINAL_VCF.gz"
 # Cleanup
 echo "Cleaning up intermediate post-processing files..."
 #rm $TEMP_PREFILTERED_VCF*
-rm $TEMP_FINAL_VCF*
+rm "$TEMP_FINAL_VCF"*
 #rm "sorted.$TEMP_PREFILTERED_VCF"*
 rm "sorted.$TEMP_FINAL_VCF"*
 rm $COINHERITED_REMOVED_VCF*
@@ -269,7 +264,7 @@ clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
 
 echo "Post-processing complete."
 end_time=$(date +"%s")
-time_delta=$(( $end_time - $start_time ))
+time_delta=$(( end_time - start_time ))
 hours=$(( time_delta / 3600 ))
 minutes=$(( (time_delta % 3600) / 60 ))
 seconds=$(( time_delta % 60 ))
