@@ -35,7 +35,7 @@ set -e
 # Generated online by https://argbash.io/generate
 
 start_time=$(date +"%s")
-echo "RUFUS version V1.0.1-delta-ip"
+echo "RUFUS v0.1.0"
 echo -e "RUFUS command was: $0 $@"
 date
 
