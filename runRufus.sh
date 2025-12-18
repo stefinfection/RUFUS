@@ -2,6 +2,7 @@
 
 # Set root directory to env path if exists
 : "${RUFUS_ROOT:=/opt/RUFUS}"
+echo "RUFUS_ROOT is $RUFUS_ROOT"
 
 # Import globals
 GLOBALS_FILE="$RUFUS_ROOT/resources/globals.txt" # Path to globals file inside container
@@ -1410,6 +1411,8 @@ fi
 
 bgzip -f "./$PREFINAL_VCF"
 tabix "./${PREFINAL_VCF}.gz"
+
+# TODO: add post-processing individual scripts here
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string

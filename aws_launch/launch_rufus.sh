@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Run outside of container, no access to internal ENV
-# TODO: still need to update /mnt here when finish updating internals
+# TODO: still need to update /mnt here when finish updating internals - Michele not using currently
 
 # Check for required argument
 ENV_FILE="$1"
