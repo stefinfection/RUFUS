@@ -1,5 +1,5 @@
 #!/bin/bash
-# Downloaded hashes get put in /mnt/rufus_supplementals/downloaded_{hash_type}_hashes
+# Downloaded hashes get put in ${WORKING_DIR}/rufus_temp/downloaded_{hash_type}_hashes
 # File name depends only upon matching *wg* or *fmtd_region* in the correct type/version directory
 
 HASH_TYPE="$1"
@@ -26,5 +26,5 @@ elif [ $count -gt 1 ]; then
     echo "$matches" >&2
     exit 1
 else
-    aws s3 cp --no-sign-request "${s3_path}${matches}" "/mnt/rufus_temp/downloaded_${HASH_TYPE}_hashes/${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
+    aws s3 cp --no-sign-request "${s3_path}${matches}" "rufus_temp/downloaded_${HASH_TYPE}_hashes/${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
 fi

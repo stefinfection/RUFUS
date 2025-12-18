@@ -5294,7 +5294,8 @@ int main(int argc, char *argv[]) {
     string rufusVersion = "";
     string rufusCommandLineInvoc = "";
     ifstream ArgFile;
-    ArgFile.open("/mnt/rufus_supplementals/rufus_command.txt");
+    // TODO: how do we know we're in the working dir here?
+    ArgFile.open("rufus_supplementals/rufus_command.txt");
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
         while(getline(ArgFile, line)) {

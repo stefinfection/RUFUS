@@ -1,13 +1,13 @@
 #!/bin/bash
 
 usage() {
-	echo "Usage: $0 [-w window_size] [-r reference] [-s subject] [-c control1,control2,control3...] [-d source_dir] [-h]"
+	echo "Usage: $0 [-w window_size] [-r reference] [-s subject] [-c control1,control2,control3...] [-d source_dir] [-h]" # TODO: add -e here
 	echo "Options:"
 	echo " -w window_size	Required: The size of the window used in the RUFUS run"
 	echo " -r reference	Required: The reference used in the RUFUS run"
 	echo " -c controls	The control bam files used in the RUFUS run, if any"
 	echo " -s subject_file	Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located"
+	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located" # TODO: make this not required
 	echo " -h help	Print help message"
 	exit 1
 }
@@ -19,16 +19,16 @@ report_empty_and_exit() {
   exit 0
 }
 
-# static paths
-bcftools="/opt/bcftools/bcftools"
-samtools="/opt/samtools/samtools"
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+RDIR=$RUFUS_ROOT
 
 # initialize vars
 CONTROLS=()
 WINDOW_SIZE=0
 REFERENCE=""
 SUBJECT_FILE=""
-SOURCE_DIR="/mnt"
+SOURCE_DIR="" # Current directory default
+SUPPLEMENTAL_DIR=""
 
 # parse command line arguments
 while getopts ":w:r:c:s:d:h" option; do 
@@ -38,6 +38,7 @@ while getopts ":w:r:c:s:d:h" option; do
 		r) REFERENCE=$OPTARG;;
 		s) SUBJECT_FILE=$OPTARG;;
 		d) SOURCE_DIR=$OPTARG;;
+    e) SUPPLEMENTAL_DIR=$OPTARG;;
 		c) IFS=',' read -r -a CONTROLS <<< "$OPTARG";;
 		\?) echo "Invalid option: -$OPTARG" >&2
 		    usage;;	
@@ -64,8 +65,10 @@ if [ ${#CONTROLS[@]} -eq 0 ]; then
 	    echo "No controls provided, using internal control" >&2
 fi
 
-# Make supp directory
-SUPPLEMENTAL_DIR="${SOURCE_DIR}/rufus_supplementals/"
+# check for optional supplemental dir path
+if [ "$SUPPLEMENTAL_DIR" == "" ]; then
+  SUPPLEMENTAL_DIR="$SOURCE_DIR/rufus_supplementals"
+fi
 
 # Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
 clean_up_early_intermeds() {
@@ -124,12 +127,11 @@ clean_up_early_intermeds() {
 # Strip off path from subject file if provided
 SUBJECT_FILE=$(basename $SUBJECT_FILE)
 
-cd $SOURCE_DIR
-echo "RUFUS post-process version E-0.0.1"
+echo "RUFUS post-process version E-0.1.0"
 date
 start_time=$(date +"%s")
 
-POST_PROCESS_DIR=/opt/RUFUS/post_process/
+POST_PROCESS_DIR=${RDIR}/post_process/
 TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
 GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
@@ -138,7 +140,7 @@ GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 if [ "$WINDOW_SIZE" == "0" ]; then
   # TODO: need to test full genome run
 	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
-	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
+	TEMP_PREFILTERED_VCF="${SUPPLEMENTAL_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 
   # Check to see if final vcf exists, if not report empty results and exit
   if [ ! -e "$TEMP_FINAL_VCF" ]; then
@@ -160,7 +162,7 @@ else
 fi
 
 # Get number of variants reported
-VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
+VARS_REPORTED=$(bcftools view -H $TEMP_FINAL_VCF | wc -l)
 
 # Keep germline vcf - todo: need to only do this if we have control files and not just hashes
 # cp $TEMP_FINAL_VCF $GERMLINE_VCF
@@ -184,13 +186,13 @@ mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
 
 # Sort
 echo "Sorting..."
-$bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
+bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
 # TODO: when fix formatting on prefiltered vcf, comment two lines below back in
-#$bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
+#bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
 
 rm $TEMP_FINAL_VCF*
 #rm $TEMP_PREFILTERED_VCF
-$bcftools index "sorted.$TEMP_FINAL_VCF"
+bcftools index "sorted.$TEMP_FINAL_VCF"
 
 # Remove coinheriteds if we have at least one control
 COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
@@ -210,9 +212,9 @@ fi
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
 AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
-SUBJECT_SAMPLE_NAME=$($bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
+SUBJECT_SAMPLE_NAME=$(bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
-$bcftools index $AF_ADDED_VCF
+bcftools index $AF_ADDED_VCF
 
 # Compose final vcfs
 SUBJECT_STRING=$(basename $SUBJECT_FILE)
@@ -221,25 +223,25 @@ PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 
 # Inject RUFUS command into header
 echo "Composing final vcfs..."
-$bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
+bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
 
-RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_temp/rufus.cmd"
+RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_temp/rufus.cmd" # TODO: pass this internally
 while read line; do
   echo -e "$line" >> $FINAL_VCF
 done < "$RUN_COMMAND_FILE"
 rm $RUN_COMMAND_FILE
 
-$bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
-$bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
+bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
+bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
 bgzip $FINAL_VCF
-$bcftools index "$FINAL_VCF.gz"
+bcftools index "$FINAL_VCF.gz"
 
 #TODO: Comment back in after prefiltered vcf cleaned up
-#$bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
-#$bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
-#$bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
+#bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
+#bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
+#bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
 #bgzip $PREFILTERED_VCF
-#$bcftools index "$PREFILTERED_VCF.gz"
+#bcftools index "$PREFILTERED_VCF.gz"
 #mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
 
 # Only need to move and rename if did a windowed run
@@ -260,10 +262,10 @@ rm $COINHERITED_REMOVED_VCF*
 rm "$AF_ADDED_VCF"*
 
 # TODO: only do this if not reporting in developer mode
-# ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
-# ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
-# $samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
-# $samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
+# ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
+# samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
+# samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
 # rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
 # rm ${SUPPLEMENTAL_DIR}unique_reads.bam
 # rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*

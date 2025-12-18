@@ -7,7 +7,10 @@
 
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
 #UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
-UTIL_PATH=/opt/RUFUS/singularity/launch_utilities/
+
+# TODO: need to export RUFUS_ROOT in singularity def file
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+UTIL_PATH=${RUFUS_ROOT}/singularity/launch_utilities/
 
 PARSER=${UTIL_PATH}arg_parser.sh
 . $PARSER "$@"
@@ -86,8 +89,8 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
   echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%j.out" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -e ${WORKING_DIR}/slurm_out/rufus_call_%j.err" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
-	echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-  echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
+	echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+  echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
   write_out_rest_of_rufus_args
 else
   # Add a chunk for post-processing
@@ -151,16 +154,16 @@ else
     echo -e "fi" >> $RUFUS_SLURM_SCRIPT
     echo -e "for i in \$(seq 0 \$((\$job_count - 1))); do" >> $RUFUS_SLURM_SCRIPT
     echo -e "    curr_job=\$((\$starting_index + \$i))" >> $RUFUS_SLURM_SCRIPT
-    echo -e "    region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
+    echo -e "    region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/singularity/launch_utilities/get_region.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
     echo -e "    REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
     
     if [ "$KG1_EXCLUSION_THRESHOLD" -ne 0 ]; then
-      echo -e "    kg1_region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_1kg_region_file.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
+      echo -e "    kg1_region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/singularity/launch_utilities/get_1kg_region_file.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
       echo -e "    KG1_REGION_FILE_ARG=\"-xkg1 \$kg1_region_arg\"" >> $RUFUS_SLURM_SCRIPT
     fi
     
-    echo -en "   srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-    echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+    echo -en "   srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+    echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
 	  echo -en "-pa \$SLURM_ARRAY_TASK_ID " >> $RUFUS_SLURM_SCRIPT
 	  echo -en "-cn \$curr_job " >> $RUFUS_SLURM_SCRIPT
     write_out_rest_of_rufus_args
@@ -172,10 +175,10 @@ else
       echo "" >> $RUFUS_SLURM_SCRIPT
 
       # Write out the region argument and srun command
-      echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
+      echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
       echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+      echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+      echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
       write_out_rest_of_rufus_args
   fi
 fi
@@ -207,10 +210,10 @@ CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
 BOUND_DATA_DIR="/mnt"
 
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
+echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
 
 echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
+echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
 mv rufus.cmd "${HOST_DATA_DIR_RUFUS_ARG}"
 
 # Compose invocation script to be executed outside of container

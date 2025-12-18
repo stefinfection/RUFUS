@@ -13,13 +13,15 @@ CONTROL_BAM_LIST=("${ARG_LIST[@]:4}") # Remaining args, all control bams
 
 cd $SRC_DIR
 
+# ENV file override
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+
 # static vars
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
 NORMED_VCF="normed.${RUFUS_VCF}"
-BWA="/opt/RUFUS/bin/externals/bwa/src/bwa_project/bwa"
-BCFTOOLS="/opt/bcftools/bcftools"
-PILEUP_SCRIPT="/opt/RUFUS/post_process/single_pileup.sh"
+BWA="$RUFUS_ROOT/bin/externals/bwa/src/bwa_project/bwa"
+PILEUP_SCRIPT="$RUFUS_ROOT/post_process/single_pileup.sh"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
@@ -27,7 +29,7 @@ mkdir -p $ISEC_OUT_DIR
 
 #format final rufus vcf for intersections
 vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $NORMED_VCF
-$BCFTOOLS index -t $NORMED_VCF
+bcftools index -t $NORMED_VCF
 
 #for loop for each control file provided by user
 for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
@@ -48,22 +50,22 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	echo "Starting parallel mpileup..."
 	
 	# Split pileup by chromosomes
-	$BCFTOOLS query -f '%CHROM\n' $NORMED_VCF | sort | uniq | \
+	bcftools query -f '%CHROM\n' $NORMED_VCF | sort | uniq | \
 	awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" bam "\t" ref}' > arguments.txt
 	cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {2} {3}
 	
 	# TODO: if we have a small amount of sites, might be more efficient to do this, bricks if too many though
 	# Split pileup by sites
-	#$BCFTOOLS query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
+	#bcftools query -f '%CHROM\t%POS0\t%POS\n' $NORMED_VCF | sort | uniq | \
 	#awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" $2 "\t" $3 "\t" bam "\t" ref}' > arguments.txt
 	# NOTE: have to do out of order now, because single pileup start and end are optional
 	#cat arguments.txt | parallel -j +0 --colsep '\t' bash $PILEUP_SCRIPT {1} {4} {5} {2} {3}
 
 	# combine pileups
-	$BCFTOOLS concat -o $MERGED_PILEUP -Ov mpileup*.vcf
-	$BCFTOOLS sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
+	bcftools concat -o $MERGED_PILEUP -Ov mpileup*.vcf
+	bcftools sort -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
 	bgzip "sorted.$MERGED_PILEUP"
-	$BCFTOOLS index "sorted.$MERGED_PILEUP.gz"
+	bcftools index "sorted.$MERGED_PILEUP.gz"
 	rm $MERGED_PILEUP
 	
 	#TODO: comment back in after testing
@@ -72,13 +74,13 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 
 	# call variants from merged pileup vcf
 	echo "Starting pileup call..."
-	$BCFTOOLS call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
-    $BCFTOOLS index -t $CONTROL_VCF
+	bcftools call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
+    bcftools index -t $CONTROL_VCF
 	rm "sorted.$MERGED_PILEUP.gz"*    
 	
     #intersect the control vcf with formatted rufus vcf
 	echo "Starting intersection..."
-    $BCFTOOLS isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
+    bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
  
     # save the new vcf as rufus final vcf
     OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"

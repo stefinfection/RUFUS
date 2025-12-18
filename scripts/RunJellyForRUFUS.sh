@@ -6,8 +6,8 @@ T=$3
 L=$4
 HASH_SIZE=$5
 
-RDIR=/opt/RUFUS/
-
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+RDIR=$RUFUS_ROOT
 JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
 
 # If we're using a region-specific hash, adjust size accordingly (1MB hashes made w/ 1G)

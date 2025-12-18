@@ -8,15 +8,12 @@
 # must be equal to those run for the piecemeal run.
 # Compresses and indexes the final file.
 
-# this is running inside of container so these dependencies should be available
-#module load bcftools
-#module load htslib
+# ENV override
+: "${RUFUS_ROOT:=/opt/RUFUS}"
 
 SUBJECT_FILE=$1
 CONTROL_STRING=$2
 WINDOW_SIZE=$3
-
-BCFTOOLS="/opt/bcftools/bcftools"
 
 COMBINED_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf"
 COMBINED_PRE_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf"
@@ -35,7 +32,7 @@ COMBINED_HEADER="combined.header"
 COMBINED_PRE_HEADER="combined.preheader"
 
 # Start of headers
-HEADER_STUB="/opt/RUFUS/resources/vcf_header.txt"
+HEADER_STUB="$RUFUS_ROOT/resources/vcf_header.txt"
 
 # Records that get written to vcf (non-header)
 COMBINED_RECORDS="combined.records"
@@ -133,14 +130,14 @@ do
         if [[ -f "${CURR_VCF}" ]]; then
 
             # Write out trimmed region to final vcf
-            $BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
-            $BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
-            $BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
+            bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_VCF}" > $TEMP_TRIMMED
+            bcftools view -H $TEMP_TRIMMED >> $COMBINED_RECORDS
+            bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
 
 			# Write out trimmed region to prefiltered vcf 
-            #$BCFTOOLS view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
-            #$BCFTOOLS view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
-            #$BCFTOOLS view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
+            #bcftools view -r "chr${curr_chr}:${start_coord}-${end_coord}" "${CURR_PRE_VCF}" > $TEMP_TRIMMED
+            #bcftools view -H $TEMP_TRIMMED >> $COMBINED_PRE_RECORDS
+            #bcftools view -h $TEMP_TRIMMED | grep "##contig" >> $contig_temp
             #sort -V $contig_temp | uniq >> $COMBINED_PRE_HEADER
 
 	    	# Remove vcf and indexes
@@ -166,10 +163,10 @@ cat $COMBINED_RECORDS >> $COMBINED_VCF
 # todo: left off here - unsure why the combined vcf here is out of order and cannot be indexed...
 # maybe try to do a full redo of individual vcfs and try again?
 bgzip $COMBINED_VCF
-$BCFTOOLS index -t "${COMBINED_VCF}.gz"
+bcftools index -t "${COMBINED_VCF}.gz"
 
 # bgzip $COMBINED_PRE_VCF
-# $BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
+# bcftools index -t "${COMBINED_PRE_VCF}.gz"
 
 # Clean up temp files
 rm $contig_temp

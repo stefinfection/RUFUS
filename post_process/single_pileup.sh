@@ -7,10 +7,9 @@ start_coord=$4
 end_coord=$5
 
 DEPTH=500
-BCFTOOLS="/opt/bcftools/bcftools"
 
 if [ ! -z "$start_coord" ] && [ ! -z "$end_coord" ]; then
-  $BCFTOOLS mpileup -Ov -d $DEPTH -f $ref -r "${chr}:${start_coord}-${end_coord}" -o mpileup_${chr}_${start_coord}_${end_coord}.vcf $bam
+  bcftools mpileup -Ov -d $DEPTH -f $ref -r "${chr}:${start_coord}-${end_coord}" -o mpileup_${chr}_${start_coord}_${end_coord}.vcf $bam
 else
-  $BCFTOOLS mpileup -Ov -d $DEPTH -f $ref -r "${chr}" -o mpileup_${chr}.vcf $bam
+  bcftools mpileup -Ov -d $DEPTH -f $ref -r "${chr}" -o mpileup_${chr}.vcf $bam
 fi

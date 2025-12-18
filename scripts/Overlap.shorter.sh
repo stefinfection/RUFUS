@@ -67,7 +67,8 @@ else
 fi
 echo "Overlaping $File..."
 
-RDIR=/opt/RUFUS/
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+RDIR="$RUFUS_ROOT"
 
 AddSA=$RDIR/scripts/AddSAtoReadSame.pl
 OverlapHash=$RDIR/bin/Overlap
@@ -77,13 +78,11 @@ ReplaceQwithDinFASTQD=$RDIR/bin/ReplaceQwithDinFASTQD
 ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ
 AnnotateOverlap=$RDIR/bin/AnnotateOverlap
 bwa=$RDIR/bin/externals/bwa/src/bwa_project/bwa
-samtools=/opt/samtools/samtools
 RUFUSinterpret=$RDIR/bin/RUFUS.interpret
 CheckHash=$RDIR/scripts/CheckJellyHashList.sh
 OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
 MOBList=$RDIR/resources/primate_non-LTR_Retrotransposon.fasta
-bedtools=/opt/bedtools2/bin/bedtools
 
 if [ -s ./$File.bam ] 
 then 
@@ -92,11 +91,11 @@ else
     sortedFastq="sorted."$File
     cat $File | paste - - - - | sort -k1 -S 8G | tr "\t" "\n" > $sortedFastq
     
-	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | $samtools sort -T $File -O bam - > $File.bam
-	$samtools index $File.bam 
+	$bwa mem -t $Threads $humanRefBwa "$sortedFastq" | samtools sort -T $File -O bam - > $File.bam
+	samtools index $File.bam 
 fi
 
-if [ $( $samtools view $File.bam| head | wc -l | awk '{print $1}') -eq "0" ]; then
+if [ $( samtools view $File.bam| head | wc -l | awk '{print $1}') -eq "0" ]; then
         echo "ERROR: BWA failed on $File .  Either the files are exactly the same of something went wrong in previous step" 
         exit 100
 fi
@@ -108,7 +107,7 @@ then
 	then
 	        echo "skipping sam assemble"
 	else
-		$OverlapSam <( $samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 $FinalCoverage ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+		$OverlapSam <( samtools view  -F 3328 $File.bam | awk '$9 > 150 || $9 < -150 '  ) .99 25 $FinalCoverage ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	fi 
 	# todo: instead of hash here, first do overlapRegion looking at next 5 reads
 	if [ -s ./TempOverlap/$NameStub.final.fastqd ]
@@ -136,7 +135,7 @@ else
 	then 
 		echo "skipping sam assemble"
 	else
-		$OverlapSam <( $samtools view  -F 3328 $File.bam ) .95 20 1 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
+		$OverlapSam <( samtools view  -F 3328 $File.bam ) .95 20 1 ./TempOverlap/$NameStub.sam $NameStub 1 $HashList $Threads
 	fi
 
 	# todo: the problem here is that this is empty
@@ -229,11 +228,11 @@ if [ -s ./$NameStub.overlap.hashcount.fastq.bam ]
 then 
 	echo "skipping contig alignment" 
 else
-    $bwa mem -t $Threads -Y  $humanRefBwa ./$sortedFastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
+    $bwa mem -t $Threads -Y  $humanRefBwa ./$sortedFastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
+	samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
-if [ $( $samtools view ./$NameStub.overlap.hashcount.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
+if [ $( samtools view ./$NameStub.overlap.hashcount.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
         echo "ERROR: BWA failed on ./$NameStub.overlap.hashcount.fastq.bam .  Either the files are exactly the same of something went wrong in previous step" 
         exit 100
 fi
@@ -245,15 +244,15 @@ if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam ]
 then
 	echo "skipping MOB alignemnt check "
 else
-	echo "$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | $samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam"
-	$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | $samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
+	echo "$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam"
+	$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 0,0 $MOBList ./$sortedFastq | samtools sort -T $File -O sam - > ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam
 fi 
 
 if [ -e ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]
 then 
 	echo "skipping pull reference sequecnes"
 else
-	$bedtools getfasta -bed <( $bedtools bamtobed -i ./$NameStub.overlap.hashcount.fastq.bam |  awk '{s=$2-100; if (s<0) {print $1 "\t" 0  "\t" $3+100} else {print $1 "\t" s  "\t" $3+100}}'  ) -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
+	bedtools getfasta -bed <( bedtools bamtobed -i ./$NameStub.overlap.hashcount.fastq.bam |  awk '{s=$2-100; if (s<0) {print $1 "\t" 0  "\t" $3+100} else {print $1 "\t" s  "\t" $3+100}}'  ) -fi $humanRef -fo ./Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
 
 fi 
 
@@ -352,13 +351,11 @@ else
 fi
 wait
 
-$samtools index ./$NameStub.overlap.hashcount.fastq.bam
+samtools index ./$NameStub.overlap.hashcount.fastq.bam
 echo ""
 echo "" 
 echo ""
 dumbFix=$(awk '{split($1, a, ".V2"); print a[1]}' <<< $NameStub)
 #echo "$RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 20 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash"
 
-$samtools view ./$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn  | $RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash -rp "/opt/RUFUS"
-
-
+samtools view ./$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn  | $RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash -rp "$RUFUS_ROOT"

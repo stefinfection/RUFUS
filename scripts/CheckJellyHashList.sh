@@ -1,7 +1,9 @@
 #!/bin/sh
 
-RDIR=/opt/RUFUS
-JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
+# ENV override
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+
+JellyFish=$RUFUS_ROOT/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
 Jhash=$1 # File to count within
 HashList=$2 # List of kmers
 MinCov=$3

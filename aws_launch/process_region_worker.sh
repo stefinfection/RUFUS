@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Env override
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+
 # Arguments
 CONTAINER_ID="$1"
 ENV_FILE="$2"
@@ -36,13 +39,13 @@ fetch_hash() {
     if [ -z "$region" ]; then
         # If we don't have a region, use entire genome wide Jhash
         echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "wg" >&2
+        docker exec ${CONTAINER_ID} bash $RUFUS_ROOT/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "wg" >&2
         hash="/mnt/rufus_temp/downloaded_${hash_type}_hashes/wg_${hash_type}_${hash_version}.Jhash"
     else
         # Convert chrN:n-m to chrN_n_m
         echo "Fetching version ${hash_version} ${hash_type} hash for region: $region" >&2
         local fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "$fmtd_reg" >&2
+        docker exec ${CONTAINER_ID} bash $RUFUS_ROOT/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "$fmtd_reg" >&2
         hash="/mnt/rufus_temp/downloaded_${hash_type}_hashes/${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
     fi
 
@@ -172,7 +175,7 @@ cd $WORKING_DIR
 
 echo "Running RUFUS for $REGION on $subject_base..."
 
-RUFUS_CMD="/opt/RUFUS/runRufus.sh \
+RUFUS_CMD="$RUFUS_ROOT/runRufus.sh \
   -s /mnt/rufus_temp/$subject_base \
   $ctrl_arg \
   $ref_arg \

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Run outside of container, no access to internal ENV
+# TODO: still need to update /mnt here when finish updating internals
+
 # Check for required argument
 ENV_FILE="$1"
 if [ -z "$ENV_FILE" ]; then
@@ -146,8 +149,8 @@ export -f check_inputs
 # Check for correct controls setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to /mnt/rufus_temp/control_hashes within container
-# Paired controls get mounted to /mnt/paired_controls/
+# Hashes get mounted to ./rufus_temp/control_hashes within container
+# Paired controls get mounted to $WORKING_DIR/paired_controls/
 set_up_controls() {
     # Check for controls here and notify if using internal
     if [ ${#CONTROL_FILE_ARRAY[@]} -eq 0 ]; then
@@ -364,8 +367,9 @@ elif [[ "$subject_base" == *.cram ]]; then
     fi
 fi
 
+USER_SPEC="$(id -u):$(id -g)"
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
-  -u $(id -u):$(id -g) \
+  -u "${USER_SPEC}" \
   -v ${WORKING_DIR}:/mnt \
   --cap-add SYS_ADMIN \
   --device /dev/fuse \
@@ -376,22 +380,36 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
 start_time=$(date +%s)
 
 # Make resource directories referenced during run
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/logs
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/control_hashes
-docker exec ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/kg1_hashes
+# TODO: should I move this into an internal script?
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /mnt/rufus_supplementals/logs
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/control_hashes
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /mnt/rufus_temp/kg1_hashes
 
 # Write commands for final vcf (do inside container so have access to RUFUS versioning)
-docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/write_command_args.sh "$CONTAINER_ID"
+# get RUFUS_ROOT from inside the container
+# get RUFUS_ROOT from inside the container
+RROOT=$(docker exec "${CONTAINER_ID}" bash -lc 'printf "%s" "$RUFUS_ROOT"') || {
+  echo "Failed to query RUFUS_ROOT from container ${CONTAINER_ID}" >&2
+  exit 1
+}
+
+# TODO: then, figure out /mnt situation
+if [ -z "$RROOT" ]; then
+  echo "RUFUS_ROOT not set in container ${CONTAINER_ID}" >&2
+  exit 1
+fi
+
+docker exec -u "${USER_SPEC}" "${CONTAINER_ID}" bash ${RROOT}/resource_helpers/write_command_args.sh "${CONTAINER_ID}"
 
 # Pull out worker script
 PR_WORKER="${WORKING_DIR}/rufus_temp/process_region_worker.sh"
-docker cp ${CONTAINER_ID}:/opt/RUFUS/aws_launch/process_region_worker.sh ${PR_WORKER}
+docker cp "${CONTAINER_ID}:${RROOT}/aws_launch/process_region_worker.sh" "${PR_WORKER}"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
     echo "Generating BWA indexes for reference fasta..."
-    docker exec ${CONTAINER_ID} bash /opt/RUFUS/resource_helpers/build_bwa_indexes.sh "${REFERENCE_FASTA}"
+    docker exec -u "${USER_SPEC}" ${CONTAINER_ID} bash ${RROOT}/resource_helpers/build_bwa_indexes.sh "${REFERENCE_FASTA}"
 fi
 
 # Start work
@@ -418,11 +436,11 @@ ref_base=$(basename ${REFERENCE_FASTA})
 
 # Wait for all jobs to finish before combining + post-processing
 echo "All RUFUS regional jobs completed. Starting merge and post-process..."
-docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s "/mnt/rufus_temp/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} bash ${RROOT}/post_process/post_process.sh -s "/mnt/rufus_temp/$subject_base" -r "/mnt/${ref_base}" -w "$WINDOW_SIZE" -d "/mnt" "$concat_ctrl_post_arg"
 
 # If we did build indexes, keep them in rufus_supplementals
 if [ "$build_refs" == "TRUE" ]; then
-    docker exec $CONTAINER_ID mv /mnt/rufus_temp/bwa_indexes /mnt/rufus_supplementals/bwa_indexes
+    docker exec -u "${USER_SPEC}" $CONTAINER_ID mv /mnt/rufus_temp/bwa_indexes /mnt/rufus_supplementals/bwa_indexes
 fi
 
 # Clean up
