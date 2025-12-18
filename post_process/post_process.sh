@@ -189,7 +189,6 @@ COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "${CONTROLS[@]}"
 
 echo "made it past coinherited removal"
-exit
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
@@ -197,6 +196,9 @@ AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
 SUBJECT_SAMPLE_NAME=$($bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
 $bcftools index $AF_ADDED_VCF 
+
+echo "added hd_af field"
+exit
 
 # Compose final vcfs
 SUBJECT_STRING=$(basename "$SUBJECT_FILE")
