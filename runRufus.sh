@@ -727,7 +727,7 @@ unset new_arary
 unset ExcludeTemp
 ########################Setting up Exome Run EXPERIMENTAL ##################################
 
-if [ "$_arg_exome" = "TRUE" ]; then 
+if [ "$_arg_exome" == "TRUE" ]; then 
 	echo "Exome run set.  Setting max kmer to 1M and saliva = true and making sure a lower cutoff was set "
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
@@ -1109,25 +1109,25 @@ then
 	then
 		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
 		then
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
 			fi
 
 			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 			
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: mutant min coverage from generated model is $MutantMinCov"
 	 		fi
 			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 
 			
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: mutant SC coverage from generated model is $MutantSC"
 			fi
 
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
 
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: MaxHashDepth = $MaxHashDepth"
 			fi
 		else
@@ -1376,8 +1376,8 @@ then
     echo "########### Skipping overlap step ###########"
 else
     echo "########### Starting RUFUS overlap ###########"
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
-     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
+    echo " bash  $RUFUSOverlap $_arg_ref $ProbandGenerator.Mutations.fastq $MutantMinCov $ProbandGenerator $ProbandGenerator.k$K_c$MutantMinCov.HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
+     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq "$MutantMinCov" "$ProbandGenerator" "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
