@@ -22,6 +22,12 @@ NUM_CHUNKS=$(get_num_chunks "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG")
 
 WORKING_DIR=$(pwd)
 
+# Statics
+DEFAULT_1MB_CPUS_PER_JOB="12"
+DEFAULT_1MB_MEM_PER_JOB="20G"
+DEFAULT_WG_CPUS_PER_JOB="40"
+DEFAULT_WG_MEM_PER_JOB="150G"
+
 echo -en "##RUFUS_callCommand=" > rufus.cmd
 
 # Compose run script(s)
@@ -83,11 +89,21 @@ if [ -n "$EMAIL_RUFUS_ARG" ]; then
 fi
 
 if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
+  if [ "$MEM_PER_JOB" == "" ]; then
+    MEM_PER_JOB="${DEFAULT_WG_MEM_PER_JOB}"
+  fi
+
+  if [ "$CPUS_PER_JOB" == "" ]; then
+    CPUS_PER_JOB="${DEFAULT_WG_CPUS_PER_JOB}"
+  fi
+
+  echo -e "#SBATCH -mem=${MEM_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
+  echo -e "#SBATCH --cpus-per-task=${CPUS_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%j.out" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -e ${WORKING_DIR}/slurm_out/rufus_call_%j.err" >> $RUFUS_SLURM_SCRIPT
 	echo "" >> $RUFUS_SLURM_SCRIPT
-	echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-  echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
+	echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+  echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
   write_out_rest_of_rufus_args
 else
   # Add a chunk for post-processing
@@ -132,8 +148,18 @@ else
     #  echo -e "INFO: to fit into the allotted $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG jobs"
     #fi
 
+    if [ "$MEM_PER_JOB" == "" ]; then
+      MEM_PER_JOB="${DEFAULT_1MB_MEM_PER_JOB}"
+    fi
+
+    if [ "$CPUS_PER_JOB" == "" ]; then
+      CPUS_PER_JOB="${DEFAULT_1MB_CPUS_PER_JOB}"
+    fi
+
     # Write out the slurm header
     ADJ_SLURM_ARRAY_END=$((ADJ_SLURM_ARRAY_LIMIT - 1))
+    echo -e "#SBATCH --mem=${MEM_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
+    echo -e "#SBATCH --cpus-per-task=${CPUS_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
     echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%A_%a.out" >> $RUFUS_SLURM_SCRIPT
     echo -e "#SBATCH -e ${WORKING_DIR}/slurm_err/rufus_call_%A_%a.err" >> $RUFUS_SLURM_SCRIPT
     echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
@@ -159,8 +185,8 @@ else
       echo -e "    KG1_REGION_FILE_ARG=\"-xkg1 \$kg1_region_arg\"" >> $RUFUS_SLURM_SCRIPT
     fi
     
-    echo -en "   srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-    echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+    echo -en "   srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+    echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
 	  echo -en "-pa \$SLURM_ARRAY_TASK_ID " >> $RUFUS_SLURM_SCRIPT
 	  echo -e "-cn \$curr_job " >> $RUFUS_SLURM_SCRIPT
     write_out_rest_of_rufus_args
@@ -174,8 +200,8 @@ else
       # Write out the region argument and srun command
       echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
       echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=0 singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
       write_out_rest_of_rufus_args
   fi
 fi
