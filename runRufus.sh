@@ -1,11 +1,7 @@
 #!/bin/bash
-rufus_branch="Epsilon "
+rufus_branch="Epsilon"
 rufus_version="v.0.1.0"
-rufus_invoc_file="rufus_command.txt"
-
-echo -n "You are running the $rufus_branch"
-echo " version of RUFUS: $rufus_version"
-echo "$rufus_version" > $rufus_invoc_file
+echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
 
 set -e 
 
@@ -26,7 +22,6 @@ set -e
 # Generated online by https://argbash.io/generate
 
 start_time=$(date +"%s")
-echo "RUFUS version V1.0.1-delta-ip"
 echo -e "RUFUS command was: $0 $@"
 date
 
@@ -129,17 +124,17 @@ print_devhelp ()
 s-n>] ...\n' "$0"
 	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multiple times)"
-  printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
-  printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
-  printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
-  printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
-  printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
-  printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
-  printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
-  printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
-  printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-  printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
-  printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
+	printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
+	printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
+	printf "\t%s\n" "-r,--ref: file path to the desired reference file (no default)"
+	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
+	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
+	printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
+	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
+	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
+	printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
+	printf "\t%s\n" "-z, --Dev output: Keep all intermediate files produced by RUFUS (default FALSE)"
 	printf "\t%s\n" "-CLEAN: Does not do a rufus run but cleans up intermediate files created by RUFUS" 
 
 	printf "\t%s\n" "################################################################################################"	
@@ -457,11 +452,11 @@ clean_up_files ()
 
     # Remove files from sub directories for this region only
     if [ -d "Intermediates" ]; then
-      rm Intermediates/*${region_postfix}*
+      rm Intermediates/*"${formatted_region}"*
     fi
 
     if [ -d "TempOverlap" ]; then
-      rm TempOverlap/*${region_postfix}*
+      rm TempOverlap/*"${formatted_region}"*
     fi
 
     if [ -e "${ProbandGenerator}.mer_counts_merged.jf" ]; then
@@ -534,6 +529,8 @@ clean_up_files ()
         mv "${ProbandFileName}${region_postfix}.${postfix}" $SUPP_DIR
       fi
     done
+
+	rm "/mnt/rufus_command.${formatted_region}.txt"
   else
     echo "not cleaning up files"
   fi
@@ -628,7 +625,6 @@ check_empty_hashes ()
 
 # Start work
 parse_commandline "$@"
-echo "$@" >> $rufus_invoc_file
 
 region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
@@ -638,6 +634,10 @@ else
 	formatted_region="wg"
 	region_postfix=".${formatted_region}"
 fi
+
+rufus_invoc_file="/mnt/rufus_command.${region_postfix}.txt"
+echo "$rufus_version" > $rufus_invoc_file
+echo "$@" >> $rufus_invoc_file
 
 
 # [ <-- needed because of Argbash
@@ -728,7 +728,7 @@ unset new_arary
 unset ExcludeTemp
 ########################Setting up Exome Run EXPERIMENTAL ##################################
 
-if [ "$_arg_exome" = "TRUE" ]; then 
+if [ "$_arg_exome" == "TRUE" ]; then 
 	echo "Exome run set.  Setting max kmer to 1M and saliva = true and making sure a lower cutoff was set "
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
@@ -1110,25 +1110,25 @@ then
 	then
 		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
 		then
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
 			fi
 
 			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 			
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: mutant min coverage from generated model is $MutantMinCov"
 	 		fi
 			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 
 			
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: mutant SC coverage from generated model is $MutantSC"
 			fi
 
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
 
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: MaxHashDepth = $MaxHashDepth"
 			fi
 		else
@@ -1377,8 +1377,8 @@ then
     echo "########### Skipping overlap step ###########"
 else
     echo "########### Starting RUFUS overlap ###########"
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
-     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
+    echo " bash  $RUFUSOverlap $_arg_ref $ProbandGenerator.Mutations.fastq $MutantMinCov $ProbandGenerator $ProbandGenerator.k$K_c$MutantMinCov.HashList "$K" "$Threads" "$_MaxAlleleSize" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash""
+     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq "$MutantMinCov" "$ProbandGenerator" "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
@@ -1393,13 +1393,13 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-rm "rufus_command.txt"
 echo "cleaning up VCF"
 
 PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 
 grep ^# ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
+
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
