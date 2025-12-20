@@ -211,8 +211,8 @@ else
 fi
 
 if [ $( head ./$NameStub.overlap.hashcount.fastq | wc -l | awk '{print $1}') -eq "0" ]; then 
-        echo "ERROR Assembly produce output for ./$NameStub.overlap.hashcount.fastq"
-        exit 100
+        echo "RUFUS could not assemble any contigs from unique reads for the given region. Exiting..."
+        exit 0
 fi
 
 sortedFastq=$NameStub".overlap.hashcount.sorted.fastq" 
