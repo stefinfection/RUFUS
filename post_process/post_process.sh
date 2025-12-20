@@ -23,20 +23,14 @@ report_empty_and_exit() {
 clean_up_post_temps() {
   files=("$TEMP_FINAL_VCF" "sorted.$TEMP_FINAL_VCF" \
   "$COINHERITED_REMOVED_VCF" "normed.sorted.$TEMP_FINAL_VCF" \
-  "$AF_ADDED_VCF" "/mnt/rufus.cmd" "final_no_gx.vcf" )
+  "$AF_ADDED_VCF" "rufus.cmd" "final_no_gx.vcf" )
 
   for file in "${files[@]}"; do
-    if [ -e "$file" ]; then
-      rm "$file"*
-    fi
+    find . -type f -name "$file" -delete
   done
 
-  if [ -d "/mnt/Intermediates" ]; then
-    rm -r "/mnt/Intermediates"
-  fi
-  if [ -d "/mnt/TempOverlap" ]; then
-    rm -r "/mnt/TempOverlap"
-  fi
+  find /mnt -type d -name "Intermediates" -delete 
+  find /mnt -type d -name "TempOverlap" -delete 
 }
 trap 'clean_up_post_temps' EXIT
 

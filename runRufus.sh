@@ -451,86 +451,9 @@ clean_up_files ()
     fi
 
     # Remove files from sub directories for this region only
-    if [ -d "Intermediates" ]; then
-      rm Intermediates/*"${formatted_region}"*
-    fi
-
-    if [ -d "TempOverlap" ]; then
-      rm TempOverlap/*"${formatted_region}"*
-    fi
-
-    if [ -e "${ProbandGenerator}.mer_counts_merged.jf" ]; then
-      rm "${ProbandGenerator}.mer_counts_merged.jf"
-    fi
-
-    control_files=(
-      "generator"
-      "generator.Jelly.chr"
-      "generator.Jhash"
-      "generator.Jhash.histo"
-      "generator.Jhash.histo.7.7.dist"
-      "generator.Jhash.histo.7.7.model"
-      "generator.Jhash.histo.7.7.out"
-      "generator.Jhash.histo.7.7.prob"
-    )
-
-    # remove control files
-    for control in "${_arg_controls[@]}";
-    do
-      ctrl_prefix=$(basename "$control")
-      for postfix in "${control_files[@]}"
-      do
-        if [ -e "${ctrl_prefix}${region_postfix}.${postfix}" ]; then
-          rm "${ctrl_prefix}${region_postfix}.${postfix}"
-        fi
-      done
-    done
-
-    # remove subject files
-    subject_files=(
-      "generator"
-      "generator.V2.overlap.fastqd"
-      "generator.Jelly.chr"
-      "generator.V2.overlap.hashcount.fastq"
-      "generator.Jhash"
-      "generator.Jhash.histo"
-      "generator.Jhash.histo.7.7.dist"
-      "generator.Jhash.histo.7.7.model"
-      "generator.Jhash.histo.7.7.out"
-      "generator.Jhash.histo.7.7.prob"
-      "generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
-      "generator.Mutations.Mate1.fastq"
-      "generator.filter.chr"
-      "generator.Mutations.Mate2.fastq"
-      "generator.temp"
-      "generator.temp.mate1.fastq"
-      "generator.V2.overlap.fastq"
-      "generator.temp.mate2.fastq"
-    )
-    for postfix in "${subject_files[@]}";
-    do
-      if [ -e "${ProbandFileName}${region_postfix}.${postfix}" ]; then
-        rm "${ProbandFileName}${region_postfix}.${postfix}"
-      fi
-    done
-
-    supplemental_files=(
-        "generator.V2.overlap.hashcount.fastq.bam"
-        "generator.V2.overlap.hashcount.fastq.bam.bai"
-        "generator.V2.overlap.hashcount.fastq.bam.vcf"
-        "generator.k${K}_c${MutantMinCov}.HashList"
-        "generator.Mutations.fastq.bam"
-        "generator.Mutations.fastq.bam.bai"
-    )
-
-    for postfix in "${supplemental_files[@]}";
-    do
-      if [ -e "${ProbandFileName}${region_postfix}.${postfix}" ]; then
-        mv "${ProbandFileName}${region_postfix}.${postfix}" $SUPP_DIR
-      fi
-    done
-
-	rm "/mnt/rufus_command.${formatted_region}.txt"
+	find ./Intermediates -maxdepth 1 -type f -name "*${formatted_region}*" -delete
+	find ./TempOverlap -maxdepth 1 -type f -name "*${formatted_region}*" -delete
+	find . -maxdepth 1 -type f -name "*${formatted_region}*" -delete
   else
     echo "not cleaning up files"
   fi
