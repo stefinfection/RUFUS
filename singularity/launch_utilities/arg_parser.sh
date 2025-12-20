@@ -163,6 +163,7 @@ done
 # Check that reference file is in provided data directory
 if [ ! -f "${HOST_DATA_DIR_RUFUS_ARG}${REFERENCE_RUFUS_ARG}" ]; then
 	echo "ERROR: provided reference file $REFERENCE_RUFUS_ARG does not exist in the provided data directory or cannot be read." >&2
+    exit 1
 fi
 
 # Check that window size is in valid range
@@ -171,12 +172,17 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
 	if [ -z "$SLURM_TIME_LIMIT_RUFUS_ARG" ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="7-00:00:00"
 	fi
-elif [ "$WINDOW_SIZE_RUFUS_ARG" -lt 500 ] || [ "$WINDOW_SIZE_RUFUS_ARG" -gt 5000 ]; then
-	echo "ERROR: window size must be between 500 and 5000 (kilobases)"
+    CPUS_PER_JOB=${CPUS_PER_JOB:-40}
+    MEM_PER_JOB=${MEM_PER_JOB:-"150G"}
+elif [ "$WINDOW_SIZE_RUFUS_ARG" -ne 1000 ]; then
+	echo "ERROR: only windows of 1000 (1MB) supported currently" >&2
+    exit 1
 else
 	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="01:00:00"
 	fi
+    CPUS_PER_JOB=${CPUS_PER_JOB:-12}
+    MEM_PER_JOB=${MEM_PER_JOB:-"20G"}
 fi
 
 if [ "$THREAD_LIMIT_RUFUS_ARG" -ge "$CPUS_PER_JOB" ]; then
