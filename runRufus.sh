@@ -437,7 +437,7 @@ assign_positional_args ()
 # Cleans up intermediary files created by RUFUS run if keep file flag is not set
 clean_up_files ()
 {
-  echo "deleting files corresponding to $ProbandGenerator $ProbandFileName $region_postfix"
+  echo "Cleaning up..." >&2
   local SUPP_DIR="rufus_supplementals"
 
   if [ "$_arg_dev_file_output" = "FALSE" ]; then
@@ -453,7 +453,9 @@ clean_up_files ()
     # Remove files from sub directories for this region only
 	find ./Intermediates -maxdepth 1 -type f -name "*${formatted_region}*" -delete
 	find ./TempOverlap -maxdepth 1 -type f -name "*${formatted_region}*" -delete
-	find . -maxdepth 1 -type f -name "*${formatted_region}*" -delete
+	find . -maxdepth 1 -type f -name "*${formatted_region}*generator*" -delete
+	find . -maxdepth 1 -type f -name "*${formatted_region}.txt"
+	find . -maxdepth 1 -type p -name "*${formatted_region}*" -delete # Clean up pipes too
   else
     echo "not cleaning up files"
   fi
