@@ -64,8 +64,9 @@ function write_out_rest_of_rufus_args() {
       echo -en "\$KG1_REGION_FILE_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "\$KG1_REGION_FILE_ARG " >> rufus.cmd
     fi
-    # Add in line break
-    echo "" >> $RUFUS_SLURM_SCRIPT
+    
+    printf '\n' >> "$RUFUS_SLURM_SCRIPT"
+    printf '\n' >> rufus.cmd
 }
 
 # Don't overwrite a run if already exists
