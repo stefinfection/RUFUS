@@ -454,7 +454,7 @@ clean_up_files ()
 	find ./Intermediates -maxdepth 1 -type f -name "*${formatted_region}*" -delete
 	find ./TempOverlap -maxdepth 1 -type f -name "*${formatted_region}*" -delete
 	find . -maxdepth 1 -type f -name "*${formatted_region}*generator*" -delete
-	find . -maxdepth 1 -type f -name "*${formatted_region}.txt"
+	find . -maxdepth 1 -type f -name "*${formatted_region}.txt" -delete
 	find . -maxdepth 1 -type p -name "*${formatted_region}*" -delete # Clean up pipes too
   else
     echo "not cleaning up files"
@@ -560,7 +560,7 @@ else
 	region_postfix=".${formatted_region}"
 fi
 
-rufus_invoc_file="/mnt/rufus_command.${region_postfix}.txt"
+rufus_invoc_file="/mnt/rufus_command${region_postfix}.txt"
 echo "$rufus_version" > $rufus_invoc_file
 echo "$@" >> $rufus_invoc_file
 

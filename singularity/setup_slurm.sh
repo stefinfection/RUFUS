@@ -85,11 +85,12 @@ if [ -n "$EMAIL_RUFUS_ARG" ]; then
 	echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 fi
 
-  echo -e "#SBATCH -mem=${MEM_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
+if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
+  echo -e "#SBATCH --mem=${MEM_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH --cpus-per-task=${CPUS_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%j.out" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -e ${WORKING_DIR}/slurm_out/rufus_call_%j.err" >> $RUFUS_SLURM_SCRIPT
-	echo "" >> $RUFUS_SLURM_SCRIPT
+  printf '\n' >> $RUFUS_SLURM_SCRIPT
 	echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
   echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
   write_out_rest_of_rufus_args
@@ -143,7 +144,7 @@ else
     echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%A_%a.out" >> $RUFUS_SLURM_SCRIPT
     echo -e "#SBATCH -e ${WORKING_DIR}/slurm_err/rufus_call_%A_%a.err" >> $RUFUS_SLURM_SCRIPT
     echo -e "#SBATCH -a 0-${ADJ_SLURM_ARRAY_END}%${SLURM_JOB_LIMIT_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
-    echo "" >> $RUFUS_SLURM_SCRIPT
+    printf '\n' >> $RUFUS_SLURM_SCRIPT
 
     # Write out the region argument and srun command
     echo -e "job_count=$BASE_COUNT_PER_SCRIPT" >> $RUFUS_SLURM_SCRIPT
