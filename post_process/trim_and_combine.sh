@@ -99,7 +99,7 @@ CHR_LENGTHS=(
 
 # Initialize combined headers
 cat "$HEADER_START" > $COMBINED_HEADER
-cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
+#cat "$PRE_HEADER_START" > $COMBINED_PRE_HEADER
 TEMP_TRIMMED="temp.trimmed"
 
 # Adjust chunk size to bp
