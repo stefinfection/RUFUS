@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Statics
+DEFAULT_1MB_CPUS_PER_JOB="12"
+DEFAULT_1MB_MEM_PER_JOB="20G"
+DEFAULT_WG_CPUS_PER_JOB="40"
+DEFAULT_WG_MEM_PER_JOB="150G"
+
+
 usage() {
   echo "Usage: $0 [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...options"
   echo "Required Arguments:"
@@ -172,8 +179,8 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
 	if [ -z "$SLURM_TIME_LIMIT_RUFUS_ARG" ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="7-00:00:00"
 	fi
-    CPUS_PER_JOB=${CPUS_PER_JOB:-40}
-    MEM_PER_JOB=${MEM_PER_JOB:-"150G"}
+    CPUS_PER_JOB=${CPUS_PER_JOB:-DEFAULT_WG_CPUS_PER_JOB}
+    MEM_PER_JOB=${MEM_PER_JOB:-DEFAULT_WG_MEM_PER_JOB}
 elif [ "$WINDOW_SIZE_RUFUS_ARG" -ne 1000 ]; then
 	echo "ERROR: only windows of 1000 (1MB) supported currently" >&2
     exit 1
@@ -181,8 +188,8 @@ else
 	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="01:00:00"
 	fi
-    CPUS_PER_JOB=${CPUS_PER_JOB:-12}
-    MEM_PER_JOB=${MEM_PER_JOB:-"20G"}
+    CPUS_PER_JOB=${CPUS_PER_JOB:-DEFAULT_1MB_CPUS_PER_JOB}
+    MEM_PER_JOB=${MEM_PER_JOB:-DEFAULT_1MB_MEM_PER_JOB}
 fi
 
 if [ "$THREAD_LIMIT_RUFUS_ARG" -ge "$CPUS_PER_JOB" ]; then

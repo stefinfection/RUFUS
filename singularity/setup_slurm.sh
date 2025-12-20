@@ -22,12 +22,6 @@ NUM_CHUNKS=$(get_num_chunks "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG")
 
 WORKING_DIR=$(pwd)
 
-# Statics
-DEFAULT_1MB_CPUS_PER_JOB="12"
-DEFAULT_1MB_MEM_PER_JOB="20G"
-DEFAULT_WG_CPUS_PER_JOB="40"
-DEFAULT_WG_MEM_PER_JOB="150G"
-
 echo -en "##RUFUS_callCommand=" > rufus.cmd
 
 # Compose run script(s)
@@ -90,15 +84,6 @@ if [ -n "$EMAIL_RUFUS_ARG" ]; then
 	echo -e "#SBATCH --mail-user=${EMAIL_RUFUS_ARG}" >> $RUFUS_SLURM_SCRIPT
 fi
 
-if [ "$WINDOW_SIZE_RUFUS_ARG" = "0" ]; then
-  if [ "$MEM_PER_JOB" == "" ]; then
-    MEM_PER_JOB="${DEFAULT_WG_MEM_PER_JOB}"
-  fi
-
-  if [ "$CPUS_PER_JOB" == "" ]; then
-    CPUS_PER_JOB="${DEFAULT_WG_CPUS_PER_JOB}"
-  fi
-
   echo -e "#SBATCH -mem=${MEM_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH --cpus-per-task=${CPUS_PER_JOB}" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%j.out" >> $RUFUS_SLURM_SCRIPT
@@ -149,14 +134,6 @@ else
     #  echo -e "INFO: 1 slurm array job will be run to combine results"
     #  echo -e "INFO: to fit into the allotted $SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG jobs"
     #fi
-
-    if [ "$MEM_PER_JOB" == "" ]; then
-      MEM_PER_JOB="${DEFAULT_1MB_MEM_PER_JOB}"
-    fi
-
-    if [ "$CPUS_PER_JOB" == "" ]; then
-      CPUS_PER_JOB="${DEFAULT_1MB_CPUS_PER_JOB}"
-    fi
 
     # Write out the slurm header
     ADJ_SLURM_ARRAY_END=$((ADJ_SLURM_ARRAY_LIMIT - 1))
