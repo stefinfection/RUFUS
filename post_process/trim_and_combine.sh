@@ -156,10 +156,10 @@ cat $COMBINED_RECORDS >> "$COMBINED_VCF"
 # cat $COMBINED_PRE_RECORDS >> $COMBINED_PRE_VCF
 
 bgzip $COMBINED_VCF
-$BCFTOOLS index -t "${COMBINED_VCF}.gz"
+$BCFTOOLS index "${COMBINED_VCF}.gz"
 
 # bgzip $COMBINED_PRE_VCF
-# $BCFTOOLS index -t "${COMBINED_PRE_VCF}.gz"
+# $BCFTOOLS index "${COMBINED_PRE_VCF}.gz"
 
 # Clean up temp files
 rm $contig_temp

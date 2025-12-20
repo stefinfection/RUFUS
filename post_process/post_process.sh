@@ -14,7 +14,6 @@ usage() {
 
 report_empty_and_exit() {
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
-  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > results.out
   exit 0
 }
@@ -25,20 +24,21 @@ clean_up_post_temps() {
   "$COINHERITED_REMOVED_VCF" "normed.sorted.$TEMP_FINAL_VCF" \
   "$AF_ADDED_VCF" "rufus.cmd" "final_no_gx.vcf" )
 
+	# todo: left off here - am deleting final vcf here somehow
   for file in "${files[@]}"; do
-    find . -type f -name "$file" -delete
+    find . -maxdepth 1 -type f -name "$file*" -delete
   done
 
   find /mnt -type d -name "Intermediates" -delete 
-  find /mnt -type d -name "TempOverlap" -delete 
+  find /mnt -type d -name "TempOverlap" -delete
 }
 trap 'clean_up_post_temps' EXIT
 
 # We don't want to do this unless post-processing completes without error
 clean_up_calls() {
-  if [ -e "/mnt/temp*.vcf*" ]; then
-    rm /mnt/temp*.vcf*
-  fi
+	echo "Cleaning up region vcfs..."
+	find /mnt -maxdepth 1 -type f -name "temp*vcf.gz*" -print
+	find /mnt -maxdepth 1 -type f -name "temp*vcf.gz*" -delete
 }
 
 # static paths
@@ -100,8 +100,11 @@ TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
 GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 
+SUBJECT_STRING=$(basename "$SUBJECT_FILE")
+FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+
 # Slight name change if not doing a windowed run
-if [ "$WINDOW_SIZE" = "0" ]; then
+if [ "$WINDOW_SIZE" -eq 0 ]; then
 	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
 fi
 
@@ -113,7 +116,7 @@ else
 fi
 
 # If windowed mode, trim and combine region
-if [ "$WINDOW_SIZE" != "0" ]; then
+if [ "$WINDOW_SIZE" -ne 0 ]; then
 	IFS=$'\t'
 	echo "Windowed run performed, trimming and combining region vcfs..."
 	bash ${POST_PROCESS_DIR}trim_and_combine.sh "$SUBJECT_FILE"  "$WINDOW_SIZE" "${CONTROLS[@]}"
@@ -124,9 +127,12 @@ VARS_REPORTED=$($bcftools view -H "$TEMP_FINAL_VCF" | wc -l)
 
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
-if [ "$VARS_REPORTED" = "0" ]; then
-  clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
-  report_empty_and_exit
+if [ "$VARS_REPORTED" -eq 0 ]; then
+	echo "debugging $TEMP_FINAL_VCF $FINAL_VCF.gz"
+	mv "$TEMP_FINAL_VCF" "$FINAL_VCF.gz"
+	mv "$TEMP_FINAL_VCF.csi" "$FINAL_VCF.gz.csi"
+  	clean_up_calls
+  	report_empty_and_exit
 fi
 
 # Check for empty lines
@@ -153,8 +159,6 @@ bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUB
 $bcftools index $AF_ADDED_VCF 
 
 # Compose final vcfs
-SUBJECT_STRING=$(basename "$SUBJECT_FILE")
-FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
 #PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 
 # Inject RUFUS command into header
@@ -178,7 +182,7 @@ $bcftools index "$FINAL_VCF.gz"
 # Only need to move and rename if did a windowed run
 # if [ "$WINDOW_SIZE" != "0" ]; then
 # 	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
-# 	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+# 	mv $TEMP_PREFILTERED_VCF.csi prefiltered.vcf.gz.csi
 # 	mv prefiltered.vcf.gz* rufus_supplementals/
 # fi
 

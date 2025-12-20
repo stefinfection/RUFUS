@@ -194,8 +194,6 @@ else
     THREAD_LIMIT_RUFUS_ARG=${THREAD_LIMIT_RUFUS_ARG:-10}
 fi
 
-echo "debugging: cpus per job: $CPUS_PER_JOB and thread limit $THREAD_LIMIT_RUFUS_ARG" >&2
-
 if [ "$THREAD_LIMIT_RUFUS_ARG" -ge "$CPUS_PER_JOB" ]; then
 	echo "ERROR: thread limit ($THREAD_LIMIT_RUFUS_ARG) must be less than cpus per job ($CPUS_PER_JOB)." >&2
 	exit 1
