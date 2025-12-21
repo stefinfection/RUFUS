@@ -14,7 +14,6 @@ usage() {
 
 report_empty_and_exit() {
   echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
-  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > results.out
   exit 0
 }
 
@@ -24,9 +23,10 @@ clean_up_post_temps() {
   "$COINHERITED_REMOVED_VCF" "normed.sorted.$TEMP_FINAL_VCF" \
   "$AF_ADDED_VCF" "rufus.cmd" "final_no_gx.vcf" )
 
-	# todo: left off here - am deleting final vcf here somehow
   for file in "${files[@]}"; do
-    find . -maxdepth 1 -type f -name "$file*" -delete
+	if [ "$file" != "" ]; then
+    	find . -maxdepth 1 -type f -name "$file*" -print
+	fi
   done
 
   find /mnt -type d -name "Intermediates" -delete 
@@ -52,7 +52,7 @@ SUBJECT_FILE=""
 SOURCE_DIR="/mnt"
 
 # parse command line arguments
-while getopts ":w:r:c:s:d:h" option; do 
+while getopts "h:w:r:s:d:c:" option; do 
 	case $option in 
 		h) usage;;
 		w) WINDOW_SIZE=$OPTARG;;
@@ -71,36 +71,38 @@ shift $((OPTIND-1))
 # check for mandatory command line arguments
 if [[ -z "$WINDOW_SIZE" ]]; then
 	    echo "ERROR: Missing required option -w (window size)" >&2
+		exit 1
 fi
 
-if [[ -s "$REFERENCE" ]]; then
+if [[ -z "$REFERENCE" ]]; then
 	    echo "ERROR: Missing required option -r (reference)" >&2
+		exit 1
 fi
 
-if [[ -d "$SOURCE_DIR" ]]; then
+if [[ ! -d "$SOURCE_DIR" ]]; then
 	echo "ERROR: Missing required option -d (source directory for RUFUS vcf(s))" >&2
+	exit 1
 fi
 
-if [[ -s "$SUBJECT_FILE" ]]; then
+if [[ -z "$SUBJECT_FILE" ]]; then
 	echo "ERROR: Missing required option -s (subject cram/bam)" >&2
+	exit 1
 fi
-
-if [ ${#CONTROLS[@]} -eq 0 ]; then
-	    echo "ERROR: Must supply at least one control cram/bam" >&2
-fi
-
 
 cd "$SOURCE_DIR" || exit 1
 echo "RUFUS post-process version E-0.1.0"
 date
 start_time=$(date +"%s")
 
-POST_PROCESS_DIR=/opt/RUFUS/post_process/
-TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
-TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
-GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
-
+# Have to define all of these before first possible exit
 SUBJECT_STRING=$(basename "$SUBJECT_FILE")
+echo "debug $SUBJECT_FILE"
+POST_PROCESS_DIR=/opt/RUFUS/post_process/
+TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf.gz"
+TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf.gz"
+GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_STRING}.combined.vcf.gz"
+COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
+AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
 FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
 
 # Slight name change if not doing a windowed run
@@ -128,7 +130,6 @@ VARS_REPORTED=$($bcftools view -H "$TEMP_FINAL_VCF" | wc -l)
 # Check for empty vcf AFTER trimming and combining
 # If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
 if [ "$VARS_REPORTED" -eq 0 ]; then
-	echo "debugging $TEMP_FINAL_VCF $FINAL_VCF.gz"
 	mv "$TEMP_FINAL_VCF" "$FINAL_VCF.gz"
 	mv "$TEMP_FINAL_VCF.csi" "$FINAL_VCF.gz.csi"
   	clean_up_calls
@@ -148,12 +149,10 @@ $bcftools index "sorted.$TEMP_FINAL_VCF"
 # Remove coinheriteds
 echo "Removing coinheriteds..."
 IFS=$','
-COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
 bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$WINDOW_SIZE" "${CONTROLS[@]}"
 
 # Add HD_AF field
 echo "Adding kmer-based allele frequencies..." 
-AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
 SUBJECT_SAMPLE_NAME=$($bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
 $bcftools index $AF_ADDED_VCF 
