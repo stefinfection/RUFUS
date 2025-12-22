@@ -440,12 +440,22 @@ clean_up_files ()
   echo "Cleaning up..." >&2
   local SUPP_DIR="rufus_supplementals"
 
+  local VCF_IN="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+  local VCF_OUT="./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
+
+  if [ -f "$VCF_IN" ]; then
+    grep '^#' "$VCF_IN" > "$VCF_OUT" || true
+    grep -v '^#' "$VCF_IN" | sort -k1,1V -k2,2n >> "$VCF_OUT" || true
+  else
+    echo "Missing $VCF_IN; skipping sorted VCF creation." >&2
+  fi
+
   if [ "$_arg_dev_file_output" = "FALSE" ]; then
 
     # Move files we want to keep into supplementals
-    if [ -e "Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
+    if [ -e "$VCF_OUT" ]; then
       mkdir -p $SUPP_DIR
-      mv "Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+      mv "$VCF_OUT" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
       bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
       $bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"
     fi
@@ -523,7 +533,6 @@ check_empty_hashes ()
 
 		rm "$control_code_file"
 		rm "$subject_code_file"
-		#clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
 		exit 0
 	fi
 
@@ -541,7 +550,6 @@ check_empty_hashes ()
       echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
       rm "$control_code_file"
       rm "$subject_code_file"
-      #clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
       exit 0
     fi
 
@@ -1324,9 +1332,6 @@ echo "cleaning up VCF"
 
 PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 
-grep ^# ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf
-
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
@@ -1347,8 +1352,6 @@ tabix ./$FINAL_VCF.gz
 
 #echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
 #bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
-
-#clean_up_files "$ProbandGenerator" "$ProbandFileName" "$formatted_region"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))

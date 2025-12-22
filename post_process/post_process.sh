@@ -29,8 +29,8 @@ clean_up_post_temps() {
 	fi
   done
 
-  find /mnt -type d -name "Intermediates" -delete 
-  find /mnt -type d -name "TempOverlap" -delete
+  find /mnt -type d -name "Intermediates" -exec rm -rf {} +
+  find /mnt -type d -name "TempOverlap" -exec rm -rf {} +
 }
 trap 'clean_up_post_temps' EXIT
 
