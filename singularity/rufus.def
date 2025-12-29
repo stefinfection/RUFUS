@@ -71,6 +71,8 @@ From: ubuntu:22.04
     apt-get purge -y --auto-remove git wget
 	unset DEBIAN_FRONTEND
 
+    mkdir -p /mnt
+
 %environment
     export PATH=$PATH:/opt/RUFUS/bin
     export RUFUS_ROOT=/opt/RUFUS

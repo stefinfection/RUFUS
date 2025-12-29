@@ -25,7 +25,7 @@ clean_up_post_temps() {
 
   for file in "${files[@]}"; do
 	if [ "$file" != "" ]; then
-    	find . -maxdepth 1 -type f -name "$file*" -print
+    	find . -maxdepth 1 -type f -name "$file*" -delete
 	fi
   done
 
@@ -37,7 +37,7 @@ trap 'clean_up_post_temps' EXIT
 # We don't want to do this unless post-processing completes without error
 clean_up_calls() {
 	echo "Cleaning up region vcfs..."
-	find /mnt -maxdepth 1 -type f -name "temp*vcf.gz*" -print
+	#find /mnt -maxdepth 1 -type f -name "temp*vcf.gz*" -print
 	find /mnt -maxdepth 1 -type f -name "temp*vcf.gz*" -delete
 }
 

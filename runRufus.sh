@@ -3,6 +3,9 @@ rufus_branch="Epsilon"
 rufus_version="v.0.1.0"
 echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
 
+# TODO: debug - get rid of after rebuild
+mkdir -p /mnt
+
 set -e 
 
 # This is a rather minimal example Argbash potential
@@ -44,9 +47,6 @@ RUFUSfilterFASTQse=$RDIR/bin/RUFUS.Filter.single
 fastp=$RDIR/bin/externals/fastp/src/fastp_project/fastp
 samblaster=$RDIR/bin/externals/samblaster/src/samblaster_project/samblaster
 ############################################################################################
-
-BOUND_DATA_DIR=/mnt
-cd $BOUND_DATA_DIR
 
 die()
 {
@@ -440,6 +440,7 @@ clean_up_files ()
   echo "Cleaning up..." >&2
   local SUPP_DIR="rufus_supplementals"
 
+	# todo: probandgen not filled here
   local VCF_IN="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
   local VCF_OUT="./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
 
@@ -802,7 +803,7 @@ then
         kill -9 $$  
      fi
     echo "$samtools view -F 3328 -T $_arg_cramref $_arg_subject  $_arg_region" > "$ProbandGenerator"
-elif [[ "$ProbandExtension" = "generator" ]]
+elif [[ "$ProbandExtension" == "generator" ]]
 then
 #   echo "you provided the proband bam file" "$_arg_subject"
     ProbandGenerator="${ProbandFileName}${region_postfix}"
@@ -1331,6 +1332,16 @@ fi
 echo "cleaning up VCF"
 
 PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
+
+# TODO: left off here - don't make a prefinal vcf if we don't report any variants after assembly step
+if [ ! -s "$PREFINAL_VCF" ]; then
+	exit 0
+else
+	count=$($bcftools view -H "$PREFINAL_VCF" | wc -l)
+	if [ "$count" -eq 0 ]; then
+		exit 0
+	fi
+fi
 
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
