@@ -5,6 +5,7 @@ echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
 
 # TODO: debug - get rid of after rebuild
 mkdir -p /mnt
+cd /mnt
 
 set -e 
 
@@ -440,18 +441,18 @@ clean_up_files ()
   echo "Cleaning up..." >&2
   local SUPP_DIR="rufus_supplementals"
 
-	# todo: probandgen not filled here
   local VCF_IN="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
   local VCF_OUT="./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
 
   if [ -f "$VCF_IN" ]; then
     grep '^#' "$VCF_IN" > "$VCF_OUT" || true
+    # todo: why am I sorting here? contigs?
     grep -v '^#' "$VCF_IN" | sort -k1,1V -k2,2n >> "$VCF_OUT" || true
   else
-    echo "Missing $VCF_IN; skipping sorted VCF creation." >&2
+    echo "$VCF_IN not created; skipping sorted VCF creation." >&2
   fi
 
-  if [ "$_arg_dev_file_output" = "FALSE" ]; then
+  if [ "$_arg_dev_file_output" == "FALSE" ]; then
 
     # Move files we want to keep into supplementals
     if [ -e "$VCF_OUT" ]; then
@@ -473,7 +474,7 @@ clean_up_files ()
     echo "not cleaning up files"
   fi
 }
-trap 'clean_up_files' EXIT
+#trap 'clean_up_files' EXIT
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
 # It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
@@ -571,7 +572,7 @@ else
 	region_postfix=".${formatted_region}"
 fi
 
-rufus_invoc_file="/mnt/rufus_command${region_postfix}.txt"
+rufus_invoc_file="rufus_command${region_postfix}.txt"
 echo "$rufus_version" > $rufus_invoc_file
 echo "$@" >> $rufus_invoc_file
 
@@ -795,6 +796,7 @@ then
     echo "$samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" == "cram" ]]
 then
+	# TODO: need to check for crai
 #   echo "you provided the proband cram file" "$_arg_subject"
 	ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
     if [ "$_arg_cramref" == "" ]
@@ -1329,30 +1331,32 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-echo "cleaning up VCF"
-
-PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
-
-# TODO: left off here - don't make a prefinal vcf if we don't report any variants after assembly step
-if [ ! -s "$PREFINAL_VCF" ]; then
-	exit 0
-else
-	count=$($bcftools view -H "$PREFINAL_VCF" | wc -l)
+# TODO: left off here - not producing this vcf when we should - is trap wrong?
+intermed_vcf="Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+if [[ -s "$intermed_vcf" ]]; then
+	count=$($bcftools view -H "$intermed_vcf" | wc -l)
 	if [ "$count" -eq 0 ]; then
+	  	echo "Intermediate vcf contains no variants, indicating no variants found for this region." >&2
 		exit 0
 	fi
+  	# safe to proceed (file exists, non-empty, has variants)
+else
+	echo "Intermediate vcf not present, indicating no variants found for this region." >&2
+	exit 0
 fi
 
+echo "cleaning up VCF"
+PREFINAL_VCF="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.coinherited.vcf"
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
 fi
 
 # Rename final vcf and zip/index

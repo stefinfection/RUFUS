@@ -5172,7 +5172,6 @@ int main(int argc, char *argv[]) {
 //		//return -1;
 //	}
 
-    // todo: left off here
     ifstream HashList;
     HashList.open(HashListFile);
     if (HashList.is_open()) { cout << "HashList Open " << HashListFile << endl; }
@@ -5282,25 +5281,6 @@ int main(int argc, char *argv[]) {
         VCFOutFile << line << endl;
     }
 
-    string rufusVersion = "";
-    string rufusCommandLineInvoc = "";
-    ifstream ArgFile;
-    ArgFile.open("/mnt/rufus_command.txt");
-    if (ArgFile.is_open()) { 
-        int lineIdx = 0;
-        while(getline(ArgFile, line)) {
-            if (lineIdx == 0) {
-                rufusVersion = line;
-            } else if (lineIdx == 1) {
-                rufusCommandLineInvoc = line;
-            }
-            lineIdx++;
-        }
-    }
-    else {
-        cout << "Error, ArgFile could not be opened";
-    }
-
     int lines = 0;
     line = "";
     unsigned long LongHash;
@@ -5343,19 +5323,43 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
-    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-
     // Write out final header line with sample names
-    string samplename = outStub.substr(0, outStub.find(".generator"));
+    string samplename = outStub.substr(0, outStub.rfind(".generator"));
 
     string cleanSampleName = "";
+    string cleanRegion="";
     string regionStubs[] = {".chr", ".wg"};
-    for (int i = 0; i < regionStubs->length(); i++) {
-        if (samplename.find_last_of(regionStubs[i]) != string::npos) {
-            cleanSampleName = samplename.substr(0, samplename.find_last_of(regionStubs[i]));
+    size_t stubCount = sizeof(regionStubs) / sizeof(regionStubs[0]);
+    for (int i = 0; i < stubCount; i++) {
+        size_t stubPos = samplename.rfind(regionStubs[i]);
+        if (stubPos != string::npos) {
+            cleanSampleName = samplename.substr(0, stubPos);
+            cleanRegion = samplename.substr(stubPos + 1);
         }
     }
+
+    string rufusVersion = "";
+    string rufusCommandLineInvoc = "";
+    ifstream ArgFile;
+    string rufusCommandFile = "/mnt/rufus_command." + cleanRegion + ".txt";
+    ArgFile.open(rufusCommandFile);
+    if (ArgFile.is_open()) { 
+        int lineIdx = 0;
+        while(getline(ArgFile, line)) {
+            if (lineIdx == 0) {
+                rufusVersion = line;
+            } else if (lineIdx == 1) {
+                rufusCommandLineInvoc = line;
+            }
+            lineIdx++;
+        }
+    }
+    else {
+        cout << "Error, rufus command file could not be opened" << endl;
+    }
+
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
+    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
 
     VCFOutFile << cleanSampleName;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
@@ -5377,11 +5381,13 @@ int main(int argc, char *argv[]) {
     if (reads.size() == 0) {
         cout << "no reads were passed to RUFUS.interpret exiting" << endl;
         return 0;
+    } else {
+        cout << "we have " << reads.size() << " reads" << endl;
     }
 
     cout << "procesing split reads" << endl;
     for (int i = 0; i < reads.size(); i++) {
-        //	cout << "processing read " << reads[i].name << endl;
+        	cout << "processing read " << reads[i].name << endl;
         if (reads[i].alignments.size() == 0) {
             reads[i].alignments.push_back(i);
             int count = 0;
