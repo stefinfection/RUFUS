@@ -4466,34 +4466,37 @@ float AlignmentAllA(SamRead R) {
             if (base == 'Z')
                 base = R.seq.c_str()[i];
 
-			if (base == R.seq.c_str()[i])
-			{
-//				cout << "yup"; 
-			}
-			else
-			{
-//				cout << "nope"; 
-				allA = false;
-			}
-			if (R.seq.c_str()[i] == 'A')
-				A++; 
-			else if (R.seq.c_str()[i] == 'T')
-				T++; 
-		}
-//		cout << endl; 
-	}
-	
-	
-	// cout << "true = " << true << endl; 
-	// cout << "yay done and allA = " << allA << endl; 
-	// cout << "A = " << A <<" T = " << T << " Aprop = " << (float) A / size << " Tprop = " << (float) T / size << endl; 
-	//if (allA)
-	//{ cout << "returning 1" << endl; return 1; }
-	//else if ( A > T)
-	//{cout << "returning " << (float) A / size << endl;return (float) A / size; }
-	//else
-	//{cout << "returning " << (float) T / size << endl;return (float) T / size; }
-	
+            if (base == R.seq.c_str()[i]) {
+//				cout << "yup";
+            } else {
+//				cout << "nope";
+                allA = false;
+            }
+            if (R.seq.c_str()[i] == 'A')
+                A++;
+            else if (R.seq.c_str()[i] == 'T')
+                T++;
+        }
+//		cout << endl;
+    }
+
+
+    cout << "true = " << true << endl;
+    cout << "yay done and allA = " << allA << endl;
+    cout << "A = " << A << " T = " << T << " Aprop = " << (float) A / size << " Tprop = " << (float) T / size << endl;
+    if (allA) {
+        cout << "returning 1" << endl;
+        return 1;
+    }
+    else if (A > T) {
+        cout << "returning " << (float) A / size << endl;
+        return (float) A / size;
+    }
+    else {
+        cout << "returning " << (float) T / size << endl;
+        return (float) T / size;
+    }
+
 }
 
 int MobAligneBases(MobRead M, SamRead R) {
@@ -5172,6 +5175,7 @@ int main(int argc, char *argv[]) {
 //		//return -1;
 //	}
 
+    // todo: left off here
     ifstream HashList;
     HashList.open(HashListFile);
     if (HashList.is_open()) { cout << "HashList Open " << HashListFile << endl; }
@@ -5267,7 +5271,8 @@ int main(int argc, char *argv[]) {
     Translocationsbed.open(boom + ".vcf.Translocations.bed");
     Unaligned.open(boom + "vcf.Unaligned");
 
-    // Write VCF header
+    //write VCF header
+    // TODO: update to v4.3
     VCFOutFile << "##fileformat=VCFv4.1" << endl;
     VCFOutFile << "##fileDate=" << time(0) << endl;
 
@@ -5281,27 +5286,72 @@ int main(int argc, char *argv[]) {
         VCFOutFile << line << endl;
     }
 
+    string rufusVersion = "";
+    string rufusCommandLineInvoc = "";
+    ifstream ArgFile;
+    string samplename = outStub.substr(0, outStub.find(".generator"));
+    string region = samplename.substr(samplename.find("chr"));
+    cout << "region is " << region << endl; 
+    ArgFile.open("rufus_command." + region + ".txt");
+    if (ArgFile.is_open()) { 
+        int lineIdx = 0;
+        while(getline(ArgFile, line)) {
+            if (lineIdx == 0) {
+                rufusVersion = line;
+            } else if (lineIdx == 1) {
+                rufusCommandLineInvoc = line;
+            }
+            lineIdx++;
+        }
+    }
+    else {
+        cout << "Error, ArgFile could not be opened";
+    }
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
+
+    // Write out final header line with sample names
+    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
+    samplename = outStub.substr(0, outStub.find(".generator"));
+    VCFOutFile << samplename;
+    for (int i = 0; i < ParentHashFilePaths.size(); i++) {
+        string ParPath = argv[ParentHashFilePaths[i]];
+        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
+        int endpos = ParPath.find(".generator.Jhash");
+        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
+        ParNames.push_back(Par);
+        VCFOutFile << "\t" << Par;
+    }
+    VCFOutFile << endl;
+
     int lines = 0;
+
     line = "";
+
     unsigned long LongHash;
 
     cout << "Reading in Sam File" << endl;
     map<string, int> Names;
     vector <SamRead> reads;
     int counter = 0;
+
     while (getline(SamFile, line)) {
         if (line.c_str()[0] == '@') {
+            //cout << " HEADER LINE = " << line << endl;
             vector <string> temp = Split(line, '\t');
+            //cout << temp[0] << endl;
             if (temp[0] == "@SQ") {
                 //	cout << temp[1] << endl;
                 vector <string> chr = Split(temp[1], ':');
                 vector <string> len = Split(temp[2], ':');
+
+                //	cout << "##contig=<ID=" <<  chr[1]<<",length=" << len[1] << ">"<< endl;
                 VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
             }
         } else {
             counter++;
             SamRead read;
             read.parse(line);
+            //if (read.mapQual > 0)
             if (read.FlagBits[2] != 1) //verify if read is mapped
             {
                 read.parsed = true;
@@ -5315,7 +5365,7 @@ int main(int argc, char *argv[]) {
                 int a;
                 string b;
                 if (read.CheckBasesAligned() > 50 or read.CheckEndsAlign()) { reads.push_back(read); }
-                else {}//cout << "SKIPPING Alignment" << endl; read.write();}
+                else {}
                 if (counter % 100 == 0)
                     cout << "read " << counter << " entries " << char(13);
             }
@@ -5323,71 +5373,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Write out final header line with sample names
-    string samplename = outStub.substr(0, outStub.rfind(".generator"));
-
-    string cleanSampleName = "";
-    string cleanRegion="";
-    string regionStubs[] = {".chr", ".wg"};
-    size_t stubCount = sizeof(regionStubs) / sizeof(regionStubs[0]);
-    for (int i = 0; i < stubCount; i++) {
-        size_t stubPos = samplename.rfind(regionStubs[i]);
-        if (stubPos != string::npos) {
-            cleanSampleName = samplename.substr(0, stubPos);
-            cleanRegion = samplename.substr(stubPos + 1);
-        }
-    }
-
-    string rufusVersion = "";
-    string rufusCommandLineInvoc = "";
-    ifstream ArgFile;
-    string rufusCommandFile = "/mnt/rufus_command." + cleanRegion + ".txt";
-    ArgFile.open(rufusCommandFile);
-    if (ArgFile.is_open()) { 
-        int lineIdx = 0;
-        while(getline(ArgFile, line)) {
-            if (lineIdx == 0) {
-                rufusVersion = line;
-            } else if (lineIdx == 1) {
-                rufusCommandLineInvoc = line;
-            }
-            lineIdx++;
-        }
-    }
-    else {
-        cout << "Error, rufus command file could not be opened" << endl;
-    }
-
-    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">\n";
-    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-
-    VCFOutFile << cleanSampleName;
-    for (int i = 0; i < ParentHashFilePaths.size(); i++) {
-        string ParPath = argv[ParentHashFilePaths[i]];
-        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
-        int endpos = ParPath.find(".generator.Jhash");
-        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
-        string cleanPar="";
-        for (int i = 0; i < regionStubs->length(); i++) {
-            if (Par.find_last_of(regionStubs[i]) != string::npos) {
-                cleanPar = Par.substr(0, Par.find_last_of(regionStubs[i]));
-            }
-        }
-        ParNames.push_back(cleanPar);
-        VCFOutFile << "\t" << cleanPar;
-    }
-    VCFOutFile << endl;
-
     if (reads.size() == 0) {
         cout << "no reads were passed to RUFUS.interpret exiting" << endl;
         return 0;
-    } else {
-        cout << "we have " << reads.size() << " reads" << endl;
     }
 
     cout << "procesing split reads" << endl;
     for (int i = 0; i < reads.size(); i++) {
-        	cout << "processing read " << reads[i].name << endl;
+        //	cout << "processing read " << reads[i].name << endl;
         if (reads[i].alignments.size() == 0) {
             reads[i].alignments.push_back(i);
             int count = 0;
@@ -7328,7 +7321,6 @@ int main(int argc, char *argv[]) {
     }
 
     //cout << "Done with Multi contig events" << endl;
-
 
     VCFOutFile.close();
     BEDOutFile.close();

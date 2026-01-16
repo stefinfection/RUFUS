@@ -442,9 +442,10 @@ clean_up_files ()
   local SUPP_DIR="rufus_supplementals"
 
   local VCF_IN="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
-  local VCF_OUT="./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
+  local VCF_OUT="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
 
   if [ -f "$VCF_IN" ]; then
+    
     grep '^#' "$VCF_IN" > "$VCF_OUT" || true
     # todo: why am I sorting here? contigs?
     grep -v '^#' "$VCF_IN" | sort -k1,1V -k2,2n >> "$VCF_OUT" || true
@@ -474,7 +475,7 @@ clean_up_files ()
     echo "not cleaning up files"
   fi
 }
-#trap 'clean_up_files' EXIT
+trap 'clean_up_files' EXIT
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
 # It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
@@ -1331,8 +1332,8 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-# TODO: left off here - not producing this vcf when we should - is trap wrong?
-intermed_vcf="Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+intermed_vcf="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+
 if [[ -s "$intermed_vcf" ]]; then
 	count=$($bcftools view -H "$intermed_vcf" | wc -l)
 	if [ "$count" -eq 0 ]; then
@@ -1351,22 +1352,19 @@ echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $PREFINAL_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $PREFINAL_VCF
 fi
 
 # Rename final vcf and zip/index
 FINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
 mv $PREFINAL_VCF $FINAL_VCF
-bgzip -f ./$FINAL_VCF
-tabix ./$FINAL_VCF.gz
-
-#echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
-#bash $RemoveCoInheritedVars $_arg_ref ./$PREFINAL_VCF $ProbandGenerator $arg_control_string 
+bgzip -f $FINAL_VCF
+tabix $FINAL_VCF.gz
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
