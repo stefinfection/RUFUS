@@ -3,6 +3,7 @@ rufus_branch="Singularity"
 rufus_version="v.1.1.0"
 echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
 
+cd /mnt
 set -e 
 
 # This is a rather minimal example Argbash potential
