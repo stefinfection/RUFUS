@@ -72,6 +72,7 @@ From: ubuntu:22.04
 	unset DEBIAN_FRONTEND
 
     mkdir -p /mnt
+    cd /mnt
 
 %environment
     export PATH=$PATH:/opt/RUFUS/bin
