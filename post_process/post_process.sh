@@ -96,7 +96,6 @@ start_time=$(date +"%s")
 
 # Have to define all of these before first possible exit
 SUBJECT_STRING=$(basename "$SUBJECT_FILE")
-echo "debug $SUBJECT_FILE"
 POST_PROCESS_DIR=/opt/RUFUS/post_process/
 TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf.gz"
 TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf.gz"

@@ -1,10 +1,7 @@
 #!/bin/bash
-rufus_branch="Epsilon"
-rufus_version="v.0.1.0"
+rufus_branch="Singularity"
+rufus_version="v.1.1.0"
 echo "You are running the $rufus_branch version of RUFUS: $rufus_version"
-
-# TODO: debug - get rid of after rebuild
-mkdir -p /mnt
 cd /mnt
 
 set -e 
@@ -447,7 +444,6 @@ clean_up_files ()
   if [ -f "$VCF_IN" ]; then
     
     grep '^#' "$VCF_IN" > "$VCF_OUT" || true
-    # todo: why am I sorting here? contigs?
     grep -v '^#' "$VCF_IN" | sort -k1,1V -k2,2n >> "$VCF_OUT" || true
   else
     echo "$VCF_IN not created; skipping sorted VCF creation." >&2
@@ -797,9 +793,16 @@ then
     echo "$samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
 elif [[ "$ProbandExtension" == "cram" ]]
 then
-	# TODO: need to check for crai
-#   echo "you provided the proband cram file" "$_arg_subject"
+
 	ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
+    
+	# check for index file (needed for mpileup in post processing)
+    if [[ ! -e "$_arg_subject".crai ]]
+    then
+        echo "Index file for subject cram file "$_arg_subject" not found. Please place in data directory and rerun."
+        exit 1
+    fi
+
     if [ "$_arg_cramref" == "" ]
     then
          echo "ERROR cram reference not provided for cram input";

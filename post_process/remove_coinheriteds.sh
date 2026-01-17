@@ -109,7 +109,6 @@ rm $MERGED_PILEUP
 
 # call variants from merged pileup vcf
 echo "Starting pileup call..."
-# TODO: will this work with multiple controls?
 $BCFTOOLS call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP"
 $BCFTOOLS index $CONTROL_VCF
 rm "sorted.$MERGED_PILEUP"*
