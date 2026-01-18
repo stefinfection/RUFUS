@@ -23,16 +23,16 @@ RUFUS has two stages: a variant calling stage, and a post-processing stage. Sepa
 
 ### Obtaining the RUFUS Singularity Image
 
- The pre-built RUFUS singularity container may be obtained from [Zenodo](https://zenodo.org/records/13871423). To download:
+ The pre-built RUFUS singularity container may be obtained from [Zenodo](https://zenodo.org/records/18284901). To download:
 ```
-curl "https://zenodo.org/records/13871423/files/rufus_v1.0.0-gamma" -o rufus.sif
+curl "https://zenodo.org/records/18284901/files/rufus_v1.1.0.sif" -o rufus.sif
 ```
 
 ### Input Data
 
 RUFUS requires the following data to run:
-1) A subject sample in BAM format (this may be unaligned)
-2) One or more control samples in BAM format (these may be unaligned)
+1) A subject sample in BAM/CRAM format (this may be unaligned if using whole genome mode)
+2) One or more control samples in BAM/CRAM format (these may be unaligned)
 3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
 \
 To create the BWA indexes, run the following commands:
