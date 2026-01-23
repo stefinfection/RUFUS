@@ -1386,7 +1386,8 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-rm $rufus_invoc_file
+# TODO: put back in
+#rm $rufus_invoc_file
 echo "cleaning up VCF"
 
 # Trim off generator postfix
