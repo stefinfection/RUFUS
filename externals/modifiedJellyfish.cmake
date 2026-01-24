@@ -5,16 +5,22 @@ SET(MODIFIED_JELLYFISH_DIR ${CMAKE_BINARY_DIR}/externals/modified_jellyfish CACH
 SET(MODIFIED_JELLYFISH_LIB)
 
 
-
 ExternalProject_Add(${MODIFIED_JELLYFISH_PROJECT}
 	URL ${PROJECT_SOURCE_DIR}/src/modifiedJellyfish.tar.gz
 
-        CONFIGURE_COMMAND ${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/configure --prefix=${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/
-        BUILD_IN_SOURCE 1
-        BUILD_COMMAND make
+ 	PATCH_COMMAND
+    		patch -p0 < ${PROJECT_SOURCE_DIR}/src/externals/patches/jellyfish-configure-ac.patch
+
+ 	BUILD_IN_SOURCE 1
+
+	CONFIGURE_COMMAND
+    		autoreconf -fi
+    		COMMAND ./configure --prefix=${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/
+
+  	BUILD_COMMAND make
         INSTALL_COMMAND make install
-        UPDATE_COMMAND ""
-        PREFIX ${MODIFIED_JELLYFISH_DIR}
+	#UPDATE_COMMAND ""
+	#PREFIX ${MODIFIED_JELLYFISH_DIR}
 )
 
 ExternalProject_Get_Property(${MODIFIED_JELLYFISH_PROJECT} INSTALL_DIR)
