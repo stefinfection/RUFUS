@@ -71,7 +71,7 @@ get_hash() {
     # Get the user's original directory path for error messages
     local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
     local host_dir="${!env_var}"
-    local cont_dir="/mnt/rufus_temp/${hash_type}_hashes"
+    local cont_dir="${hash_type}_hashes" #TODO: left off here - keep editing upward
         
     # Local hashes
     if [ "$geo_type" == "local" ]; then
@@ -141,8 +141,7 @@ fi
 if [ "${#CONTROL_FILE_ARRAY[@]}" -ne 0 ]; then
     # Concatenate controls into -c delimited string
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
-        control_base=$(basename "$control")
-        ctrl_arg+="-c /mnt/rufus_temp/$control_base "
+        ctrl_arg+="-c $control "
     done
 fi
 
@@ -155,12 +154,10 @@ elif [ "$KG1_HASH_VERSION" != "" ]; then
     kg1_hash_arg="-e $kg1_hash"
 fi
 
-ref_base=$(basename "$REFERENCE_FASTA")
-ref_arg="-r /mnt/rufus_temp/bwa_indexes/$ref_base"
+ref_arg="-r $REFERENCE_FASTA"
 # If subject_file ends with cram, need to change region_arg to -cr
-subject_base=$(basename "$SUBJECT_FILE")
-if [[ "$subject_base" == *.cram ]]; then
-    ref_arg="-cr /mnt/rufus_temp/bwa_indexes/$ref_base"
+if [[ "$SUBJECT_FILE" == *.cram ]]; then
+    ref_arg="-cr $REFERENCE_FASTA"
 fi
 
 # Region arg
@@ -176,7 +173,7 @@ cd $WORKING_DIR
 echo "Running RUFUS for $REGION on $subject_base..."
 
 RUFUS_CMD="$RUFUS_ROOT/runRufus.sh \
-  -s /mnt/rufus_temp/$subject_base \
+  -s $SUBJECT_FILE \
   $ctrl_arg \
   $ref_arg \
   -m $KMER_DEPTH_CUTOFF \
@@ -188,25 +185,25 @@ RUFUS_CMD="$RUFUS_ROOT/runRufus.sh \
 
 docker exec "$CONTAINER_ID" bash -c \
     "$RUFUS_CMD \
-    > /mnt/rufus_supplementals/logs/${fmtd_reg}.out \
-    2> /mnt/rufus_supplementals/logs/${fmtd_reg}.err"
+    > rufus_supplementals/logs/${fmtd_reg}.out \
+    2> rufus_supplementals/logs/${fmtd_reg}.err"
 
 # Clean up hash files
 if [ "$REGION" == "" ]; then
-    if [ -f "$/mnt/rufus_temp/downloaded_control_hashes/*wg*.Jhash" ]; then
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_temp/downloaded_control_hashes/*wg*control*.Jhash
+    if [ -f "rufus_temp/downloaded_control_hashes/*wg*.Jhash" ]; then
+        docker exec ${CONTAINER_ID} rm rufus_temp/downloaded_control_hashes/*wg*control*.Jhash
     fi
 
-    if [ -f "$/mnt/rufus_temp/downloaded_kg1_hashes/*wg*.Jhash" ]; then
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_temp/downloaded_kg1_hashes/*wg*.Jhash
+    if [ -f "rufus_temp/downloaded_kg1_hashes/*wg*.Jhash" ]; then
+        docker exec ${CONTAINER_ID} rm rufus_temp/downloaded_kg1_hashes/*wg*.Jhash
     fi
 
 else 
-    if [ -f "$/mnt/rufus_temp/downloaded_control_hashes/*$fmtd_reg*.Jhash" ]; then
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_temp/downloaded_control_hashes/*$fmtd_reg*control*.Jhash
+    if [ -f "rufus_temp/downloaded_control_hashes/*$fmtd_reg*.Jhash" ]; then
+        docker exec ${CONTAINER_ID} rm rufus_temp/downloaded_control_hashes/*$fmtd_reg*control*.Jhash
     fi
 
-    if [ -f "$/mnt/rufus_temp/downloaded_kg1_hashes/*$fmtd_reg*.Jhash" ]; then
-        docker exec ${CONTAINER_ID} rm /mnt/rufus_temp/downloaded_kg1_hashes/*$fmtd_reg*.Jhash
+    if [ -f "rufus_temp/downloaded_kg1_hashes/*$fmtd_reg*.Jhash" ]; then
+        docker exec ${CONTAINER_ID} rm rufus_temp/downloaded_kg1_hashes/*$fmtd_reg*.Jhash
     fi
 fi

@@ -5294,8 +5294,11 @@ int main(int argc, char *argv[]) {
     string rufusVersion = "";
     string rufusCommandLineInvoc = "";
     ifstream ArgFile;
-    // TODO: how do we know we're in the working dir here?
-    ArgFile.open("rufus_supplementals/rufus_command.txt");
+    string samplename = outStub.substr(0, outStub.find(".generator"));
+    string region = samplename.substr(samplename.find("chr"));
+    cout << "region is " << region << endl; 
+    // Testing
+    ArgFile.open("rufus_command." + region + ".txt");
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
         while(getline(ArgFile, line)) {
@@ -5316,7 +5319,6 @@ int main(int argc, char *argv[]) {
 
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-    string samplename = outStub.substr(0, outStub.find(".generator"));
    
     VCFOutFile << samplename << endl;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
