@@ -4876,6 +4876,7 @@ int main(int argc, char *argv[]) {
                       "-mob  arg  Path to a bam file of the aligned contigs to a mobil element list\n"
                       "-as   arg  alignment segments threshold (default: 10)\n"
                       "-rp   arg  Path to rufus run directory\n"
+                      "-ip   arg  Path to text file where invocation & versioning info lives\n"
                       "-w    arg  Indicates windowed mode run";
 
     string MutHashFilePath = "";
@@ -4888,6 +4889,7 @@ int main(int argc, char *argv[]) {
     string ExcludeFilePath = "";
     string MobBam = "";
     string rufusPath = "";
+    string rufusInvocFile = "";
     bool isWindowed = false;
 
     SegThreshold = 10;
@@ -4965,6 +4967,10 @@ int main(int argc, char *argv[]) {
         } else if (p == "-rp") {
             cout << "RUFUS parent path = " << argv[i + 1] << endl;
             rufusPath = argv[i + 1];
+            i += 1;
+        } else if (p == "-ri") {
+            cout << "RUFUS invoc file = " << argv[i + 1] << endl;
+            rufusInvocFile = argv[i + 1];
             i += 1;
         } else if (p == "-w") {
             cout << "Windowed mode indicated " << endl;
@@ -5298,7 +5304,7 @@ int main(int argc, char *argv[]) {
     string region = samplename.substr(samplename.find("chr"));
     cout << "region is " << region << endl; 
     // Testing
-    ArgFile.open("rufus_command_" + region + ".txt");
+    ArgFile.open(rufusInvocFile);
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
         while(getline(ArgFile, line)) {
