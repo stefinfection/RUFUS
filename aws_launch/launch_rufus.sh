@@ -1,6 +1,21 @@
 #!/bin/bash
 # Run outside of container, no access to internal ENV
 
+# TODO: remove after rebuilding container 12pm 26Jan
+DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
+  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
+  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
+  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
+  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources \
+  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh \
+  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
+#DEV_MOUNT=""
+
+stop_container() {
+    docker stop rufus-worker
+}
+trap 'stop_container' EXIT
+
 # Check for required argument
 ENV_FILE="$1"
 if [ -z "$ENV_FILE" ]; then
@@ -341,27 +356,28 @@ elif [[ "$subject_path" == *.cram ]]; then
     fi
 fi
 
-# TODO: do I need to mount a working_dir?
 USER_SPEC="$(id -u):$(id -g)"
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -u "${USER_SPEC}" \
-  -v ${WORKING_DIR}:${WORKING_DIR} \
+  -v "$(pwd):/work" \
+  -w /work \
   --cap-add SYS_ADMIN \
   --device /dev/fuse \
   $input_mount_clause \
+  $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
   tail -f /dev/null)
 
 start_time=$(date +%s)
 
 # Make resource directories referenced during run
-# TODO: should I move this into an internal script? LEFT OFF HERE
-docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p rufus_supplementals
-docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p rufus_supplementals/logs
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /work/rufus_temp
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /work/rufus_supplementals
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /work/rufus_supplementals/logs
 
 # TODO: can I get rid of these?
-docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p control_hashes
-docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p kg1_hashes
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /work/control_hashes
+docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p /work/kg1_hashes
 
 # Write commands for final vcf (do inside container so have access to RUFUS versioning)
 # get RUFUS_ROOT from inside the container
@@ -380,8 +396,11 @@ fi
 #docker exec -u "${USER_SPEC}" "${CONTAINER_ID}" bash ${RROOT}/resource_helpers/write_command_args.sh "${CONTAINER_ID}"
 
 # Pull out worker script
-PR_WORKER="${WORKING_DIR}/rufus_temp/process_region_worker.sh"
-docker cp "${CONTAINER_ID}:${RROOT}/aws_launch/process_region_worker.sh" "${PR_WORKER}"
+PR_WORKER="process_region_worker.sh"
+
+# TODO: change back after rebuild 12pm 26Jan
+#docker cp "${CONTAINER_ID}:${RROOT}/aws_launch/process_region_worker.sh" "${PR_WORKER}"
+cp ~/RUFUS/aws_launch/process_region_worker.sh "${PR_WORKER}"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
@@ -394,8 +413,11 @@ echo "Starting RUFUS job(s)..."
 if [ -n "$REGION_FILE" ]; then
    parallel -j "$JOB_THRESHOLD" bash ${PR_WORKER} "$CONTAINER_ID" "$TEMP_ENV_FILE" {} :::: "$REGION_FILE"
 else
-   bash ${WORKING_DIR}/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
+   bash /work/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
 fi
+
+# TODO: TEMP DEBUG
+exit
 
 concat_ctrl_post_arg=""
 if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
@@ -414,8 +436,8 @@ echo "All RUFUS regional jobs completed. Starting merge and post-process..."
 docker exec -u "${USER_SPEC}" ${CONTAINER_ID} bash ${RROOT}/post_process/post_process.sh -s "$SUBJECT_FILE" -r "$REFERENCE_FASTA" -w "$WINDOW_SIZE" -d "$WORKING_DIR" "$concat_ctrl_post_arg"
 
 # Clean up
-rm -rf ${WORKING_DIR}/rufus_temp
-rm -f ${WORKING_DIR}/rufus_supplementals/rufus_command_*txt
+rm -rf rufus_temp
+rm -f rufus_supplementals/rufus_command_*txt
 
 # Stop container
 echo "Shutting down RUFUS container..."

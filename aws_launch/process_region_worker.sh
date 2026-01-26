@@ -173,7 +173,7 @@ fi
 
 cd $WORKING_DIR
 
-echo "Running RUFUS for $REGION on $subject_base..."
+echo "Running RUFUS for $REGION on $SUBJECT_FILE..."
 
 RUFUS_CMD="$RUFUS_ROOT/runRufus.sh \
   -s $SUBJECT_FILE \
