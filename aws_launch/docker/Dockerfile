@@ -65,7 +65,8 @@ RUN cd /opt && \
     autoheader && \
     autoconf -Wno-syntax && \
     ./configure --with-htslib=/opt/htslib/ && \
-    make
+    make && \
+    make install
 
 # Install bcftools
 RUN cd /opt && \
@@ -74,7 +75,8 @@ RUN cd /opt && \
     autoheader && \
     autoconf && \
     ./configure --with-htslib=/opt/htslib/ --enable-libgsl && \
-    make
+    make && \
+    make install
 
 # Install bamtools
 RUN cd /opt && \
@@ -83,14 +85,16 @@ RUN cd /opt && \
     mkdir build && \
     cd build/ && \
     cmake -DCMAKE_INSTALL_PREFIX=/opt/bamtools/build .. && \
-    make
+    make && \
+    make install
 
 # Install bedtools
 RUN cd /opt && \
     wget https://github.com/arq5x/bedtools2/releases/download/v2.31.1/bedtools-2.31.1.tar.gz && \
     tar -zxvf bedtools-2.31.1.tar.gz && \
     cd bedtools2 && \
-    make
+    make && \
+    make install
 
 # Install RUFUS
 RUN cd /opt && \
@@ -120,9 +124,6 @@ RUN /opt/samtools/samtools || true && \
     /opt/bamtools/build/src/bamtools || true && \
     /opt/bedtools2/bin/bedtools || true && \
     bgzip || true
-
-# Set working directory
-WORKDIR /data
 
 # Default command
 CMD ["/bin/bash"]
