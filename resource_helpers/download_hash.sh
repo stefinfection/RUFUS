@@ -26,5 +26,5 @@ elif [ $count -gt 1 ]; then
     echo "$matches" >&2
     exit 1
 else
-    aws s3 cp --no-sign-request "${s3_path}${matches}" "rufus_temp/downloaded_${HASH_TYPE}_hashes/${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
+    aws s3 cp --no-sign-request "${s3_path}${matches}" "${FMTD_REGION}_${HASH_TYPE}_${HASH_VERSION}.Jhash"
 fi
