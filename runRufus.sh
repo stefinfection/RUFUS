@@ -4,6 +4,11 @@
 : "${RUFUS_ROOT:=/opt/RUFUS}"
 echo "RUFUS_ROOT is $RUFUS_ROOT"
 
+WORK_DIR="${PWD}"
+TMP_DIR="${TMP_DIR:-$WORK_DIR}"
+RUFUS_TMP="${TMP_DIR}/rufus_temp"
+mkdir -p "$RUFUS_TMP"
+
 # Import globals
 GLOBALS_FILE="$RUFUS_ROOT/resources/globals.txt" # Path to globals file inside container
 set -a
@@ -651,10 +656,10 @@ else
 	region_postfix=".${formatted_region}"
 fi
 
-rufus_invoc_file="rufus_command_$formatted_region.txt"
+rufus_invoc_file="$RUFUS_TMP/rufus_command_$formatted_region.txt"
 echo "$RUFUS_BRANCH" > $rufus_invoc_file
 echo "$RUFUS_VERSION" >> $rufus_invoc_file
-echo "$@" >> $rufus_invoc_file
+printf "%q " "$@"     >> "$rufus_invoc_file"
 
 # [ <-- needed because of Argbash
 
@@ -1369,8 +1374,8 @@ else
 		_arg_refhash="empty"
 	fi
 
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_arg_ref_bwa" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" "
-    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString"
+    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString""
+    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" 
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
