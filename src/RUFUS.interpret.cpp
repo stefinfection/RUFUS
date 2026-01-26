@@ -5298,7 +5298,7 @@ int main(int argc, char *argv[]) {
     string region = samplename.substr(samplename.find("chr"));
     cout << "region is " << region << endl; 
     // Testing
-    ArgFile.open("rufus_command." + region + ".txt");
+    ArgFile.open("rufus_command_" + region + ".txt");
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
         while(getline(ArgFile, line)) {
