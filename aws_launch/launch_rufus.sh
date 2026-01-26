@@ -147,8 +147,6 @@ export -f check_inputs
 # Check for correct controls setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to ./rufus_temp/control_hashes within container
-# Paired controls get mounted to $WORKING_DIR/paired_controls/
 set_up_controls() {
     # Check for controls here and notify if using internal
     if [ ${#CONTROL_FILE_ARRAY[@]} -eq 0 ]; then
@@ -180,7 +178,7 @@ set_up_controls() {
                     file_path=$(realpath "$file")
                     parent_dir_file=$(dirname "$file_path")
                     # Mount to realpath of file rather than parent dir because file may be symlinked
-                    mount_clause="-v ${parent_dir_file}:/random1234/control_hashes:ro "
+                    mount_clause="-v ${parent_dir_file}:${parent_dir_file} "
                     echo "CONTROL_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                     accessible=true
                     break
@@ -234,7 +232,6 @@ export -f set_up_controls
 # Check for correct 1000G setup and returns paths needed for mounting if necessary
 # Sets up link to realpath of file within provided directory, because may be a symlink
 # WARNING: all Jhash files must be in the same realpath directory for mounting to work correctly
-# Hashes get mounted to /mnt/rufus_temp/kg1_hashes within container
 set_up_kg1() {
     local mount_clause=""
 
@@ -265,7 +262,7 @@ set_up_kg1() {
                         file_path=$(realpath "$file")
                         parent_dir_file=$(dirname "$file_path")
                         # Mount to realpath of file rather than parent dir because file may be symlinked
-                        mount_clause="-v ${parent_dir_file}:${parent_dir_file}:ro "
+                        mount_clause="-v ${parent_dir_file}:${parent_dir_file} "
                         echo "KG1_HASH_LOCAL_DIR=${parent_dir_file}" >> $TEMP_ENV_FILE
                         accessible=true
                         break
@@ -344,10 +341,11 @@ elif [[ "$subject_path" == *.cram ]]; then
     fi
 fi
 
+# TODO: do I need to mount a working_dir?
 USER_SPEC="$(id -u):$(id -g)"
 CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   -u "${USER_SPEC}" \
-  -v ${WORKING_DIR}:/mnt \
+  -v ${WORKING_DIR}:${WORKING_DIR} \
   --cap-add SYS_ADMIN \
   --device /dev/fuse \
   $input_mount_clause \
@@ -360,6 +358,8 @@ start_time=$(date +%s)
 # TODO: should I move this into an internal script? LEFT OFF HERE
 docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p rufus_supplementals
 docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p rufus_supplementals/logs
+
+# TODO: can I get rid of these?
 docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p control_hashes
 docker exec -u "${USER_SPEC}" ${CONTAINER_ID} mkdir -p kg1_hashes
 
@@ -376,7 +376,8 @@ if [ -z "$RROOT" ]; then
   exit 1
 fi
 
-docker exec -u "${USER_SPEC}" "${CONTAINER_ID}" bash ${RROOT}/resource_helpers/write_command_args.sh "${CONTAINER_ID}"
+# TODO: this needs to be removed because only written outside container and CWL will not do this
+#docker exec -u "${USER_SPEC}" "${CONTAINER_ID}" bash ${RROOT}/resource_helpers/write_command_args.sh "${CONTAINER_ID}"
 
 # Pull out worker script
 PR_WORKER="${WORKING_DIR}/rufus_temp/process_region_worker.sh"
