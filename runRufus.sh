@@ -15,7 +15,6 @@ echo " version of RUFUS: $RUFUS_VERSION"
 set -e 
 
 start_time=$(date +"%s")
-echo "RUFUS v0.1.0"
 echo -e "RUFUS command was: $0 $@"
 date
 
