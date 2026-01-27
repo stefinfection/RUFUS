@@ -1,1 +1,1 @@
-sudo docker build -t rufus:latest .
+sudo docker build -t rufus:docker .

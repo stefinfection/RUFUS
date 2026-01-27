@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:22.04 AS BUILD
 
 # Metadata labels
 LABEL author="Stephanie Georges"
@@ -98,10 +98,9 @@ RUN cd /opt && \
 
 # Install RUFUS
 RUN cd /opt && \
-    git clone https://github.com/stefinfection/RUFUS.git && \
+    git clone https://github.com/stefinfection/RUFUS.git -b docker && \
     cd RUFUS && \
-    git checkout singularity_epsilon && \
-    mkdir bin && \
+    mkdir -p bin && \
     cd bin && \
     cmake ../ && \
     make
@@ -118,6 +117,8 @@ ENV RUFUS_ROOT=/opt/RUFUS
 ENV LC_CTYPE=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US.UTF-8
+ENV CC=gcc
+ENV CXX=g++
 
 # Health check / test commands
 RUN /opt/samtools/samtools || true && \
