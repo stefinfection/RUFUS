@@ -5,16 +5,15 @@ SET(MODIFIED_JELLYFISH_DIR ${CMAKE_BINARY_DIR}/externals/modified_jellyfish CACH
 SET(MODIFIED_JELLYFISH_LIB)
 
 
-ExternalProject_Add(${JELLYFISH_PROJECT}
-	GIT_REPOSITORY https://github.com/gmarcais/Jellyfish.git
-	GIT_TAG master
-	CONFIGURE_COMMAND "pwd; ./configure --prefix=/uufs/chpc.utah.edu/common/home/u0401321/RUFUS/bin/externals/jellyfish/src/jellyfish_project-build/"
-	BUILD_IN_SOURCE 1
-	#CONFIGURE_COMMAND ./configure
-	BUILD_COMMAND make
-	INSTALL_COMMAND make install
-	UPDATE_COMMAND ""
-	PREFIX ${JELLYFISH_DIR}
+ExternalProject_Add(${MODIFIED_JELLYFISH_PROJECT}
+	URL https://github.com/WilliamRichards2017/modifiedJellyfish/blob/master/modifiedJellyfish.tar.gz
+
+        CONFIGURE_COMMAND ${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/configure --prefix=${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/
+        BUILD_IN_SOURCE 1
+        BUILD_COMMAND make
+        INSTALL_COMMAND make install
+        UPDATE_COMMAND ""
+        PREFIX ${MODIFIED_JELLYFISH_DIR}
 )
 
 # For building on newer system

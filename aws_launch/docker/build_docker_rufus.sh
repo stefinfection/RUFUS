@@ -1,1 +1,1 @@
-sudo docker build -t rufus:docker .
+sudo docker build --progress=plain -t rufus:docker .
