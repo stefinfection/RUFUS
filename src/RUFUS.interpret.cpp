@@ -4968,7 +4968,7 @@ int main(int argc, char *argv[]) {
             cout << "RUFUS parent path = " << argv[i + 1] << endl;
             rufusPath = argv[i + 1];
             i += 1;
-        } else if (p == "-ri") {
+        } else if (p == "-ip") {
             cout << "RUFUS invoc file = " << argv[i + 1] << endl;
             rufusInvocFile = argv[i + 1];
             i += 1;
