@@ -437,116 +437,43 @@ assign_positional_args ()
 # Cleans up intermediary files created by RUFUS run if keep file flag is not set
 clean_up_files ()
 {
+  echo "Cleaning up..." >&2
+  local SUPP_DIR="rufus_supplementals"
 
-	echo "starting to clean up files..."
+  local VCF_IN="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+  local VCF_OUT="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
 
-	local probandGenerator="$1"
-	local probandFileName="$2"
-	local regionPostfix="$3"
-	local SUPP_DIR="rufus_supplementals"
+  if [ -f "$VCF_IN" ]; then
+    
+    grep '^#' "$VCF_IN" > "$VCF_OUT" || true
+    grep -v '^#' "$VCF_IN" | sort -k1,1V -k2,2n >> "$VCF_OUT" || true
+  else
+    echo "$VCF_IN not created; skipping sorted VCF creation." >&2
+  fi
 
-	# Move files we want to keep into supplementals
-	# TODO: once we fix the pre-filtered header and update post processing, we can comment this back in
-	# if [ -e "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" ]; then
-	# 	mkdir -p $SUPP_DIR
-	# 	mv "Intermediates/${probandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf" "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-	# 	bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf"
-	# 	bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${probandFileName}${regionPostfix}.vcf.gz"
-	# fi
+  if [ "$_arg_dev_file_output" == "FALSE" ]; then
 
-	# Remove files from sub directories for this region only
-	if [ -d "Intermediates" ]; then
-		rm Intermediates/*${regionPostfix}*
+    # Move files we want to keep into supplementals
+    if [ -e "$VCF_OUT" ]; then
+      mkdir -p $SUPP_DIR
+      mv "$VCF_OUT" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+      bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
+      bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"
+    fi
+
+    # Remove files from sub directories for this region only
+	if [ "$formatted_region" != "" ]; then
+		find ./Intermediates -maxdepth 1 -type f -name "*${formatted_region}*" -delete
+		find ./TempOverlap -maxdepth 1 -type f -name "*${formatted_region}*" -delete
+		find . -maxdepth 1 -type f -name "*${formatted_region}*generator*" -delete
+		find . -maxdepth 1 -type f -name "*${formatted_region}.txt" -delete
+		find . -maxdepth 1 -type p -name "*${formatted_region}*" -delete # Clean up pipes too
 	fi
-
-	if [ -d "TempOverlap" ]; then
-		rm TempOverlap/*${regionPostfix}*
-	fi
-
-	if [ -e "${probandGenerator}.mer_counts_merged.jf" ]; then
-		rm "${probandGenerator}.mer_counts_merged.jf"
-	fi
-
-	control_files=(
-		"generator"
-		"generator.Jelly.chr"
-		"generator.Jhash"
-		"generator.Jhash.histo"
-		"generator.Jhash.histo.7.7.dist"
-		"generator.Jhash.histo.7.7.model"
-		"generator.Jhash.histo.7.7.out"
-		"generator.Jhash.histo.7.7.prob"
-	)
-
-	# remove control files
-	for control in "${_arg_controls[@]}";
-	do
-		ctrl_prefix=$(basename "$control")
-		for postfix in "${control_files[@]}"
-		do
-		if [ -e "${ctrl_prefix}${regionPostfix}.${postfix}" ]; then
-			rm ${ctrl_prefix}${regionPostfix}.${postfix}
-		fi
-		done
-	done
-
-	# remove subject files
-	subject_files=(
-		"generator"
-		"generator.V2.overlap.fastqd"
-		"generator.Jelly.chr"
-		"generator.V2.overlap.hashcount.fastq"
-		"generator.V2.overlap.hashcount.sorted.fastq"
-		"generator.Jhash"
-		"generator.Jhash.histo"
-		"generator.Jhash.histo.7.7.dist"
-		"generator.Jhash.histo.7.7.model"
-		"generator.Jhash.histo.7.7.out"
-		"generator.Jhash.histo.7.7.prob"
-		"generator.V2.overlap.hashcount.fastq.bam.vcf.bed"
-		"generator.Mutations.Mate1.fastq"
-		"generator.sorted.Mutations.Mate1.fastq"
-		"generator.filter.chr"
-		"generator.Mutations.Mate2.fastq"
-		"generator.sorted.Mutations.Mate2.fastq"
-		"generator.temp"
-		"generator.temp.mate1.fastq"
-		"generator.V2.overlap.fastq"
-		"generator.temp.mate2.fastq"
-		"generator.V2.overlap.hashcount.sorted.fastq.bam"
-		"generator.V2.overlap.hashcount.fastq.bam"
-		"generator.V2.overlap.hashcount.fastq.bam.bai"
-		"generator.Mutations.fastq.bam"
-		"generator.Mutations.fastq.bam.bai"
-	)
-	for postfix in "${subject_files[@]}";
-	do
-		if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-		rm ${probandFileName}${regionPostfix}.${postfix}
-		fi
-	done
-
-	supplemental_files=(
-		"generator.V2.overlap.hashcount.fastq.bam.vcf"
-		"generator.k${K}_c${MutantMinCov}.HashList"
-	)
-	# Keep some intermediates if file output flag optioned
-	if [ "$_arg_dev_file_output" == "TRUE" ]; then
-		echo "Retaining intermediate files..." >&2
-		mkdir -p $SUPP_DIR/intermediates/
-		for postfix in "${supplemental_files[@]}"; do
-			if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-				mv ${probandFileName}${regionPostfix}.${postfix} $SUPP_DIR/intermediates
-			fi
-		done
-	else
-		for postfix in "${supplemental_files[@]}"; do
-			if [ -e "${probandFileName}${regionPostfix}.${postfix}" ]; then
-				rm ${probandFileName}${regionPostfix}.${postfix}
-			fi
-		done
-	fi
+  else
+    echo "not cleaning up files"
+  fi
 }
+trap 'clean_up_files' EXIT
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
 # It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
@@ -612,7 +539,6 @@ check_empty_hashes ()
 
 			rm "$control_code_file"
 			rm "$subject_code_file"
-			clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
 			exit 0
 		fi
 	fi
@@ -633,7 +559,6 @@ check_empty_hashes ()
 	  	rm "$control_code_file"
       fi
 	  rm "$subject_code_file"
-      clean_up_files "$proband_generator" "$proband_file_name" "$region_postfix"
       exit 0
     fi
 
@@ -749,7 +674,7 @@ unset new_arary
 unset ExcludeTemp
 ########################Setting up Exome Run EXPERIMENTAL ##################################
 
-if [ "$_arg_exome" = "TRUE" ]; then 
+if [ "$_arg_exome" == "TRUE" ]; then 
 	echo "Exome run set.  Setting max kmer to 1M and saliva = true and making sure a lower cutoff was set "
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
@@ -813,7 +738,7 @@ then
     ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
     echo "samtools view -F 3328 -T $_arg_cramref $_arg_subject $_arg_region" > "$ProbandGenerator"
 	_arg_ref="$_arg_cramref"
-elif [[ "$ProbandExtension" = "generator" ]]
+elif [[ "$ProbandExtension" == "generator" ]]
 then
     ProbandGenerator="${ProbandFileName}${region_postfix}"
 else 
@@ -843,7 +768,7 @@ do
 		# check for index file (needed for mpileup in post processing)
 		if [[ ! -e "$parentFileName".bai ]]
 		then
-			echo "Index file for parent bam file "$parentFileName" not found. Please place in data directory and rerun."
+			echo "Index file for control bam file "$parentFileName" not found. Please place in data directory and rerun."
 			exit 1
 		fi
 	    	parentGenerator="${parentFileName}${region_postfix}.generator"
@@ -854,7 +779,7 @@ do
 		# check for index file (needed for mpileup in post processing)
 		if [[ ! -e "$parentFileName".crai ]]
 		then
-			echo "Index file for parent cram file "$parentFileName" not found. Please place in data directory and rerun."
+			echo "Index file for control cram file "$parentFileName" not found. Please place in data directory and rerun."
 			exit 1
 		fi
 		parentGenerator="${parentFileName}${region_postfix}.generator"
@@ -1101,25 +1026,25 @@ then
 	then
 		if [ -e "$ProbandGenerator".Jhash.histo.7.7.model ]
 		then
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "$(grep Best\ Model "$ProbandGenerator".Jhash.histo.7.7.out)"
 			fi
 
 			MutantMinCov=$(head -2 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 			
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: mutant min coverage from generated model is $MutantMinCov"
 	 		fi
 			MutantSC=$(head -4 "$ProbandGenerator".Jhash.histo.7.7.model | tail -1 )
 
 			
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: mutant SC coverage from generated model is $MutantSC"
 			fi
 
 			MaxHashDepth=$(echo "$MutantSC * 5" | bc)
 
-			if [ "$_arg_dev_reporting" = "TRUE" ]; then
+			if [ "$_arg_dev_reporting" == "TRUE" ]; then
 				echo "INFO: MaxHashDepth = $MaxHashDepth"
 			fi
 		else
@@ -1390,8 +1315,19 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-# TODO: put back in
-#rm $rufus_invoc_file
+intermed_vcf="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+
+if [[ -s "$intermed_vcf" ]]; then
+	count=$(bcftools view -H "$intermed_vcf" | wc -l)
+	if [ "$count" -eq 0 ]; then
+	  	echo "Intermediate vcf contains no variants, indicating no variants found for this region." >&2
+		exit 0
+	fi
+  	# safe to proceed (file exists, non-empty, has variants)
+else
+	echo "Intermediate vcf not present, indicating no variants found for this region." >&2
+	exit 0
+fi
 echo "cleaning up VCF"
 
 # Trim off generator postfix
@@ -1403,26 +1339,27 @@ echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $PREFINAL_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > ./$PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $PREFINAL_VCF
 fi
 
-#echo "about to head prefinal vcf prior to zipping"
-#bcftools view -h "./$PREFINAL_VCF" | head -n 5
+# Rename final vcf and zip/index
+FINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
+mv $PREFINAL_VCF $FINAL_VCF
+bgzip -f $FINAL_VCF
+tabix $FINAL_VCF.gz
 
-bgzip -f "./$PREFINAL_VCF"
-tabix "./${PREFINAL_VCF}.gz"
+# TODO: add post processing here
 
-# TODO: add post-processing individual scripts here
-
-#echo "Removing inherited variant calls that co-occur on the same reads as a somatic..."
-#bash $RemoveCoInheritedVars $_arg_ref "./${PREFINAL_VCF}.gz" $ProbandGenerator $arg_control_string
-clean_up_files "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
-
-echo "done with everything"
+end_time=$(date +"%s")
+time_delta=$(( $end_time - $start_time ))
+hours=$(( time_delta / 3600 ))
+minutes=$(( (time_delta % 3600) / 60 ))
+seconds=$(( time_delta % 60 ))
+printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
 exit 0
 # ] <-- needed because of Argbash

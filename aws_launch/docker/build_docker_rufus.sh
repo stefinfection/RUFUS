@@ -1,1 +1,1 @@
-sudo docker build --progress=plain -t rufus:docker .
+sudo docker build --no-cache -t rufus:docker .
