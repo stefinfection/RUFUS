@@ -1318,6 +1318,13 @@ fi
 intermed_vcf="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
 
 if [[ -s "$intermed_vcf" ]]; then
+	# Have to format vcf header first before trying to use bcftools
+	# awk '{printf("##contig=<ID=%s,length=%d>\n",$1,$2)}' "$_arg_ref".fai > contigs.txt
+	# bcftools view -h $intermed_vcf | head -n -1 > contig.vcf
+	# cat contigs.txt >> contig.vcf
+	# bcftools view -h $intermed_vcf | tail -n -1 >> contig.vcf
+	# cat $intermed_vcf | grep -v "^#" >> contig.vcf
+
 	count=$(bcftools view -H "$intermed_vcf" | wc -l)
 	if [ "$count" -eq 0 ]; then
 	  	echo "Intermediate vcf contains no variants, indicating no variants found for this region." >&2
@@ -1328,13 +1335,15 @@ else
 	echo "Intermediate vcf not present, indicating no variants found for this region." >&2
 	exit 0
 fi
-echo "cleaning up VCF"
 
 # Trim off generator postfix
 PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
 
-grep ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v  ^# $ProbandGenerator.V2.overlap.hashcount.fastq.bam.vcf | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+# TODO: do I really need this? can I just sort?
+grep "^#" "$intermed_vcf" > ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+grep -v "^#" "$intermed_vcf" | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+
+
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then

@@ -5326,7 +5326,7 @@ int main(int argc, char *argv[]) {
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
    
-    VCFOutFile << samplename << endl;
+    VCFOutFile << samplename;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
         string ParPath = argv[ParentHashFilePaths[i]];
         int startpos = ParPath.find("overlap.asembly.hash.fastq.");
