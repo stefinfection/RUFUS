@@ -5670,7 +5670,8 @@ int main(int argc, char *argv[]) {
                                                                  1);
 
                                 stringstream alt;
-                                alt << insertseq;
+                                // TODO: this is incompatible with vcf formatting - need to address
+                                //alt << insertseq;
                                 alt << "<DEL>";
 
                                 string FullfilterA = reads[i].filterSV();
@@ -5781,7 +5782,7 @@ int main(int argc, char *argv[]) {
                                                                  reads[i].pos + reads[i].BreakPoint() - 1 - 1, 1);
 
                                 stringstream alt;
-                                alt << insertseq;
+                                //falt << insertseq;
                                 alt << "<DUP>";
                                 //cout << "here3" << endl;
                                 string FullfilterA = reads[i].filterSV();
@@ -6650,9 +6651,9 @@ int main(int argc, char *argv[]) {
                                             string ENDinsertseq = GetUnalignedCenter(reads[i + j], temp);
 
                                             ref << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
-                                            alt << STARTinsertedseq;
+                                            //alt << STARTinsertedseq;
                                             alt << "<INV>";
-                                            alt << ENDinsertseq;
+                                            //alt << ENDinsertseq;
 
                                             int readAmut = 0;
                                             int readApos = 0;
@@ -7040,10 +7041,10 @@ int main(int argc, char *argv[]) {
                             alt << "<INS>";
                             if (startBreak > 0) {
                                 ref << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
-                                alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1 + abs(startBreak));
+                                //alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1 + abs(startBreak));
                             } else if (startBreak < 0) {
                                 ref << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1 + abs(startBreak));
-                                alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
+                                //alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
                             }
                             //						cout << "here 3" << endl;
                             //ref << "-" << Reff.getSubSequence(reads[i].chr, pos -1 -1 + abs(startBreak)+1, size - abs(startBreak) - abs(endBreak) );
@@ -7052,8 +7053,8 @@ int main(int argc, char *argv[]) {
                             //						cout << "here 3.11" << endl;
                             string rightseq = reads[i + j].getClippedSequence(sbJ, "cm");
                             //						cout << "here 3.12" << endl;
-                            alt << "-" << reads[i].getClippedSequence(sbI, "mc") << "NNNNNNNNNNNNNNNNNNNN"
-                                << reads[i + j].getClippedSequence(sbJ, "cm");
+                            //alt << "-" << reads[i].getClippedSequence(sbI, "mc") << "NNNNNNNNNNNNNNNNNNNN"
+                            //    << reads[i + j].getClippedSequence(sbJ, "cm");
                             //						cout << "here 3.1" << endl;
                             Format << alt.str().length() << "+" << "LargeInsert";
                             //						cout << "here 3.2" << endl;

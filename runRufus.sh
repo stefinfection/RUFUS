@@ -1318,13 +1318,6 @@ fi
 intermed_vcf="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
 
 if [[ -s "$intermed_vcf" ]]; then
-	# Have to format vcf header first before trying to use bcftools
-	# awk '{printf("##contig=<ID=%s,length=%d>\n",$1,$2)}' "$_arg_ref".fai > contigs.txt
-	# bcftools view -h $intermed_vcf | head -n -1 > contig.vcf
-	# cat contigs.txt >> contig.vcf
-	# bcftools view -h $intermed_vcf | tail -n -1 >> contig.vcf
-	# cat $intermed_vcf | grep -v "^#" >> contig.vcf
-
 	count=$(bcftools view -H "$intermed_vcf" | wc -l)
 	if [ "$count" -eq 0 ]; then
 	  	echo "Intermediate vcf contains no variants, indicating no variants found for this region." >&2
@@ -1337,32 +1330,57 @@ else
 fi
 
 # Trim off generator postfix
-PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
+DEDUPED_VCF="deduped.vcf"
 
 # TODO: do I really need this? can I just sort?
 grep "^#" "$intermed_vcf" > ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 grep -v "^#" "$intermed_vcf" | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 
-
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $PREFINAL_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
-	echo "excluding mosaic"; 
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $PREFINAL_VCF
+	echo "excluding mosaic"
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 fi
 
+# TODO: left off testing here
+
+# Update reference alleles
+REF_VCF="ref.vcf"
+bcftools +fill-from-fasta "$DEDUPED" > "$REF_VCF"
+
+# Get rid of break-ends
+TYPE_VCF="snv_indel.vcf"
+bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
+
+# Check for empty gt field
+GX_VCF="gx.vcf"
+bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
+
+# Trim calls to region
+TRIMMED_VCF="trimed.vcf"
+bcftools view -r "$_arg_region" "$GX_VCF" > "$TRIMMED_VCF"
+
+# Normalize
+ATOM_VCF="atomed.vcf"
+bcftools norm -m- -f "$_arg_ref" "$TRIMMED_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
+
+# Remove inherited hitch-hikers
+NO_CO_VCF="no_coinheriteds.vcf"
+bash $RDIR/post_process/remove_coinheriteds.sh "$ATOM_VCF" > "$NO_CO_VCF"
+
 # Rename final vcf and zip/index
-FINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
-mv $PREFINAL_VCF $FINAL_VCF
-bgzip -f $FINAL_VCF
-tabix $FINAL_VCF.gz
+PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
+bgzip -f $PREFINAL_VCF
+tabix $PREFINAL_VCF.gz
 
 # TODO: add post processing here
+
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
