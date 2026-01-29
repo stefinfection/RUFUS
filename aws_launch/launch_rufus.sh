@@ -2,8 +2,8 @@
 # Run outside of container, no access to internal ENV
 
 # TODO: remove after rebuilding container 12pm 26Jan
-DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
-  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process"
+#DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
+#  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process"
 #  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
 #  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
 #  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources \
@@ -416,32 +416,28 @@ else
    bash /work/process_region_worker.sh "$CONTAINER_ID" "$TEMP_ENV_FILE" ""
 fi
 
-#DEBUG
-exit
-
-concat_ctrl_post_arg=""
-if [ ${#CONTROL_FILE_ARRAY[@]} -gt 0 ]; then
-    # Concatenate controls without -c delimiters
-    concat_ctrls=""
-    for control in "${CONTROL_FILE_ARRAY[@]}"; do
-        concat_ctrls+="$control "
-    done
-    concat_ctrl_post_arg="-c $concat_ctrls"
-fi
-
 ref_base=$(basename ${REFERENCE_FASTA})
+echo "All RUFUS regional jobs completed. Concatenating into a single vcf..."
 
-# Wait for all jobs to finish before combining + post-processing
-echo "All RUFUS regional jobs completed. Starting merge and post-process..."
-docker exec -u "${USER_SPEC}" ${CONTAINER_ID} bash ${RROOT}/post_process/post_process.sh -s "$SUBJECT_FILE" -r "$REFERENCE_FASTA" -w "$WINDOW_SIZE" -d "$WORKING_DIR" "$concat_ctrl_post_arg"
+# Concatenate all region vcfs
+subject_string=$(basename $SUBJECT_FILE)
+FINAL_VCF="RUFUS.Final.${subject_string}.combined.vcf.gz"
+ls temp.RUFUS.Final*vcf.gz > concat.list
+bcftools concat -f concat.list -Oz -o $FINAL_VCF
+bcftools index "$FINAL_VCF.gz"
 
 # Clean up
 rm -rf rufus_temp
 rm -f rufus_supplementals/rufus_command_*txt
+rm -rf Intermediates
+rm -rf TempOverlap
+rm -rf kg1_hashes
+rm -rf control_hashes
+find . -maxdepth 1 -type f -name "temp.RUFUS*vcf.gz*" -delete
+rm concat.list
 
 # Stop container
 echo "Shutting down RUFUS container..."
-docker stop rufus-worker
 
 end_time=$(date +%s)
 elapsed=$((end_time - start_time))

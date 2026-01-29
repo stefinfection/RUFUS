@@ -5347,7 +5347,6 @@ int main(int argc, char *argv[]) {
     VCFOutFile << endl;
 
     int lines = 0;
-
     line = "";
 
     unsigned long LongHash;

@@ -468,6 +468,7 @@ clean_up_files ()
 		find . -maxdepth 1 -type f -name "*${formatted_region}*generator*" -delete
 		find . -maxdepth 1 -type f -name "*${formatted_region}.txt" -delete
 		find . -maxdepth 1 -type p -name "*${formatted_region}*" -delete # Clean up pipes too
+		find . -maxdepth 1 -type f -name "*.temp_vcf*" -delete
 	fi
   else
     echo "not cleaning up files"
@@ -1330,7 +1331,7 @@ else
 fi
 
 # Trim off generator postfix
-DEDUPED_VCF="deduped.vcf"
+DEDUPED_VCF="deduped.temp_vcf"
 
 # TODO: do I really need this? can I just sort?
 grep "^#" "$intermed_vcf" > ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
@@ -1352,28 +1353,28 @@ bgzip "$DEDUPED_VCF"
 tabix -C "$DEDUPED_VCF.gz"
 
 # Update reference alleles
-REF_VCF="ref.vcf"
+REF_VCF="ref.temp_vcf"
 bcftools +fill-from-fasta "$DEDUPED_VCF.gz" -- -c REF -f "$_arg_ref" > "$REF_VCF"
 
 # Get rid of break-ends
-TYPE_VCF="snv_indel.vcf"
+TYPE_VCF="snv_indel.temp_vcf"
 bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
 
 # Check for empty gt field
-GX_VCF="gx.vcf"
+GX_VCF="gx.temp_vcf"
 bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
 bgzip "$GX_VCF"
 bcftools index "$GX_VCF.gz"
 
 # Trim calls to region
-TRIMMED_VCF="trimed.vcf.gz"
+TRIMMED_VCF="trimed.temp_vcf.gz"
 bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
 bcftools index "$TRIMMED_VCF"
 
 # Not removing co-inheriteds because no paired control in pipeline runs
 
 # Left align & atomize
-ATOM_VCF="atomed.vcf"
+ATOM_VCF="atomed.temp_vcf"
 bcftools norm -m- -f "$_arg_ref" "$TRIMMED_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
 
 # Add HD_AF field
@@ -1382,7 +1383,7 @@ SUBJECT_SAMPLE_NAME=$(bcftools view -h $ATOM_VCF | tail -n 1 | awk -F'\t' '{ pri
 bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME"
 
 # Sort
-SORTED_VCF="sorted.vcf.gz"
+SORTED_VCF="sorted.temp_vcf.gz"
 bcftools sort "$HDAF_VCF" -Oz -o "$SORTED_VCF"
 
 # Rename final vcf and zip/index
