@@ -5301,7 +5301,16 @@ int main(int argc, char *argv[]) {
     string rufusCommandLineInvoc = "";
     ifstream ArgFile;
     string samplename = outStub.substr(0, outStub.find(".generator"));
-    string region = samplename.substr(samplename.find("chr"));
+    const string marker = ".chr";
+    auto pos = samplename.rfind(marker);
+    string stripped_name;
+    string region;
+    if (pos != std::string::npos) {
+        stripped_name = samplename.substr(0, pos);
+        region = samplename.substr(pos + 1); // skip the '.'
+    } else {
+        stripped_name = samplename; // fallback
+    }
     cout << "region is " << region << endl; 
     // Testing
     ArgFile.open(rufusInvocFile);
@@ -5326,7 +5335,7 @@ int main(int argc, char *argv[]) {
     // Write out final header line with sample names
     VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
    
-    VCFOutFile << samplename;
+    VCFOutFile << stripped_name;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
         string ParPath = argv[ParentHashFilePaths[i]];
         int startpos = ParPath.find("overlap.asembly.hash.fastq.");

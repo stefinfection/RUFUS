@@ -1348,11 +1348,12 @@ else
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 fi
 
-# TODO: left off testing here
+bgzip "$DEDUPED_VCF"
+tabix -C "$DEDUPED_VCF.gz"
 
 # Update reference alleles
 REF_VCF="ref.vcf"
-bcftools +fill-from-fasta "$DEDUPED" > "$REF_VCF"
+bcftools +fill-from-fasta "$DEDUPED_VCF.gz" -- -c REF -f "$_arg_ref" > "$REF_VCF"
 
 # Get rid of break-ends
 TYPE_VCF="snv_indel.vcf"
@@ -1361,26 +1362,33 @@ bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
 # Check for empty gt field
 GX_VCF="gx.vcf"
 bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
+bgzip "$GX_VCF"
+bcftools index "$GX_VCF.gz"
 
 # Trim calls to region
-TRIMMED_VCF="trimed.vcf"
-bcftools view -r "$_arg_region" "$GX_VCF" > "$TRIMMED_VCF"
+TRIMMED_VCF="trimed.vcf.gz"
+bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
+bcftools index "$TRIMMED_VCF"
 
-# Normalize
+# Not removing co-inheriteds because no paired control in pipeline runs
+
+# Left align & atomize
 ATOM_VCF="atomed.vcf"
 bcftools norm -m- -f "$_arg_ref" "$TRIMMED_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
 
-# Remove inherited hitch-hikers
-NO_CO_VCF="no_coinheriteds.vcf"
-bash $RDIR/post_process/remove_coinheriteds.sh "$ATOM_VCF" > "$NO_CO_VCF"
+# Add HD_AF field
+HDAF_VCF="hd_af.$ATOM_VCF"
+SUBJECT_SAMPLE_NAME=$(bcftools view -h $ATOM_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
+bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME"
+
+# Sort
+SORTED_VCF="sorted.vcf.gz"
+bcftools sort "$HDAF_VCF" -Oz -o "$SORTED_VCF"
 
 # Rename final vcf and zip/index
-PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf"
-bgzip -f $PREFINAL_VCF
-tabix $PREFINAL_VCF.gz
-
-# TODO: add post processing here
-
+PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf.gz"
+mv "$SORTED_VCF" "$PREFINAL_VCF"
+bcftools index "$PREFINAL_VCF"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))

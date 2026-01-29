@@ -2,10 +2,10 @@
 # Run outside of container, no access to internal ENV
 
 # TODO: remove after rebuilding container 12pm 26Jan
-DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh"
+DEV_MOUNT="-v /home/ubuntu/RUFUS/runRufus.sh:/opt/RUFUS/runRufus.sh \
+  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process"
 #  -v /home/ubuntu/RUFUS/scripts:/opt/RUFUS/scripts \
 #  -v /home/ubuntu/RUFUS/resource_helpers:/opt/RUFUS/resource_helpers \
-#  -v /home/ubuntu/RUFUS/post_process:/opt/RUFUS/post_process \
 #  -v /home/ubuntu/RUFUS/resources:/opt/RUFUS/resources \
 #  -v /home/ubuntu/RUFUS/aws_launch/process_region_worker.sh:/opt/RUFUS/aws_launch/process_region_worker.sh \
 #  -v /home/ubuntu/RUFUS/bin/RUFUS.interpret:/opt/RUFUS/bin/RUFUS.interpret"
