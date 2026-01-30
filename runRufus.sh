@@ -465,6 +465,7 @@ clean_up_files ()
 	if [ "$formatted_region" != "" ]; then
 		find ./Intermediates -maxdepth 1 -type f -name "*${formatted_region}*" -delete
 		find ./TempOverlap -maxdepth 1 -type f -name "*${formatted_region}*" -delete
+		find ./rufus_temp -maxdepth 1 -type f -name "*${formatted_region}*" -delete
 		find . -maxdepth 1 -type f -name "*${formatted_region}*generator*" -delete
 		find . -maxdepth 1 -type f -name "*${formatted_region}.txt" -delete
 		find . -maxdepth 1 -type p -name "*${formatted_region}*" -delete # Clean up pipes too
