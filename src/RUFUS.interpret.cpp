@@ -5341,17 +5341,6 @@ int main(int argc, char *argv[]) {
     vector <SamRead> reads;
     int counter = 0;
     while (getline(SamFile, line)) {
-        cout << line << endl;
-        // if (line.c_str()[0] == '@') {
-        //     //cout << " HEADER LINE = " << line << endl;
-        //     vector <string> temp = Split(line, '\t');
-        //     //cout << temp[0] << endl;
-        //     if (temp[0] == "@SQ") {
-        //         vector <string> chr = Split(temp[1], ':');
-        //         vector <string> len = Split(temp[2], ':');
-        //         VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
-        //     }
-        // } 
         if (!line.empty() && line[0] == '@') {
             vector<string> temp = Split(line, '\t');
 
