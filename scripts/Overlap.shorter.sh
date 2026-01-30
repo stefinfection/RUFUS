@@ -352,7 +352,6 @@ else
 fi
 wait
 
-samtools view -h  $NameStub.overlap.hashcount.fastq.bam > pre.bam
 samtools index ./$NameStub.overlap.hashcount.fastq.bam
 echo ""
 echo "" 
