@@ -1,1 +1,1 @@
-sudo docker build --no-cache -t rufus:dev .
+sudo docker build --no-cache -t rufus:stage .

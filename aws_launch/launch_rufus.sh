@@ -14,7 +14,7 @@
 stop_container() {
     docker stop rufus-worker
 }
-trap 'stop_container' EXIT
+#trap 'stop_container' EXIT
 
 # Check for required argument
 ENV_FILE="$1"
@@ -367,7 +367,7 @@ CONTAINER_ID=$(docker run -d --rm --name rufus-worker \
   $DEV_MOUNT \
   $RUFUS_DOCKER_IMAGE \
   tail -f /dev/null)
-
+exit
 start_time=$(date +%s)
 
 # Make resource directories referenced during run

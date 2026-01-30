@@ -188,6 +188,10 @@ export PATH_RUFUS_DIR KG1_VERSION CONTROL_VERSION INPUT_CRAM REFERENCE \
 # Run each region in parallel; each region gets full -t "$THREADS" inside runRufus.sh
 xargs -a "$TMP_REGIONS" -n 1 -P "$JOBS" -I {} bash -c 'run_shard_region "$@"' _ {}
 
+echo "DEBUG: stop after running shard regions"
+exit
+
+
 # Collect shard outputs (sorted, safe if none)
 shopt -s nullglob
 mapfile -t REGIONS < <(

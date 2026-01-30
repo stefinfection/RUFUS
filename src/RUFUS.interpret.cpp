@@ -5330,21 +5330,6 @@ int main(int argc, char *argv[]) {
     else {
         cout << "Error, ArgFile could not be opened";
     }
-    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
-
-    // Write out final header line with sample names
-    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-   
-    VCFOutFile << stripped_name;
-    for (int i = 0; i < ParentHashFilePaths.size(); i++) {
-        string ParPath = argv[ParentHashFilePaths[i]];
-        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
-        int endpos = ParPath.find(".generator.Jhash");
-        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
-        ParNames.push_back(Par);
-        VCFOutFile << "\t" << Par;
-    }
-    VCFOutFile << endl;
 
     int lines = 0;
     line = "";
@@ -5356,6 +5341,7 @@ int main(int argc, char *argv[]) {
     vector <SamRead> reads;
     int counter = 0;
     while (getline(SamFile, line)) {
+        cout << line << endl;
         if (line.c_str()[0] == '@') {
             //cout << " HEADER LINE = " << line << endl;
             vector <string> temp = Split(line, '\t');
@@ -5398,9 +5384,21 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    //  VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-    //VCFOutFile << outStub << endl;
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
 
+    // Write out final header line with sample names
+    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
+   
+    VCFOutFile << stripped_name;
+    for (int i = 0; i < ParentHashFilePaths.size(); i++) {
+        string ParPath = argv[ParentHashFilePaths[i]];
+        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
+        int endpos = ParPath.find(".generator.Jhash");
+        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
+        ParNames.push_back(Par);
+        VCFOutFile << "\t" << Par;
+    }
+    VCFOutFile << endl;
 
     cout << "procesing split reads" << endl;
     for (int i = 0; i < reads.size(); i++) {
