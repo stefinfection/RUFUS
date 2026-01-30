@@ -5342,14 +5342,33 @@ int main(int argc, char *argv[]) {
     int counter = 0;
     while (getline(SamFile, line)) {
         cout << line << endl;
-        if (line.c_str()[0] == '@') {
-            //cout << " HEADER LINE = " << line << endl;
-            vector <string> temp = Split(line, '\t');
-            //cout << temp[0] << endl;
-            if (temp[0] == "@SQ") {
-                vector <string> chr = Split(temp[1], ':');
-                vector <string> len = Split(temp[2], ':');
-                VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
+        // if (line.c_str()[0] == '@') {
+        //     //cout << " HEADER LINE = " << line << endl;
+        //     vector <string> temp = Split(line, '\t');
+        //     //cout << temp[0] << endl;
+        //     if (temp[0] == "@SQ") {
+        //         vector <string> chr = Split(temp[1], ':');
+        //         vector <string> len = Split(temp[2], ':');
+        //         VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
+        //     }
+        // } 
+        if (!line.empty() && line[0] == '@') {
+            vector<string> temp = Split(line, '\t');
+
+            if (temp[0].rfind("@SQ", 0) == 0) {
+                string chr, len;
+
+                for (size_t i = 1; i < temp.size(); ++i) {
+                    if (temp[i].rfind("SN:", 0) == 0)
+                        chr = temp[i].substr(3);
+                    else if (temp[i].rfind("LN:", 0) == 0)
+                        len = temp[i].substr(3);
+                }
+
+                if (!chr.empty() && !len.empty()) {
+                    VCFOutFile << "##contig=<ID=" << chr
+                            << ",length=" << len << ">\n";
+                }
             }
         } else {
             counter++;
