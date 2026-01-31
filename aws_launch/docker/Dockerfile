@@ -98,7 +98,7 @@ RUN cd /opt && \
 
 # Install RUFUS
 RUN cd /opt && \
-    git clone https://github.com/stefinfection/RUFUS.git -b docker && \
+    git clone https://github.com/stefinfection/RUFUS.git -b d1.1.0 && \
     cd RUFUS && \
     mkdir -p bin && \
     cd bin && \

@@ -5,6 +5,7 @@
 echo "RUFUS_ROOT is $RUFUS_ROOT"
 
 WORK_DIR="${PWD}"
+echo "$WORK_DIR"
 TMP_DIR="${TMP_DIR:-$WORK_DIR}"
 RUFUS_TMP="${TMP_DIR}/rufus_temp"
 mkdir -p "$RUFUS_TMP"
