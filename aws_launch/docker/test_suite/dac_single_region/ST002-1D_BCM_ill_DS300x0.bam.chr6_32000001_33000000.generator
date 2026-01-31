@@ -1,1 +1,0 @@
-samtools view -F 3328 /mnt/s3/test_files/ST002-1D_BCM_ill_DS300x0.bam chr6:32000001-33000000

@@ -140,9 +140,8 @@ run_shard_region() {
     # Build Jhash paths
     #   Example: chr1_1_1000000.150.1KG_v3.0.Jhash
     #            chr1_1_1000000.2.control_v1.0.Jhash
-    # TODO: change back to Michele's paths
-    local kg1_hash="${PATH_RUFUS_DIR}/kg1_hashes/${KG1_VERSION}/${region_fmt}.150.1KG_${KG1_VERSION}.Jhash"
-    local control_hash="${PATH_RUFUS_DIR}/control_hashes/${CONTROL_VERSION}/${region_fmt}.2.control_${CONTROL_VERSION}.Jhash"
+    local kg1_hash="${PATH_RUFUS_DIR}/KG1/${KG1_VERSION}/${region_fmt}.150.1KG_${KG1_VERSION}.Jhash"
+    local control_hash="${PATH_RUFUS_DIR}/CONTROL/${CONTROL_VERSION}/${region_fmt}.2.control_${CONTROL_VERSION}.Jhash"
 
     # Existence checks
     [[ -f "$kg1_hash" ]]      || { echo "Error: KG1 hash not found: $kg1_hash"; exit 1; }
@@ -196,7 +195,7 @@ xargs -a "$TMP_REGIONS" -n 1 -P "$JOBS" -I {} bash -c 'run_shard_region "$@"' _ 
 # Collect shard outputs (sorted, safe if none)
 shopt -s nullglob
 mapfile -t REGIONS < <(
-    printf "%s\n" ${PASSED_WORK_DIR}/temp.RUFUS.Final.*.vcf.gz |
+    printf "%s\n" ${PASSED_WORK_DIR}temp.RUFUS.Final.*.vcf.gz |
     sort -V
 )
 shopt -u nullglob
@@ -204,8 +203,8 @@ shopt -u nullglob
 
 # Merging annotated shards using bcftools
 echo "Merging ${#REGIONS[@]} annotated regions..."
-MERGED="${PASSED_WORK_DIR}/merged.vcf"
-FINAL_GZ="${PASSED_WORK_DIR}/${OUTPUT_PREFIX}.vcf.gz"
+MERGED="merged.vcf"
+FINAL_GZ="${OUTPUT_PREFIX}.vcf.gz"
 
 echo "-- BCFTools ---------------------------"
 bcftools concat -a -D -O v -o "$MERGED" "${REGIONS[@]}" \

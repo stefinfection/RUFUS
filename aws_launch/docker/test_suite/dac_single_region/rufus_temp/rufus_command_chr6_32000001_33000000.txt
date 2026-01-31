@@ -1,3 +1,0 @@
-docker
-v1.1.0
--s /mnt/s3/test_files/ST002-1D_BCM_ill_DS300x0.bam -r /mnt/s3/references//GCA_000001405.15_GRCh38_no_alt_analysis_set.fa -m 5 -k 25 -t 8 -L -vs -e /mnt/s3/rufus_resources//kg1_hashes/v3.0/chr6_32000001_33000000.150.1KG_v3.0.Jhash -e /mnt/s3/rufus_resources//control_hashes/v1.0/chr6_32000001_33000000.2.control_v1.0.Jhash -R chr6:32000001-33000000 
