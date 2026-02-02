@@ -4878,7 +4878,9 @@ int main(int argc, char *argv[]) {
                       "-e    arg  Path to Kmer file to exclude from LowCov check\n"
                       "-mob  arg  Path to a bam file of the aligned contigs to a mobil element list\n"
                       "-as   arg  alignment segments threshold (default: 10)\n"
-                      "-rp   arg  Path to rufus run directory\n";
+                      "-rp   arg  Path to rufus run directory\n"
+                      "-ip   arg  Path to text file where invocation & versioning info lives\n"
+                      "-w    arg  Indicates windowed mode run";
 
     string MutHashFilePath = "";
     string MutHashFilePathReference = "";
@@ -4890,6 +4892,9 @@ int main(int argc, char *argv[]) {
     string ExcludeFilePath = "";
     string MobBam = "";
     string rufusPath = "";
+    string rufusInvocFile = "";
+    bool isWindowed = false;
+
     SegThreshold = 10;
     int MinMapQual = 40;
     for (int i = 1; i < argc; i++) {
@@ -4966,6 +4971,13 @@ int main(int argc, char *argv[]) {
             cout << "RUFUS parent path = " << argv[i + 1] << endl;
             rufusPath = argv[i + 1];
             i += 1;
+        } else if (p == "-ip") {
+            cout << "RUFUS invoc file = " << argv[i + 1] << endl;
+            rufusInvocFile = argv[i + 1];
+            i += 1;
+        } else if (p == "-w") {
+            cout << "Windowed mode indicated " << endl;
+            isWindowed = true;
         } else {
             cout << "ERROR: unkown command line paramater -" << argv[i] << "-" << endl;
             return 0;
@@ -5283,22 +5295,36 @@ int main(int argc, char *argv[]) {
         cout << "ERROR: Could not open vcf header text file; vcf file may be corrupted" << endl;
     }
     while (getline(vcfHeader, line)) {
+        // TODO: Trim off any whitespace at end of line
         VCFOutFile << line << endl;
     }
 
+    string rufusBranch = "";
     string rufusVersion = "";
     string rufusCommandLineInvoc = "";
     ifstream ArgFile;
     string samplename = outStub.substr(0, outStub.find(".generator"));
-    string region = samplename.substr(samplename.find("chr"));
+    const string marker = ".chr";
+    auto pos = samplename.rfind(marker);
+    string stripped_name;
+    string region;
+    if (pos != std::string::npos) {
+        stripped_name = samplename.substr(0, pos);
+        region = samplename.substr(pos + 1); // skip the '.'
+    } else {
+        stripped_name = samplename; // fallback
+    }
     cout << "region is " << region << endl; 
-    ArgFile.open("rufus_command." + region + ".txt");
+    // Testing
+    ArgFile.open(rufusInvocFile);
     if (ArgFile.is_open()) { 
         int lineIdx = 0;
         while(getline(ArgFile, line)) {
             if (lineIdx == 0) {
-                rufusVersion = line;
+                rufusBranch = line;
             } else if (lineIdx == 1) {
+                rufusVersion = line;
+            } else {
                 rufusCommandLineInvoc = line;
             }
             lineIdx++;
@@ -5307,24 +5333,8 @@ int main(int argc, char *argv[]) {
     else {
         cout << "Error, ArgFile could not be opened";
     }
-    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
-
-    // Write out final header line with sample names
-    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
-    samplename = outStub.substr(0, outStub.find(".generator"));
-    VCFOutFile << samplename;
-    for (int i = 0; i < ParentHashFilePaths.size(); i++) {
-        string ParPath = argv[ParentHashFilePaths[i]];
-        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
-        int endpos = ParPath.find(".generator.Jhash");
-        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
-        ParNames.push_back(Par);
-        VCFOutFile << "\t" << Par;
-    }
-    VCFOutFile << endl;
 
     int lines = 0;
-
     line = "";
 
     unsigned long LongHash;
@@ -5335,17 +5345,23 @@ int main(int argc, char *argv[]) {
     int counter = 0;
 
     while (getline(SamFile, line)) {
-        if (line.c_str()[0] == '@') {
-            //cout << " HEADER LINE = " << line << endl;
-            vector <string> temp = Split(line, '\t');
-            //cout << temp[0] << endl;
-            if (temp[0] == "@SQ") {
-                //	cout << temp[1] << endl;
-                vector <string> chr = Split(temp[1], ':');
-                vector <string> len = Split(temp[2], ':');
+        if (!line.empty() && line[0] == '@') {
+            vector<string> temp = Split(line, '\t');
 
-                //	cout << "##contig=<ID=" <<  chr[1]<<",length=" << len[1] << ">"<< endl;
-                VCFOutFile << "##contig=<ID=" << chr[1] << ",length=" << len[1] << ">" << endl;
+            if (temp[0].rfind("@SQ", 0) == 0) {
+                string chr, len;
+
+                for (size_t i = 1; i < temp.size(); ++i) {
+                    if (temp[i].rfind("SN:", 0) == 0)
+                        chr = temp[i].substr(3);
+                    else if (temp[i].rfind("LN:", 0) == 0)
+                        len = temp[i].substr(3);
+                }
+
+                if (!chr.empty() && !len.empty()) {
+                    VCFOutFile << "##contig=<ID=" << chr
+                            << ",length=" << len << ">\n";
+                }
             }
         } else {
             counter++;
@@ -5377,6 +5393,22 @@ int main(int argc, char *argv[]) {
         cout << "no reads were passed to RUFUS.interpret exiting" << endl;
         return 0;
     }
+
+    VCFOutFile << "##RUFUSCommandLine=<ID=rufus, Branch=" + rufusBranch + ", Version=" + rufusVersion + ", CommandLineOptions=\"" + rufusCommandLineInvoc + "\">" << endl;
+
+    // Write out final header line with sample names
+    VCFOutFile << "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t";
+   
+    VCFOutFile << stripped_name;
+    for (int i = 0; i < ParentHashFilePaths.size(); i++) {
+        string ParPath = argv[ParentHashFilePaths[i]];
+        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
+        int endpos = ParPath.find(".generator.Jhash");
+        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
+        ParNames.push_back(Par);
+        VCFOutFile << "\t" << Par;
+    }
+    VCFOutFile << endl;
 
     cout << "procesing split reads" << endl;
     for (int i = 0; i < reads.size(); i++) {
@@ -5654,7 +5686,8 @@ int main(int argc, char *argv[]) {
                                                                  1);
 
                                 stringstream alt;
-                                alt << insertseq;
+                                // TODO: this is incompatible with vcf formatting - need to address
+                                //alt << insertseq;
                                 alt << "<DEL>";
 
                                 string FullfilterA = reads[i].filterSV();
@@ -5765,7 +5798,7 @@ int main(int argc, char *argv[]) {
                                                                  reads[i].pos + reads[i].BreakPoint() - 1 - 1, 1);
 
                                 stringstream alt;
-                                alt << insertseq;
+                                //falt << insertseq;
                                 alt << "<DUP>";
                                 //cout << "here3" << endl;
                                 string FullfilterA = reads[i].filterSV();
@@ -6634,9 +6667,9 @@ int main(int argc, char *argv[]) {
                                             string ENDinsertseq = GetUnalignedCenter(reads[i + j], temp);
 
                                             ref << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
-                                            alt << STARTinsertedseq;
+                                            //alt << STARTinsertedseq;
                                             alt << "<INV>";
-                                            alt << ENDinsertseq;
+                                            //alt << ENDinsertseq;
 
                                             int readAmut = 0;
                                             int readApos = 0;
@@ -7024,10 +7057,10 @@ int main(int argc, char *argv[]) {
                             alt << "<INS>";
                             if (startBreak > 0) {
                                 ref << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
-                                alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1 + abs(startBreak));
+                                //alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1 + abs(startBreak));
                             } else if (startBreak < 0) {
                                 ref << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1 + abs(startBreak));
-                                alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
+                                //alt << Reff.getSubSequence(reads[i].chr, pos - 1 - 1, 1);
                             }
                             //						cout << "here 3" << endl;
                             //ref << "-" << Reff.getSubSequence(reads[i].chr, pos -1 -1 + abs(startBreak)+1, size - abs(startBreak) - abs(endBreak) );
@@ -7036,8 +7069,8 @@ int main(int argc, char *argv[]) {
                             //						cout << "here 3.11" << endl;
                             string rightseq = reads[i + j].getClippedSequence(sbJ, "cm");
                             //						cout << "here 3.12" << endl;
-                            alt << "-" << reads[i].getClippedSequence(sbI, "mc") << "NNNNNNNNNNNNNNNNNNNN"
-                                << reads[i + j].getClippedSequence(sbJ, "cm");
+                            //alt << "-" << reads[i].getClippedSequence(sbI, "mc") << "NNNNNNNNNNNNNNNNNNNN"
+                            //    << reads[i + j].getClippedSequence(sbJ, "cm");
                             //						cout << "here 3.1" << endl;
                             Format << alt.str().length() << "+" << "LargeInsert";
                             //						cout << "here 3.2" << endl;

@@ -35,7 +35,7 @@ echo "Overlaping $File"
 CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 
-RDIR=$CDIR/../
+RDIR=$CDIR
 
 OverlapHash=$RDIR/bin/Overlap
 OverlapRebion2=$RDIR/bin/OverlapRegion

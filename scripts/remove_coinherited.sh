@@ -26,8 +26,6 @@ echo "Control bam list is ${ARG_LIST[@]:3}"
 OUT_VCF="$SAMPLE_NAME.FINAL.normalized.vcf.gz"
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
-samtools="/opt/samtools/samtools"
-bcftools="/opt/bcftools/bcftools"
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
@@ -35,30 +33,30 @@ mkdir "${ISEC_OUT_DIR}"
 
 #format final rufus vcf for intersections
 vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $OUT_VCF
-$bcftools index -t $OUT_VCF
+bcftools index -t $OUT_VCF
 
 #for loop for each control file provided by user
 for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
     MADE_ALIGN_CONTROL=false
     
     #check to see if the provided bam file is alignedq
-    if [ "$($samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
+    if [ "$(samtools view -H "$CONTROL" | grep -c '^@SQ')" -gt 0 ]; then
         CONTROL_BAM=$CONTROL
     else
-        bwa mem -t 40 $REFERENCE_FILE $CONTROL | $samtools view -S -@ 12 -b - > $CONTROL_ALIGNED
+        bwa mem -t 40 $REFERENCE_FILE $CONTROL | samtools view -S -@ 12 -b - > $CONTROL_ALIGNED
         CONTROL_BAM=$CONTROL_ALIGNED
 	    MADE_ALIGN_CONTROL=true
     fi
     
     #run pileup and call variants
-    $bcftools mpileup -d600 -T $OUT_VCF -f $REFERENCE_FILE $CONTROL_BAM | $bcftools call -cv -Oz -o $CONTROL_VCF 
-    $bcftools index -t $CONTROL_VCF
+    bcftools mpileup -d600 -T $OUT_VCF -f $REFERENCE_FILE $CONTROL_BAM | $bcftools call -cv -Oz -o $CONTROL_VCF 
+    bcftools index -t $CONTROL_VCF
     	
     #intersect the control vcf with formatted rufus vcf
-    $bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $OUT_VCF $CONTROL_VCF
+    bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $OUT_VCF $CONTROL_VCF
         
     # save the new vcf as rufus final vcf
-	  OUTFILE=$ISEC_OUT_DIR/0000.vcf.gz
+	OUTFILE=$ISEC_OUT_DIR/0000.vcf.gz
     OUT_INDEX=$ISEC_OUT_DIR/0000.vcf.gz.tbi
 
     cp $OUTFILE $OUT_DIR/"$SAMPLE_NAME.FINAL.no_inherited.vcf.gz" 

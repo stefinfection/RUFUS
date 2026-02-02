@@ -1,13 +1,13 @@
 #!/bin/bash
 
 usage() {
-	echo "Usage: $0 [-w window_size] [-r reference] [-s subject] [-c control1,control2,control3...] [-d source_dir] [-h]"
+	echo "Usage: $0 [-w window_size] [-r reference] [-s subject] [-c control1,control2,control3...] [-d source_dir] [-h]" # TODO: add -e here
 	echo "Options:"
 	echo " -w window_size	Required: The size of the window used in the RUFUS run"
 	echo " -r reference	Required: The reference used in the RUFUS run"
-	echo " -c controls	Required: The control bam files used in the RUFUS run"
+	echo " -c controls	The control bam files used in the RUFUS run, if any"
 	echo " -s subject_file	Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located"
+	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located" # TODO: make this not required
 	echo " -h help	Print help message"
 	exit 1
 }
@@ -49,7 +49,8 @@ CONTROLS=()
 WINDOW_SIZE=0
 REFERENCE=""
 SUBJECT_FILE=""
-SOURCE_DIR="/mnt"
+SOURCE_DIR="" # Current directory default
+SUPPLEMENTAL_DIR=""
 
 # parse command line arguments
 while getopts "h:w:r:s:d:c:" option; do 
@@ -59,6 +60,7 @@ while getopts "h:w:r:s:d:c:" option; do
 		r) REFERENCE=$OPTARG;;
 		s) SUBJECT_FILE=$OPTARG;;
 		d) SOURCE_DIR=$OPTARG;;
+    e) SUPPLEMENTAL_DIR=$OPTARG;;
 		c) IFS=',' read -r -a CONTROLS <<< "$OPTARG";;
 		\?) echo "Invalid option: -$OPTARG" >&2
 		    usage;;	
@@ -154,7 +156,7 @@ bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL
 echo "Adding kmer-based allele frequencies..." 
 SUBJECT_SAMPLE_NAME=$($bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
-$bcftools index $AF_ADDED_VCF 
+bcftools index $AF_ADDED_VCF
 
 # Compose final vcfs
 #PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
@@ -199,7 +201,17 @@ $bcftools index "$FINAL_VCF.gz"
 # rm ${SUPPLEMENTAL_DIR}unique_reads.bam
 # rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
 # rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
+# ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
+# samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
+# samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
+# rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# rm ${SUPPLEMENTAL_DIR}unique_reads.bam
+# rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
+# rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
 
+# cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
+# rm ${SUPPLEMENTAL_DIR}*.HashList
 # cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
 # rm ${SUPPLEMENTAL_DIR}*.HashList
 

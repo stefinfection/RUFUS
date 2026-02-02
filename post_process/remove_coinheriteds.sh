@@ -12,33 +12,26 @@ WINDOW_SIZE=$5
 ARG_LIST=("$@")
 CONTROL_BAM_LIST=("${ARG_LIST[@]:5}") # Remaining args, all control bams
 
-cd "$SRC_DIR" || exit 1
+cd $SRC_DIR
+
+# ENV file override
+: "${RUFUS_ROOT:=/opt/RUFUS}"
 
 # static vars
 CONTROL_ALIGNED="temp_aligned.bam"
 CONTROL_VCF="isec_control.vcf.gz"
 NORMED_VCF="normed.${RUFUS_VCF}"
-BWA="/opt/RUFUS/bin/externals/bwa/src/bwa_project/bwa"
-BCFTOOLS="/opt/bcftools/bcftools"
-SAMTOOLS="/opt/samtools/samtools"
-PILEUP_SCRIPT="/opt/RUFUS/post_process/single_pileup.sh"
-
-# TODO: make cleanup and trap here
-
-# Check we actually have variants
-num_vars=$($BCFTOOLS view -H "$RUFUS_VCF" | wc -l)
-if [ "$num_vars" -eq 0 ]; then
-	echo "No variants found in rufus supplied vcf to remove_coinheriteds script - exiting..." >&2
-	exit 1
-fi
+BWA="$RUFUS_ROOT/bin/externals/bwa/src/bwa_project/bwa"
+PILEUP_SCRIPT="$RUFUS_ROOT/post_process/single_pileup.sh"
+# TODO: add bcftools + samtools into path in singularity def
 
 # make intersection directory
 ISEC_OUT_DIR="temp_isecs"
 mkdir -p $ISEC_OUT_DIR
 
 #format final rufus vcf for intersections
-vt normalize -n "$RUFUS_VCF" -r "$REFERENCE_FILE" | vt decompose_blocksub - | bgzip > "$NORMED_VCF"
-$BCFTOOLS index -t "$NORMED_VCF"
+vt normalize -n $RUFUS_VCF -r $REFERENCE_FILE | vt decompose_blocksub - | bgzip > $NORMED_VCF
+bcftools index -t $NORMED_VCF
 
 #for loop for each control file provided by user
 MERGED_PILEUP="merged_pileup.vcf.gz"
@@ -107,20 +100,19 @@ $BCFTOOLS sort -Oz -o "sorted.$MERGED_PILEUP" "$MERGED_PILEUP"
 $BCFTOOLS index "sorted.$MERGED_PILEUP"
 rm $MERGED_PILEUP
 
-# call variants from merged pileup vcf
-echo "Starting pileup call..."
-$BCFTOOLS call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP"
-$BCFTOOLS index $CONTROL_VCF
-rm "sorted.$MERGED_PILEUP"*
-
-#intersect the control vcf with formatted rufus vcf
-echo "Starting intersection..."
-$BCFTOOLS isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR "$NORMED_VCF" "$CONTROL_VCF"
-$BCFTOOLS index "$ISEC_OUT_DIR/0000.vcf.gz"
-
-# save the new vcf as rufus final vcf
-OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
-OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.csi"
+	# call variants from merged pileup vcf
+	echo "Starting pileup call..."
+	bcftools call -cv -Oz -o $CONTROL_VCF "sorted.$MERGED_PILEUP.gz"
+    bcftools index -t $CONTROL_VCF
+	rm "sorted.$MERGED_PILEUP.gz"*    
+	
+    #intersect the control vcf with formatted rufus vcf
+	echo "Starting intersection..."
+    bcftools isec -Oz -w1 -n=1 -p $ISEC_OUT_DIR $NORMED_VCF $CONTROL_VCF    
+ 
+    # save the new vcf as rufus final vcf
+    OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
+    OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.csi"
 
 cp "$OUTFILE" "${OUT_VCF}" 
 cp "$OUT_INDEX" "${OUT_VCF}.csi" 

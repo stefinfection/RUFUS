@@ -6,10 +6,8 @@ T=$3
 L=$4
 HASH_SIZE=$5
 
-CDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-RDIR=$CDIR/../
-
-
+: "${RUFUS_ROOT:=/opt/RUFUS}"
+RDIR=$RUFUS_ROOT
 JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
 
 # If we're using a region-specific hash, adjust size accordingly (1MB hashes made w/ 1G)
@@ -45,12 +43,10 @@ else
 	wait
 fi
 
-if [ ! -s  $GEN.Jhash.histo ]; then 
+if [ ! -s $GEN.Jhash.histo ]; then 
 	$JELLYFISH histo -f -o $GEN.Jhash.histo $GEN.Jhash
 fi
 if [ $(awk '$2 > 0' $GEN.Jhash.histo | wc -l ) -eq "0" ]; then  
-	echo "ERROR: jellyfish failed on the file $GEN"
-	exit 100
+	exit 1
 fi
-
 exit 0
