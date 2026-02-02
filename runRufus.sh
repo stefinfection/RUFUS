@@ -1373,11 +1373,15 @@ TRIMMED_VCF="trimed.${formatted_region}.clean_vcf.gz"
 bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
 bcftools index "$TRIMMED_VCF"
 
-# Not removing co-inheriteds because no paired control in pipeline runs
+# TODO: test
+NO_CO_VCF="no_coinheriteds.clean_vcf.gz"
+if [ ${#_arg_controls[@]} -eq "0" ]; then
+	bash ${RDIR}/post_process/remove_coinheriteds.sh -r "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c ${Parents[@]}
+fi
 
 # Left align & atomize
 ATOM_VCF="atomed.${formatted_region}.clean_vcf"
-bcftools norm -m- -f "$_arg_ref" "$TRIMMED_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
+bcftools norm -m- -f "$_arg_ref" "$NO_CO_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
 
 # Add HD_AF field
 HDAF_VCF="hd_af.$ATOM_VCF"

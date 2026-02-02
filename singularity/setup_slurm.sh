@@ -36,7 +36,6 @@ HEADER_LINES=("#!/bin/bash"
 "#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
 )
 
-
 # Helper function to avoid redundant echoes
 function write_out_rest_of_rufus_args() {
     for control in "${CONTROLS_RUFUS_ARG[@]}"; do
