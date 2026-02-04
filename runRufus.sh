@@ -14,6 +14,7 @@ source <(grep -v '^#' $GLOBALS_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
 set +a
 echo -n "You are running the $RUFUS_BRANCH"
 echo " version of RUFUS: $RUFUS_VERSION"
+echo " root dir is $WORK_ROOT"
 
 set -e 
 
@@ -444,6 +445,7 @@ clean_up_files ()
 	else
 		echo "Refusing to remove unsafe WORK_DIR: $WORK_DIR" >&2
 	fi
+  fi
 }
 trap 'clean_up_files' EXIT
 
