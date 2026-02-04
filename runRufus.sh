@@ -1073,16 +1073,19 @@ else
     then 
     	rm  "${FIFO_MAIN}"
     fi
+
+	# echo "About to make MAIN fifo"
     mkfifo "${FIFO_MAIN}"
+	echo "Made it past opening fifo main"
 
 	# NOTE: the modifiedJelly merge is actually the opposite of a merge
 	# It intersects all of the provided Jhash files, and keeps only complements, or unique kmers
 	# These unique kmers are then queried from the subject Jhash and kept only if they are from the subject (and pass min/max thresholds)
 	# This was done because any attempt to simply filter the subject Jhash was prohibitively slow
     $modifiedJelly merge -o "${ProbandGenerator}.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "${FIFO_MAIN}" & 
-    bash $PullSampleHashes $ProbandGenerator.Jhash "${FIFO_MAIN}" $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList 
+    bash $PullSampleHashes $ProbandGenerator.Jhash "${FIFO_MAIN}" $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList &
+	exec 5>&-
     wait
-    
 fi
 
 ########################################################################################
@@ -1124,13 +1127,15 @@ then
 		    # if [ -e "${FIFO_MAIN}" ]; then 
 			#     rm "${FIFO_MAIN}"
 	        # fi
-		    #echo "running this one "
+		    #echo "running this one "echo "DEBUG:"
+
 		    mkfifo "${FIFO_M1}" "${FIFO_M2}"
-		    sleep 1
+		    #sleep 1
 			#bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" > "${FIFO_MAIN}" &
 		    bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" &
 		      $RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
+			rm -f "$FIFO_M1" "$FIFO_M2"
 		else
 			echo "Running RUFUS.filter from paired FASTQ files"
 			FileName=$(basename $_arg_fastqA)
@@ -1195,15 +1200,16 @@ else
 		then
 
 		    #echo "running this one filer SE" 
-	            sleep 1
-	            # if [ -e "${FIFO_MAIN}" ]; then
-	            #     rm  "${FIFO_MAIN}"
-	            # fi
-	            # mkfifo "${FIFO_MAIN}"
-				bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr &
-	            #   bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr >  "${FIFO_MAIN}" &
+	            if [ -e "${FIFO_MAIN}" ]; then
+	                rm  "${FIFO_MAIN}"
+	            fi
+	            mkfifo "${FIFO_MAIN}"
+				exec 6<>"$FIFO_MAIN"
+	            bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr > "${FIFO_MAIN}" &
 	              $RUFUSfilterFASTQse  "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
+			exec 6>&-
+			rm -f "$FIFO_MAIN"
 		else
 			echo "Running RUFUS.filter from single FASTQ files"
 			echo "havent written this yet EXITing"

@@ -50,6 +50,7 @@ int main (int argc, char *argv[])
   // m1n = m1n + ".mate1.fastq"; 
   // mate1.open (m1n);
   ofstream mate1(argv[2]);
+  mate1.setf(std::ios::unitbuf); // Force flush after every insertion
   if (mate1.is_open())
     {}
   else
@@ -63,6 +64,7 @@ int main (int argc, char *argv[])
   // m2n = m2n + ".mate2.fastq";
   // mate2.open (m2n);
   ofstream mate2(argv[3]);
+  mate2.setf(std::ios::unitbuf);
   if (mate2.is_open())
     {}
   else
