@@ -37,7 +37,6 @@ modifiedJelly=$RDIR/bin/externals/modified_jellyfish/src/modified_jellyfish_proj
 
 # TODO: already in PATH, shouldn't have to rename here, should be directly accessible
 RUFUSmodel=$RDIR/bin/ModelDist
-RUFUSfilter=$RDIR/bin/RUFUS.Filter
 RUFUSfilterFASTQ=$RDIR/bin/RUFUS.Filter
 RUFUSfilterFASTQse=$RDIR/bin/RUFUS.Filter.single
 
@@ -1128,8 +1127,8 @@ then
 		    #echo "running this one "
 		    mkfifo "${FIFO_MAIN}" "${FIFO_M1}" "${FIFO_M2}"
 		    sleep 1
-		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "${FIFO_MAIN}" >  "${FIFO_MAIN}" &
-		      $RUFUSfilterFASTQ  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
+		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" >  "${FIFO_MAIN}" &
+		      $RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 		else
 			echo "Running RUFUS.filter from paired FASTQ files"
@@ -1138,11 +1137,11 @@ then
 			if [[ $Extension == 'gz' ]]
 			then
 				echo "Compressed fastq files found"
-				$RUFUSfilterFASTQ "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList  <(zcat $_arg_fastqA) <(zcat $_arg_fastqB) "$ProbandGenerator" $K $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)"
+				$RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList  <(zcat $_arg_fastqA) <(zcat $_arg_fastqB) "$ProbandGenerator" $K $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)"
 
 			else
 				echo "Uncompressed fastq files found" 
-				$RUFUSfilterFASTQ "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList  $_arg_fastqA $_arg_fastqB "$ProbandGenerator" $K $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)"
+				$RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList  $_arg_fastqA $_arg_fastqB "$ProbandGenerator" $K $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)"
 			fi
 			wait
 		fi
@@ -1200,8 +1199,8 @@ else
 	                rm  "${FIFO_MAIN}"
 	            fi
 	              mkfifo "${FIFO_MAIN}"
-	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$ProbandGenerator".filter.chr  "${FIFO_MAIN}" >  "${FIFO_MAIN}" &
-	               $RUFUSfilterFASTQse  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
+	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr >  "${FIFO_MAIN}" &
+	              $RUFUSfilterFASTQse  "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 		else
 			echo "Running RUFUS.filter from single FASTQ files"
