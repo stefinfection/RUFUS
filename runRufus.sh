@@ -1121,13 +1121,14 @@ then
 		    if [ -e "${FIFO_M2}" ]; then
 	            rm  "${FIFO_M2}"
 	        fi
-		    if [ -e "${FIFO_MAIN}" ]; then 
-			    rm "${FIFO_MAIN}"
-	        fi
+		    # if [ -e "${FIFO_MAIN}" ]; then 
+			#     rm "${FIFO_MAIN}"
+	        # fi
 		    #echo "running this one "
-		    mkfifo "${FIFO_MAIN}" "${FIFO_M1}" "${FIFO_M2}"
+		    mkfifo "${FIFO_M1}" "${FIFO_M2}"
 		    sleep 1
-		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" >  "${FIFO_MAIN}" &
+			#bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" > "${FIFO_MAIN}" &
+		    bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" &
 		      $RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 		else
@@ -1195,11 +1196,12 @@ else
 
 		    #echo "running this one filer SE" 
 	            sleep 1
-	            if [ -e "${FIFO_MAIN}" ]; then
-	                rm  "${FIFO_MAIN}"
-	            fi
-	              mkfifo "${FIFO_MAIN}"
-	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr >  "${FIFO_MAIN}" &
+	            # if [ -e "${FIFO_MAIN}" ]; then
+	            #     rm  "${FIFO_MAIN}"
+	            # fi
+	            # mkfifo "${FIFO_MAIN}"
+				bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr &
+	            #   bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr >  "${FIFO_MAIN}" &
 	              $RUFUSfilterFASTQse  "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 		else
