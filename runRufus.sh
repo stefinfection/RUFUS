@@ -1348,8 +1348,10 @@ bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
 bcftools index "$TRIMMED_VCF"
 
 NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
-if [ ${#_arg_controls[@]} -eq "0" ]; then
+if [ ${#_arg_controls[@]} -ne "0" ]; then
 	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c ${Parents[@]}
+else
+	mv "$TRIMMED_VCF" "$NO_CO_VCF"
 fi
 
 # Left align & atomize
@@ -1371,8 +1373,10 @@ PREFINAL_VCF="$WORK_DIR/temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf
 mv "$SORTED_VCF" "$PREFINAL_VCF"
 bcftools index "$PREFINAL_VCF"
 
-cp "$WORK_DIR/$PREFINAL_VCF" "$WORK_ROOT/$PREFINAL_VCF"
-cp "$WORK_DIR/$PREFINAL_VCF.csi" "$WORK_ROOT/$PREFINAL_VCF.csi"
+FINAL_BASENAME="$(basename "$PREFINAL_VCF")"
+
+cp "$PREFINAL_VCF" "$WORK_ROOT/$FINAL_BASENAME"
+cp "$PREFINAL_VCF.csi" "$WORK_ROOT/$FINAL_BASENAME.csi"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
