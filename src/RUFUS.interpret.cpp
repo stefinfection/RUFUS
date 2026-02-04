@@ -5273,15 +5273,23 @@ int main(int argc, char *argv[]) {
     }
 
     string boom = outStub;
-    VCFOutFile.open(boom + ".vcf");
-    BEDOutFile.open(boom + ".vcf.bed");
-    boom = "Intermediates/" + boom;
+    const char* workDirEnv = std::getenv("WORK_DIR");
+    if (!workDirEnv) {
+        std::cerr << "ERROR: WORK_DIR environment variable not set\n";
+        return 1; // or throw
+    }
+    string workDir(workDirEnv);
+    string base = workDir + "/" + boom;
+
+    VCFOutFile.open(base + ".vcf");
+    BEDOutFile.open(base + ".vcf.bed");
+    boom = workDir + "/Intermediates/" + boom;
     BEDBigStuff.open(boom + ".vcf.Big.bed");
     BEDNotHandled.open(boom + ".vcf.NotHandled.bed");
     Invertions.open(boom + ".vcf.invertions.bed");
     Translocations.open(boom + ".vcf.Translocations");
     Translocationsbed.open(boom + ".vcf.Translocations.bed");
-    Unaligned.open(boom + "vcf.Unaligned");
+    Unaligned.open(boom + ".vcf.Unaligned");
 
     //write VCF header
     // TODO: update to v4.3

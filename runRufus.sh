@@ -439,14 +439,11 @@ clean_up_files ()
   if [ "$_arg_dev_file_output" == "FALSE" ]; then
 
     # Remove files from sub directories for this region only
-	if [ "$formatted_region" != "" ]; then
-		if [ -n "$WORK_DIR" ] && [ "$WORK_DIR" != "/" ]; then
-  			rm -rf "$WORK_DIR"
-		fi
-
-  	else
-    	echo "not cleaning up files"
-  	fi
+	if [[ "$WORK_DIR" == "$WORK_ROOT"/rufus_* ]]; then
+		rm -rf "$WORK_DIR"
+	else
+		echo "Refusing to remove unsafe WORK_DIR: $WORK_DIR" >&2
+	fi
 }
 trap 'clean_up_files' EXIT
 
@@ -534,11 +531,16 @@ fi
 
 # Make region specific directory so no file overlaps
 WORK_DIR="${WORK_ROOT}/rufus_${formatted_region}"
-mkdir -p "$WORK_DIR"
-cd "$WORK_DIR"
+export WORK_DIR="$WORK_DIR"
 
-RUFUS_TMP="rufus_temp"
+# Make all sub-dirs w/ abs path
+mkdir -p "$WORK_DIR"
+RUFUS_TMP="$WORK_DIR/rufus_temp"
 mkdir -p "$RUFUS_TMP"
+mkdir -p "$WORK_DIR/Intermediates"
+mkdir -p "$WORK_DIR/TempOverlap"
+
+cd "$WORK_DIR"
 
 rufus_invoc_file="$RUFUS_TMP/rufus_command_$formatted_region.txt"
 echo "$RUFUS_BRANCH" > $rufus_invoc_file
@@ -1057,7 +1059,7 @@ fi
 #################################__HASH_LIST_FILTER__#####################################
 
 echo "Identifying unique subject kMers..."
-FIFO_PREFIX="${ProbandGenerator}.$$"
+FIFO_PREFIX="$WORK_DIR/${ProbandGenerator}.$$"
 FIFO_MAIN="${FIFO_PREFIX}.temp"
 FIFO_M1="${FIFO_PREFIX}.temp.mate1.fastq"
 FIFO_M2="${FIFO_PREFIX}.temp.mate2.fastq"
@@ -1281,7 +1283,7 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
-intermed_vcf="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
+intermed_vcf="${WORK_DIR}/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
 
 if [[ -s "$intermed_vcf" ]]; then
 	count=$(bcftools view -H "$intermed_vcf" | wc -l)
@@ -1296,71 +1298,72 @@ else
 fi
 
 # Trim off generator postfix
-DEDUPED_VCF="deduped.${formatted_region}.clean_vcf"
+DEDUPED_VCF="$WORK_DIR/deduped.${formatted_region}.vcf"
 
 # TODO: do I really need this? can I just sort?
-grep "^#" "$intermed_vcf" > ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v "^#" "$intermed_vcf" | sort -k1,1V -k2,2n >> ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+grep "^#" "$intermed_vcf" > $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
+grep -v "^#" "$intermed_vcf" | sort -k1,1V -k2,2n >> $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
 
 echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
 	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic ./Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 fi
 
 bgzip "$DEDUPED_VCF"
 tabix -C "$DEDUPED_VCF.gz"
 
 # Update reference alleles
-REF_VCF="ref.${formatted_region}.clean_vcf"
+REF_VCF="$WORK_DIR/ref.${formatted_region}.vcf"
 bcftools +fill-from-fasta "$DEDUPED_VCF.gz" -- -c REF -f "$_arg_ref" > "$REF_VCF"
 
 # Get rid of break-ends
-TYPE_VCF="snv_indel.${formatted_region}.clean_vcf"
+TYPE_VCF="$WORK_DIR/snv_indel.${formatted_region}.vcf"
 bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
 
 # Check for empty gt field
-GX_VCF="gx.${formatted_region}.clean_vcf"
+GX_VCF="$WORK_DIR/gx.${formatted_region}.vcf"
 bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
 bgzip "$GX_VCF"
 bcftools index "$GX_VCF.gz"
 
 # Trim calls to region
-TRIMMED_VCF="trimed.${formatted_region}.clean_vcf.gz"
+TRIMMED_VCF="$WORK_DIR/trimed.${formatted_region}.vcf.gz"
 bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
 bcftools index "$TRIMMED_VCF"
 
-NO_CO_VCF="no_coinheriteds.clean_vcf.gz"
+NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
 if [ ${#_arg_controls[@]} -eq "0" ]; then
 	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c ${Parents[@]}
 fi
 
 # Left align & atomize
-ATOM_VCF="atomed.${formatted_region}.clean_vcf"
+ATOM_VCF="$WORK_DIR/atomed.${formatted_region}.vcf"
 bcftools norm -m- -f "$_arg_ref" "$NO_CO_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
 
 # Add HD_AF field
-HDAF_VCF="hd_af.$ATOM_VCF"
-SUBJECT_SAMPLE_NAME=$(bcftools view -h $ATOM_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
+ATOM_VCF_BASENAME=$(basename "$ATOM_VCF")
+HDAF_VCF="$WORK_DIR/hd_af.$ATOM_VCF_BASENAME"
+SUBJECT_SAMPLE_NAME=$(bcftools view -h "$ATOM_VCF" | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME" "$formatted_region"
 
 # Sort
-SORTED_VCF="sorted.${formatted_region}.clean_vcf.gz"
+SORTED_VCF="$WORK_DIR/sorted.${formatted_region}.vcf.gz"
 bcftools sort "$HDAF_VCF" -Oz -o "$SORTED_VCF"
 
 # Rename final vcf and zip/index
-PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf.gz"
+PREFINAL_VCF="$WORK_DIR/temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf.gz"
 mv "$SORTED_VCF" "$PREFINAL_VCF"
 bcftools index "$PREFINAL_VCF"
 
-cp "$PREFINAL_VCF" "$WORK_ROOT/$PREFINAL_VCF"
-cp "$PREFINAL_VCF.csi" "$WORK_ROOT/$PREFINAL_VCF.csi"
+cp "$WORK_DIR/$PREFINAL_VCF" "$WORK_ROOT/$PREFINAL_VCF"
+cp "$WORK_DIR/$PREFINAL_VCF.csi" "$WORK_ROOT/$PREFINAL_VCF.csi"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))

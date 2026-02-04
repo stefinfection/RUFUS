@@ -1,5 +1,7 @@
 #!/bin/bash
 # Works for any number of sample columns in VCF
+: "${WORK_DIR:?WORK_DIR must be set}"
+
 input_file=$1
 
 cat "$input_file" | awk -F'\t' '
