@@ -4,11 +4,8 @@
 : "${RUFUS_ROOT:=/opt/RUFUS}"
 echo "RUFUS_ROOT is $RUFUS_ROOT"
 
-WORK_DIR="${PWD}"
-echo "$WORK_DIR"
-TMP_DIR="${TMP_DIR:-$WORK_DIR}"
-RUFUS_TMP="${TMP_DIR}/rufus_temp"
-mkdir -p "$RUFUS_TMP"
+WORK_ROOT="${PWD}"
+cd "$WORK_ROOT"
 
 # Import globals
 GLOBALS_FILE="$RUFUS_ROOT/resources/globals.txt" # Path to globals file inside container
@@ -176,8 +173,8 @@ parse_commandline ()
                 Extension="${FileName##*.}"
                 genName=$FileName
                 if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then
-                        echo "" > "$FileName".generator
-                        _arg_subject=("$FileName".generator)
+                        #echo "" > "$FileName".generator
+                        _arg_subject=("$2")
                 fi
                 while [[ $2 != -* ]]; do
                         FileName=$(basename "$2")
@@ -246,8 +243,8 @@ parse_commandline ()
 		Extension="${FileName##*.}"
 		genName=$FileName
 		if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then 
-			echo "" > "$FileName".generator
-			_arg_controls+=("$FileName".generator)
+			#echo "" > "$FileName".generator
+			_arg_controls+=("$2")
 		fi 
 		while [[ $2 != -* ]]; do
 			FileName=$(basename "$2")
@@ -439,42 +436,17 @@ assign_positional_args ()
 clean_up_files ()
 {
   echo "Cleaning up..." >&2
-  local SUPP_DIR="rufus_supplementals"
-
-  local VCF_IN="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
-  local VCF_OUT="${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.sorted.vcf"
-
-  if [ -f "$VCF_IN" ]; then
-    
-    grep '^#' "$VCF_IN" > "$VCF_OUT" || true
-    grep -v '^#' "$VCF_IN" | sort -k1,1V -k2,2n >> "$VCF_OUT" || true
-  else
-    echo "$VCF_IN not created; skipping sorted VCF creation." >&2
-  fi
-
   if [ "$_arg_dev_file_output" == "FALSE" ]; then
-
-    # Move files we want to keep into supplementals
-    if [ -e "$VCF_OUT" ]; then
-      mkdir -p $SUPP_DIR
-      mv "$VCF_OUT" "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-      bgzip "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf"
-      bcftools index "$SUPP_DIR/temp.RUFUS.Prefiltered.${ProbandFileName}${region_postfix}.vcf.gz"
-    fi
 
     # Remove files from sub directories for this region only
 	if [ "$formatted_region" != "" ]; then
-		find ./Intermediates -maxdepth 1 -type f -name "*${formatted_region}*" -delete
-		find ./TempOverlap -maxdepth 1 -type f -name "*${formatted_region}*" -delete
-		find ./rufus_temp -maxdepth 1 -type f -name "*${formatted_region}*" -delete
-		find . -maxdepth 1 -type f -name "*${formatted_region}*generator*" -delete
-		find . -maxdepth 1 -type f -name "*${formatted_region}.txt" -delete
-		find . -maxdepth 1 -type p -name "*${formatted_region}*" -delete # Clean up pipes too
-		find . -maxdepth 1 -type f -name "*${formatted_region}.clean_vcf*" -delete
-	fi
-  else
-    echo "not cleaning up files"
-  fi
+		if [ -n "$WORK_DIR" ] && [ "$WORK_DIR" != "/" ]; then
+  			rm -rf "$WORK_DIR"
+		fi
+
+  	else
+    	echo "not cleaning up files"
+  	fi
 }
 trap 'clean_up_files' EXIT
 
@@ -489,8 +461,7 @@ make_jelly_hash ()
   local lowK="$4" # The minimum number of kmers to keep in count step
   local formRegionArg="$5"
   local isControl="$6"
-  local controlCodeFile="$7"
-  local subjectCodeFile="$8"
+  local exit_file="$7"
 
   # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
   hash_size="8G"
@@ -504,11 +475,7 @@ make_jelly_hash ()
   local exitCode=$?
   set -e
 
-  if [[ "$isControl" == "true" ]]; then
-    echo "$exitCode" >> "${controlCodeFile}"
-  else
-    echo "$exitCode" >> "${subjectCodeFile}" 
-  fi
+  echo "$exitCode" > "$exit_file"
 
   if [[ $exitCode -ne 0 && -n "$formRegionArg" ]]; then
       echo "RUFUS could not find any kmers in the provided region $formRegionArg in the file $generator; this usually means there is no coverage"
@@ -518,63 +485,44 @@ make_jelly_hash ()
 check_empty_hashes ()
 {
 	local region_arg="$1"
-	local control_code_file="$2"
-	local subject_code_file="$3"
-	local proband_generator="$4"
-	local proband_file_name="$5"
-	local region_postfix="$6"
+	shift
+	local subject_file="${@: -1}"
+	local control_files=("${@:1:$#-1}")
 
 	# Check that at least one control has hashes (i.e. has a zero exit code)
 	found_zero=false
 
-	# Only check for controls if we have them
-	if [ -f "$control_code_file" ]; then
-		while IFS= read -r line; do
-			if [[ "$line" -eq 0 ]]; then
-				found_zero=true
-				break
-			fi
-		done < "$control_code_file"
-
-		if [ "$found_zero" = false ]; then
-			echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..."
-			echo "RUFUS could not find any kmers in the provided region $region_arg in the control file(s). Exiting run..." >&2
-
-			rm "$control_code_file"
-			rm "$subject_code_file"
-			exit 0
-		fi
-	fi
-
-	# Check that the subject has hashes
-	found_zero=false
-	while IFS= read -r line; do
-		if [[ "$line" -eq 0 ]]; then
+	# Controls
+	if [ "${#control_files[@]}" -gt 0 ]; then
+		found_zero=false
+		for f in "${control_files[@]}"; do
+		if [ -f "$f" ] && [ "$(cat "$f")" -eq 0 ]; then
 			found_zero=true
 			break
 		fi
-	done < "$subject_code_file"
+		done
 
-    if [ "$found_zero" = false ]; then
-      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..."
-      echo "RUFUS could not find any kmers in the provided region $region_arg in the subject file. Exiting run..." >&2
-	  if [ -f "$control_code_file" ]; then
-	  	rm "$control_code_file"
-      fi
-	  rm "$subject_code_file"
-      exit 0
-    fi
+		if [ "$found_zero" = false ]; then
+		echo "No control kmers found in region $region_arg" >&2
+		exit 0
+		fi
+	fi
+
+	# Subject
+	if [ ! -f "$subject_file" ] || [ "$(cat "$subject_file")" -ne 0 ]; then
+		echo "No subject kmers found in region $region_arg" >&2
+		exit 0
+	fi
 
     # Cleanup
-	  if [ -f "$control_code_file" ]; then
-	  	rm "$control_code_file"
-      fi
-	  rm "$subject_code_file"
+	rm -f "$subject_file"
+	for f in "${control_files[@]}"; do
+		rm -f "$f"
+	done
 }
 
 
 parse_commandline "$@"
-
 region_postfix=""
 if [ ! -z "${_arg_region}" ]; then
 	formatted_region=$(echo "${_arg_region}" | tr : _ | tr - _)
@@ -583,6 +531,14 @@ else
 	formatted_region="wg"
 	region_postfix=".${formatted_region}"
 fi
+
+# Make region specific directory so no file overlaps
+WORK_DIR="${WORK_ROOT}/rufus_${formatted_region}"
+mkdir -p "$WORK_DIR"
+cd "$WORK_DIR"
+
+RUFUS_TMP="rufus_temp"
+mkdir -p "$RUFUS_TMP"
 
 rufus_invoc_file="$RUFUS_TMP/rufus_command_$formatted_region.txt"
 echo "$RUFUS_BRANCH" > $rufus_invoc_file
@@ -673,7 +629,7 @@ do
     [[ $value != -e ]] && new_array+=($value)
 done
 _arg_exclude=("${new_array[@]}")
-unset new_arary
+unset new_array
 unset ExcludeTemp
 ########################Setting up Exome Run EXPERIMENTAL ##################################
 
@@ -926,8 +882,8 @@ done
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
-CONTROL_EXIT_CODES="jelly_exit_code_controls_$formatted_region.log"
-SUBJECT_EXIT_CODES="jelly_exit_code_subject_$formatted_region.log"
+CONTROL_EXIT_FILES=()
+SUBJECT_EXIT_FILE="$RUFUS_TMP/jelly_exit_subject.${formatted_region}.txt"
 
 if [ $_parallel_jelly == "yes" ]
 then 
@@ -940,15 +896,17 @@ then
 
 	for parent in "${ParentGenerators[@]}"
 	do
-    	make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"  &
+		ef="$RUFUS_TMP/jelly_exit_control.${formatted_region}.$(basename "$parent").txt"
+		CONTROL_EXIT_FILES+=("$ef")
+    	make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$ef"  &
 	done
 
-    make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" &
+    make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$SUBJECT_EXIT_FILE" &
     
 	# wait here for all hashes to finish being made
 	wait
 
-    check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
+    check_empty_hashes "$_arg_region" "${CONTROL_EXIT_FILES[@]}" "$SUBJECT_EXIT_FILE"
 
 else
   JThreads=$Threads
@@ -959,12 +917,14 @@ else
 
     for parent in "${ParentGenerators[@]}"
     do
-      make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
+	  ef="$RUFUS_TMP/jelly_exit_control.${formatted_region}.$(basename "$parent").txt"
+	  CONTROL_EXIT_FILES+=("$ef")
+      make_jelly_hash $parent $K $(echo $JThreads -2 | bc) $_arg_ParLowK $formatted_region true "$ef"
     done
     
-	make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES"
+	make_jelly_hash $ProbandGenerator $K $(echo $JThreads -2 | bc) 2 $formatted_region false "$SUBJECT_EXIT_FILE"
 
-    check_empty_hashes "$_arg_region" "$CONTROL_EXIT_CODES" "$SUBJECT_EXIT_CODES" "$ProbandGenerator" "$ProbandFileName" "$region_postfix"
+    check_empty_hashes "$_arg_region" "${CONTROL_EXIT_FILES[@]}" "$SUBJECT_EXIT_FILE"
 fi
 ##############################################################################
 
@@ -1097,23 +1057,27 @@ fi
 #################################__HASH_LIST_FILTER__#####################################
 
 echo "Identifying unique subject kMers..."
+FIFO_PREFIX="${ProbandGenerator}.$$"
+FIFO_MAIN="${FIFO_PREFIX}.temp"
+FIFO_M1="${FIFO_PREFIX}.temp.mate1.fastq"
+FIFO_M2="${FIFO_PREFIX}.temp.mate2.fastq"
 
 if [ -s "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList ]
 then 
     echo "$ProbandGenerator.HashList exists, skipping creation..."
 else
-    if [ -e "$ProbandGenerator".temp ]
+    if [ -e "${FIFO_MAIN}" ]
     then 
-    	rm  "$ProbandGenerator".temp
+    	rm  "${FIFO_MAIN}"
     fi
-    mkfifo "$ProbandGenerator".temp
+    mkfifo "${FIFO_MAIN}"
 
 	# NOTE: the modifiedJelly merge is actually the opposite of a merge
 	# It intersects all of the provided Jhash files, and keeps only complements, or unique kmers
 	# These unique kmers are then queried from the subject Jhash and kept only if they are from the subject (and pass min/max thresholds)
 	# This was done because any attempt to simply filter the subject Jhash was prohibitively slow
-    $modifiedJelly merge -o "${ProbandGenerator}.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "$ProbandGenerator".temp & 
-    bash $PullSampleHashes $ProbandGenerator.Jhash "$ProbandGenerator".temp $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList 
+    $modifiedJelly merge -o "${ProbandGenerator}.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "${FIFO_MAIN}" & 
+    bash $PullSampleHashes $ProbandGenerator.Jhash "${FIFO_MAIN}" $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList 
     wait
     
 fi
@@ -1139,7 +1103,7 @@ fi
 ######################__RUFUS_FILTER__##################################################
 echo "Filtering unique reads containing unique kMers..."
 
-if [ $_pairedEnd == "true" ]
+if [ "$_pairedEnd" = "true" ]
 then 
 	if [ -e "$ProbandGenerator".Mutations.Mate1.fastq ]
 	then
@@ -1148,21 +1112,20 @@ then
 		if [ -z $_arg_fastqA ]
 		then
 			# NOTE: this is the one usually run when starting with a bam file - extracts reads from PassThroughSamCheck.stranded and puts them into mate1 and 2 respectively, which go into filter
-		    if [ -e "$ProbandGenerator".temp.mate1.fastq ]; then 
-		    	rm  "$ProbandGenerator".temp.mate1.fastq
+		    if [ -e "${FIFO_M1}" ]; then 
+		    	rm  "${FIFO_M1}"
 		    fi
-		    if [ -e "$ProbandGenerator".temp.mate2.fastq ]; then
-	                rm  "$ProbandGenerator".temp.mate2.fastq
+		    if [ -e "${FIFO_M2}" ]; then
+	            rm  "${FIFO_M2}"
 	        fi
-		    if [ -e "$ProbandGenerator".temp ]; then 
-			    rm "$ProbandGenerator".temp 
+		    if [ -e "${FIFO_MAIN}" ]; then 
+			    rm "${FIFO_MAIN}"
 	        fi
 		    #echo "running this one "
-		    mkfifo "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq
-			# TODO: what's going on here with this sleep?
+		    mkfifo "${FIFO_MAIN}" "${FIFO_M1}" "${FIFO_M2}"
 		    sleep 1
-		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
-		      $RUFUSfilterFASTQ  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp.mate1.fastq "$ProbandGenerator".temp.mate2.fastq "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
+		      bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$ProbandGenerator".filter.chr  "${FIFO_MAIN}" >  "${FIFO_MAIN}" &
+		      $RUFUSfilterFASTQ  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 		else
 			echo "Running RUFUS.filter from paired FASTQ files"
@@ -1229,12 +1192,12 @@ else
 
 		    #echo "running this one filer SE" 
 	            sleep 1
-	            if [ -e "$ProbandGenerator".temp ]; then
-	                            rm  "$ProbandGenerator".temp
+	            if [ -e "${FIFO_MAIN}" ]; then
+	                rm  "${FIFO_MAIN}"
 	            fi
-	                mkfifo "$ProbandGenerator".temp
-	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$ProbandGenerator".filter.chr  "$ProbandGenerator".temp >  "$ProbandGenerator".temp &
-	               $RUFUSfilterFASTQse  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$ProbandGenerator".temp  "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
+	              mkfifo "${FIFO_MAIN}"
+	              bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$ProbandGenerator".filter.chr  "${FIFO_MAIN}" >  "${FIFO_MAIN}" &
+	               $RUFUSfilterFASTQse  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 		else
 			echo "Running RUFUS.filter from single FASTQ files"
@@ -1373,10 +1336,9 @@ TRIMMED_VCF="trimed.${formatted_region}.clean_vcf.gz"
 bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
 bcftools index "$TRIMMED_VCF"
 
-# TODO: test
 NO_CO_VCF="no_coinheriteds.clean_vcf.gz"
 if [ ${#_arg_controls[@]} -eq "0" ]; then
-	bash ${RDIR}/post_process/remove_coinheriteds.sh -r "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c ${Parents[@]}
+	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c ${Parents[@]}
 fi
 
 # Left align & atomize
@@ -1386,7 +1348,7 @@ bcftools norm -m- -f "$_arg_ref" "$NO_CO_VCF" -Ou | bcftools norm -a -Oz -o "$AT
 # Add HD_AF field
 HDAF_VCF="hd_af.$ATOM_VCF"
 SUBJECT_SAMPLE_NAME=$(bcftools view -h $ATOM_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
-bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME"
+bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME" "$formatted_region"
 
 # Sort
 SORTED_VCF="sorted.${formatted_region}.clean_vcf.gz"
@@ -1396,6 +1358,9 @@ bcftools sort "$HDAF_VCF" -Oz -o "$SORTED_VCF"
 PREFINAL_VCF="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf.gz"
 mv "$SORTED_VCF" "$PREFINAL_VCF"
 bcftools index "$PREFINAL_VCF"
+
+cp "$PREFINAL_VCF" "$WORK_ROOT/$PREFINAL_VCF"
+cp "$PREFINAL_VCF.csi" "$WORK_ROOT/$PREFINAL_VCF.csi"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))

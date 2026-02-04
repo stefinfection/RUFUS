@@ -1,15 +1,19 @@
 #!/bin/bash
+set -euo pipefail
 
 # Calculates and adds an HD_MED info field and allele frequency field to the first column of the vcf file (in RUFUS, this is the tumor/subject) and adds a format field to that same first column with the tag HD_AF. This value is the HD_MED / DP[0]. Prints new file to "hd_af.$IN_VCF".
 
-IN_VCF=$1
+IN_VCF=$1 # THIS VCF MUST HAVE A REGION SPECIFIC NAME IF RUNNING REGION MODE IN PARALLEL
 SUBJECT_SAMPLE_NAME="$2"
-TEMP_FILE="fields.tsv"
-TEMP_HD_FILE="hd.tsv"
-TEMP_AF_FILE="af.tsv"
+FORMATTED_REGION="$3"
+
+TEMP_FILE="fields.$FORMATTED_REGION.tsv"
+TEMP_HD_FILE="hd.$FORMATTED_REGION.tsv"
+TEMP_AF_FILE="af.$FORMATTED_REGION.tsv"
+TEMP_HDR_FILE="hdr.$FORMATTED_REGION.txt"
 
 # Add HD_MED info field if it doesn't already exist
-bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD\n' $IN_VCF > $TEMP_FILE
+bcftools query -s "$SUBJECT_SAMPLE_NAME" -f '%CHROM\t%POS\t%REF\t%ALT\t%HD\n' "$IN_VCF" > "$TEMP_FILE"
 
 awk -F'\t' '
 function median(arr, n) {
@@ -25,6 +29,10 @@ function median(arr, n) {
 }
 {
     # Split the comma-delimited list
+    if ($5 == "" || $5 == ".") {
+    print $0 "\t0"
+    next
+    }
     split($5, values, "_")
     count = 0
     # Filter out -1 values and store remaining in new array
@@ -50,10 +58,10 @@ bgzip $TEMP_HD_FILE
 tabix -s1 -b2 -e2 ${TEMP_HD_FILE}.gz
 
 # Make a header line to insert
-echo -e '##INFO=<ID=HD_MED,Number=1,Type=Integer,Description="Median of HD array, not including -1s">' > hdr.txt
+echo -e '##INFO=<ID=HD_MED,Number=1,Type=Integer,Description="Median of HD array, not including -1s">' > $TEMP_HDR_FILE
 
 # Write HD_MED file out
-bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_HD_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,HD_MED $IN_VCF > "hd_med".$IN_VCF
+bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_HD_FILE}.gz -h $TEMP_HDR_FILE -Oz -c CHROM,POS,REF,ALT,-,HD_MED "$IN_VCF" > "hd_med.$IN_VCF"
 
 # Pull out fields to text file
 bcftools query -s $SUBJECT_SAMPLE_NAME -f '%CHROM\t%POS\t%REF\t%ALT\t%HD_MED\t[%DP]\n' "hd_med.$IN_VCF" > $TEMP_FILE
@@ -66,14 +74,12 @@ bgzip $TEMP_AF_FILE
 tabix -s1 -b2 -e2 ${TEMP_AF_FILE}.gz
 
 # Make a header line to insert
-echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="kMer-based allele frequency for subject sample only (HD_MED/DP)">' >> hdr.txt
+echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="kMer-based allele frequency for subject sample only (HD_MED/DP)">' > $TEMP_HDR_FILE
 
-bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h hdr.txt -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med.$IN_VCF" > "hd_af.$IN_VCF"
+bcftools annotate -s $SUBJECT_SAMPLE_NAME -a ${TEMP_AF_FILE}.gz -h $TEMP_HDR_FILE -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "hd_med.$IN_VCF" > "hd_af.$IN_VCF"
 
-rm $TEMP_FILE
-rm ${TEMP_AF_FILE}.gz
-rm ${TEMP_AF_FILE}.gz.tbi
-rm ${TEMP_HD_FILE}.gz
-rm ${TEMP_HD_FILE}.gz.tbi
-rm "hd_med".$IN_VCF
-rm hdr.txt
+rm -f "$TEMP_FILE" \
+      "${TEMP_AF_FILE}.gz" "${TEMP_AF_FILE}.gz.tbi" \
+      "${TEMP_HD_FILE}.gz" "${TEMP_HD_FILE}.gz.tbi" \
+      "hd_med.$IN_VCF" \
+      "$TEMP_HDR_FILE"

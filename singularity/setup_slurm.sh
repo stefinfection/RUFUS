@@ -8,7 +8,6 @@
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
 #UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
 
-# TODO: need to export RUFUS_ROOT in singularity def file
 : "${RUFUS_ROOT:=/opt/RUFUS}"
 UTIL_PATH=${RUFUS_ROOT}/singularity/launch_utilities/
 
