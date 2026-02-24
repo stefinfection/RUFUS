@@ -939,11 +939,14 @@ do
     ## Check Jhash files are not empty
      if [ ! -s "$parent".Jhash ]
      then
-        echo "@@@@@@@@@@@__WARNING__@@@@@@@@@@@@@"
-        echo "$parent.Jhash  is empty"
-        echo "Killing run with exit status 1"
-        echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        kill -9 $$
+		if [ -z $_arg_region ]
+		then
+			echo "ERROR: No hashes identified for $parent. This is very unlikely for a whole genome run and quality of input files should be examined. Exiting with non-zero status..."
+			exit 100
+		else
+			echo "WARNING:$parent.Jhash is empty - this can happen if $parent has zero coverage for the region provided to RUFUS. Stopping run."
+			exit 0
+		fi
      fi
 done
 
@@ -1093,10 +1096,10 @@ fi
 if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '{print $1}') -eq "0" ]; then
   if [ -z $_arg_region ]
   then
-    echo "ERROR: No mutant hashes pulled from fastqs, either the files are exactly the same of something went wrong in previous step"
+    echo "ERROR: No mutant hashes pulled from fastqs. This is very unlikely for a whole genome run and quality of input files should be examined. Exiting with non-zero status..."
     exit 100
   else
-    echo "No mutant hashes identified in region $_arg_region"
+    echo "WARNING: No mutant hashes identified in region $_arg_region. Stopping run."
     exit 0
   fi
 fi
@@ -1153,8 +1156,14 @@ then
 		fi
 	fi
 	if [ $(head "$ProbandGenerator".Mutations.Mate1.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
-		echo "ERROR: No unique hashes pulled from fastq files in filtering step."
-		exit 100
+		if [ -z $_arg_region ]
+		then
+			echo "ERROR: "No reads passed the filtering step in the entire genome. This is extremely unlikely and input files should be examined."
+			exit 100
+		else
+			echo "No reads passed the filtering step in region $_arg_region. Stopping run."
+			exit 0
+		fi
 	fi
 
 	shortinsert="false"
@@ -1220,8 +1229,14 @@ else
 	fi
 	
 	if [ $(head "$ProbandGenerator".Mutations.fastq | wc -l  | awk '{print $1}') -eq "0" ]; then
-		echo "ERROR: No mutant fastq reads idenfied.  Either the files are exactly the same of something went wrong in previous step" 
-		exit 100
+	  	if [ -z $_arg_region ]
+		then
+			echo "ERROR: No mutant hashes pulled from fastqs. This is extremely unlikely for a whole genome run and quality of input files should be examined."
+			exit 100
+		else
+			echo "WARNING: No mutant fastq reads identified in region $_arg_region. This usually means unique kmers came from reads that did not pass the sam check. Stopping RUFUS run." 
+			exit 0
+		fi
 	fi
 	
 	shortinsert="false"
@@ -1255,8 +1270,14 @@ fi
 
 
 if [ $( samtools view "${ProbandGenerator}".Mutations.fastq.bam | head | wc -l | awk '{print $1}') -eq "0" ]; then
-        echo "ERROR: BWA failed on "$ProbandGenerator".Mutations.fastq."
-        exit 100
+		if [ -z $_arg_region ]
+		then
+			echo "ERROR: All reads failed to align to the reference genome. This is extremely unlikely for a whole genome run and something likely went wrong."
+			exit 100
+		else
+       		echo "WARNING: No reads aligned to the reference for "$ProbandGenerator".Mutations.fastq for the region $_arg_region. Stopping RUFUS run."
+			exit 0
+		fi
 fi 
 #################################################################################
 if [ "$_arg_stop" = "filter" ];
