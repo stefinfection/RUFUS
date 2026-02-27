@@ -679,7 +679,7 @@ then
  # check for index file (needed for mpileup in post processing)
     if [[ ! -e "$_arg_subject".bai ]]
     then
-        echo "Index file for subject bam file "$_arg_subject" not found. Please place in data directory and rerun."
+        echo "Index file for subject bam file $_arg_subject not found. Please place in data directory and rerun."
         exit 1
     fi
     ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
@@ -689,7 +689,7 @@ then
  # check for index file (needed for mpileup in post processing)
     if [[ ! -e "$_arg_subject".crai ]]
     then
-        echo "Index file for subject cram file "$_arg_subject" not found. Please place in data directory and rerun."
+        echo "Index file for subject cram file $_arg_subject not found. Please place in data directory and rerun."
         exit 1
     fi
 	if [ "$_arg_cramref" == "" ]
@@ -730,7 +730,7 @@ do
 		# check for index file (needed for mpileup in post processing)
 		if [[ ! -e "$parentFileName".bai ]]
 		then
-			echo "Index file for control bam file "$parentFileName" not found. Please place in data directory and rerun."
+			echo "Index file for control bam file $parentFileName not found. Please place in data directory and rerun."
 			exit 1
 		fi
 	    	parentGenerator="${parentFileName}${region_postfix}.generator"
@@ -741,7 +741,7 @@ do
 		# check for index file (needed for mpileup in post processing)
 		if [[ ! -e "$parentFileName".crai ]]
 		then
-			echo "Index file for control cram file "$parentFileName" not found. Please place in data directory and rerun."
+			echo "Index file for control cram file $parentFileName not found. Please place in data directory and rerun."
 			exit 1
 		fi
 		parentGenerator="${parentFileName}${region_postfix}.generator"
@@ -1158,7 +1158,7 @@ then
 	if [ $(head "$ProbandGenerator".Mutations.Mate1.fastq | wc -l | awk '{print $1}') -eq "0" ]; then
 		if [ -z $_arg_region ]
 		then
-			echo "ERROR: "No reads passed the filtering step in the entire genome. This is extremely unlikely and input files should be examined."
+			echo "ERROR: No reads passed the filtering step in the entire genome. This is extremely unlikely and input files should be examined."
 			exit 100
 		else
 			echo "No reads passed the filtering step in region $_arg_region. Stopping run."
@@ -1275,7 +1275,7 @@ if [ $( samtools view "${ProbandGenerator}".Mutations.fastq.bam | head | wc -l |
 			echo "ERROR: All reads failed to align to the reference genome. This is extremely unlikely for a whole genome run and something likely went wrong."
 			exit 100
 		else
-       		echo "WARNING: No reads aligned to the reference for "$ProbandGenerator".Mutations.fastq for the region $_arg_region. Stopping RUFUS run."
+       		echo "WARNING: No reads aligned to the reference for ${ProbandGenerator}.Mutations.fastq for the region $_arg_region. Stopping RUFUS run."
 			exit 0
 		fi
 fi 
@@ -1297,7 +1297,7 @@ else
 		_arg_refhash="empty"
 	fi
 
-    echo " bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString""
+    echo " bash  $RUFUSOverlap $_arg_ref ${ProbandGenerator}.Mutations.fastq 5 $ProbandGenerator ${ProbandGenerator}.k${K}_c${MutantMinCov}.HashList $K $Threads $_MaxAlleleSize $_arg_ref_bwa $rufus_invoc_file $_arg_refhash ${ProbandGenerator}.Jhash $parentsString"
     bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" 
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
