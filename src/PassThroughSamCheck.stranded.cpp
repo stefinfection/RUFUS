@@ -45,12 +45,10 @@ int main (int argc, char *argv[])
       return 0;
     }
 
-  // ofstream mate1;
-  // string m1n = argv[2]; 
-  // m1n = m1n + ".mate1.fastq"; 
-  // mate1.open (m1n);
-  ofstream mate1(argv[2]);
-  mate1.setf(std::ios::unitbuf); // Force flush after every insertion
+  ofstream mate1;
+  string m1n = argv[2]; 
+  m1n = m1n + ".mate1.fastq"; 
+  mate1.open (m1n);
   if (mate1.is_open())
     {}
   else
@@ -59,12 +57,10 @@ int main (int argc, char *argv[])
       return 0;
     }
 
-  // ofstream mate2;
-  // string m2n = argv[2]; 
-  // m2n = m2n + ".mate2.fastq";
-  // mate2.open (m2n);
-  ofstream mate2(argv[3]);
-  mate2.setf(std::ios::unitbuf);
+  ofstream mate2;
+  string m2n = argv[2]; 
+  m2n = m2n + ".mate2.fastq";
+  mate2.open (m2n);
   if (mate2.is_open())
     {}
   else

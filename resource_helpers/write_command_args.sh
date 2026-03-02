@@ -1,17 +1,13 @@
 #!/bin/bash
 # This is run within container
 
-# ENV override
-: "${RUFUS_ROOT:=/opt/RUFUS}"
-
 # Constants
-CMD_OUT="./rufus_temp/rufus.cmd"
-GLOBALS_FILE="$RUFUS_ROOT/resources/globals.txt"
-USER_SPEC="$(id -u):$(id -g)"
+CMD_OUT="/mnt/rufus_temp/rufus.cmd"
+GLOBALS_FILE="/opt/RUFUS/resources/globals.txt"
 
 # Required args
 CONTAINER_ID="$1"
-CONT_ENV_FILE="./rufus_temp/temp_rufus.env"
+CONT_ENV_FILE="/mnt/rufus_temp/temp_rufus.env"
 
 # Make env variables available
 if [ -f "$CONT_ENV_FILE" ]; then
@@ -40,14 +36,14 @@ if [ "${#CONTROL_FILE_ARRAY[@]}" -eq 0 ]; then
 else
     # Concatenate controls into a single -c delimited string
     for control in "${CONTROL_FILE_ARRAY[@]}"; do
-        ctrl_arg+="-c $control"
+        ctrl_arg+="-c /mnt/$control"
     done
 fi
 
-run_cmd="docker -u ${USER_SPEC} exec ${CONTAINER_ID} bash $RUFUS_ROOT/runRufus.sh -s $SUBJECT_FILE $ctrl_arg -r $REFERENCE_FASTA -k $KMER_LENGTH -m $KMER_DEPTH_CUTOFF -t $THREAD_LIMIT $OTHER_FLAGS -e kg1_$KG1_HASH_VERSION"
-post_cmd="docker exec -u ${USER_SPEC} ${CONTAINER_ID} bash $RUFUS_ROOT/post_process/post_process.sh -s $SUBJECT_FILE -r $REFERENCE_FASTA -w $WINDOW_SIZE -d . $ctrl_arg"
+run_cmd="docker exec ${CONTAINER_ID} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_FILE $ctrl_arg -r $REFERENCE_FASTA -k $KMER_LENGTH -m $KMER_DEPTH_CUTOFF -t $THREAD_LIMIT $OTHER_FLAGS -e kg1_$KG1_HASH_VERSION"
+post_cmd="docker exec ${CONTAINER_ID} bash /opt/RUFUS/post_process/post_process.sh -s /mnt/$SUBJECT_FILE -r $REFERENCE_FASTA -w $WINDOW_SIZE -d /mnt $ctrl_arg"
 
-mkdir -p ./rufus_supplementals
+mkdir -p /mnt/rufus_supplementals
 
 echo "##RUFUSCommandLine=<ID=rufus, Branch=\"$RUFUS_BRANCH\", Version=\"$RUFUS_VERSION\", Command=\"$run_cmd\">" > "$CMD_OUT"
 echo "##RUFUSCommandLine=<ID=rufus, Branch=\"$RUFUS_BRANCH\", Version=\"$RUFUS_VERSION\", Command=\"$post_cmd\">" >> "$CMD_OUT"

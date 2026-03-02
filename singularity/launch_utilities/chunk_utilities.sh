@@ -3,9 +3,7 @@ set -e
 
 #LOCAL_TESTING_UTIL_PATH=/home/ubuntu/RUFUS/singularity/launch_utilities/
 #UTIL_PATH=$LOCAL_TESTING_UTIL_PATH
-
-: "${RUFUS_ROOT:=/opt/RUFUS}"
-UTIL_PATH=${RUFUS_ROOT}/singularity/launch_utilities/
+UTIL_PATH=/opt/RUFUS/singularity/launch_utilities/
 
 GENOME_HELPERS_PATH=${UTIL_PATH}genome_helpers.sh
 . $GENOME_HELPERS_PATH

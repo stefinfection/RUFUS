@@ -31,26 +31,32 @@ echo "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 mkdir ./TempOverlap/
 echo "Overlaping $File"
 
-# TODO: this needs to go away!!!
 RDIR=/scratch/ucgd/lustre/work/u0991464/Projects/CEPH.new/RUFUS
 
-OverlapHash=$RDIR/bin/Overlap # TODO: should be in path
-OverlapRebion2=$RDIR/bin/OverlapRegion # TODO: should be in path
-ReplaceQwithDinFASTQD=$RDIR/bin/ReplaceQwithDinFASTQD # TODO: should be in path
-ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ # TODO: should be in path
-AnnotateOverlap=$RDIR/bin/AnnotateOverlap # TODO: should be in PATH
-bwa=$RDIR/bin/bwa/bwa # TODO: install at container level
-RUFUSinterpret=$RDIR/bin/RUFUS.interpret.onlytwoParents # TODO: should be in PATH
+OverlapHash=$RDIR/bin/Overlap
+OverlapRebion2=$RDIR/bin/OverlapRegion
+ReplaceQwithDinFASTQD=$RDIR/bin/ReplaceQwithDinFASTQD
+ConvertFASTqD=$RDIR/bin/ConvertFASTqD.to.FASTQ
+AnnotateOverlap=$RDIR/bin/AnnotateOverlap
+#gkno=$RDIR/bin/gkno_launcher/gkno
+bwa=$RDIR/bin/bwa/bwa
+samtools=/opt/samtools/samtools
+#samtools=$RDIR/bin/samtools-1.6/samtools
+RUFUSinterpret=$RDIR/bin/RUFUS.interpret.onlytwoParents
 CheckHash=$RDIR/scripts/CheckJellyHashList.sh
-OverlapSam=$RDIR/bin/OverlapSam # TODO: should be in PATH
+OverlapSam=$RDIR/bin/OverlapSam
 JellyFish=$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish
+fastaFromBed=/opt/bedtools2/bin/fastaFromBed
+bamToBed=/opt/bedtools2/bin/bamToBed
+
+
 
 #############################################################################################################
 if [ -s Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq ]
 then 
 	echo "skipping pull reference sequecnes"
 else
-	fastaFromBed -bed <( bamToBed -i ./$NameStub.overlap.hashcount.fastq.bam) -fi $humanRef -fo Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
+	$fastaFromBed -bed <( $bamToBed -i ./$NameStub.overlap.hashcount.fastq.bam) -fi $humanRef -fo Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq 
 fi 
 
 if [ -s ./Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab ]
@@ -140,9 +146,9 @@ fi
 wait
 
 mkfifo check 
-samtools index ./$NameStub.overlap.hashcount.fastq.bam
+$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 
-samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
+$samtools view ./$NameStub.overlap.hashcount.fastq.bam | $RUFUSinterpret -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m 1000000 $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash 
 
 
 

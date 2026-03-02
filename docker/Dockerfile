@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS BUILD
+FROM ubuntu:22.04
 
 # Metadata labels
 LABEL author="Stephanie Georges"
@@ -65,8 +65,7 @@ RUN cd /opt && \
     autoheader && \
     autoconf -Wno-syntax && \
     ./configure --with-htslib=/opt/htslib/ && \
-    make && \
-    make install
+    make
 
 # Install bcftools
 RUN cd /opt && \
@@ -75,8 +74,7 @@ RUN cd /opt && \
     autoheader && \
     autoconf && \
     ./configure --with-htslib=/opt/htslib/ --enable-libgsl && \
-    make && \
-    make install
+    make
 
 # Install bamtools
 RUN cd /opt && \
@@ -85,22 +83,21 @@ RUN cd /opt && \
     mkdir build && \
     cd build/ && \
     cmake -DCMAKE_INSTALL_PREFIX=/opt/bamtools/build .. && \
-    make && \
-    make install
+    make
 
 # Install bedtools
 RUN cd /opt && \
     wget https://github.com/arq5x/bedtools2/releases/download/v2.31.1/bedtools-2.31.1.tar.gz && \
     tar -zxvf bedtools-2.31.1.tar.gz && \
     cd bedtools2 && \
-    make && \
-    make install
+    make
 
 # Install RUFUS
 RUN cd /opt && \
-    git clone https://github.com/stefinfection/RUFUS.git -b d1.1.6 && \
+    git clone https://github.com/stefinfection/RUFUS.git && \
     cd RUFUS && \
-    mkdir -p bin && \
+    git checkout singularity_epsilon && \
+    mkdir bin && \
     cd bin && \
     cmake ../ && \
     make
@@ -117,14 +114,15 @@ ENV RUFUS_ROOT=/opt/RUFUS
 ENV LC_CTYPE=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US.UTF-8
-ENV CC=gcc
-ENV CXX=g++
 
 # Health check / test commands
 RUN /opt/samtools/samtools || true && \
     /opt/bamtools/build/src/bamtools || true && \
     /opt/bedtools2/bin/bedtools || true && \
     bgzip || true
+
+# Set working directory
+WORKDIR /data
 
 # Default command
 CMD ["/bin/bash"]

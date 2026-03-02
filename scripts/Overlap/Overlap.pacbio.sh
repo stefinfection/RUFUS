@@ -18,6 +18,7 @@ ParentsJhash=${11}
 humanRefBwa=${12}
 refHash=${13}
 MaxCov=100000
+samtools=/opt/samtools/samtools
 
 
 echo " you gave
@@ -103,11 +104,11 @@ then
 else
 #        $bwa mem -t $Threads -Y -E 0,0 -O 6,6  -d 500 -w 500 -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
 	#$bwa mem -t $Threads -Y -E 0,0 -O 6,6  -L 2,2 $humanRefBwa ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam
-    minimap2 -Y -a /scratch/ucgd/lustre/work/u0991464/reference/38/GRCh38_full_analysis_set_plus_decoy_hla.fa.mmi ./$NameStub.overlap.hashcount.fastq | samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam 
-	samtools index ./$NameStub.overlap.hashcount.fastq.bam
+        minimap2 -Y -a /scratch/ucgd/lustre/work/u0991464/reference/38/GRCh38_full_analysis_set_plus_decoy_hla.fa.mmi ./$NameStub.overlap.hashcount.fastq | $samtools sort -T $File -O bam - > ./$NameStub.overlap.hashcount.fastq.bam 
+	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi
 
-if [ $( samtools view ./$NameStub.overlap.hashcount.fastq.bam | head -n 10 | wc -l | awk '{print $1}') -eq "0" ]; then
+if [ $( $samtools view ./$NameStub.overlap.hashcount.fastq.bam | head -n 10 | wc -l | awk '{print $1}') -eq "0" ]; then
         echo "ERROR: BWA failed on ./$NameStub.overlap.hashcount.fastq.bam .  Either the files are exactly the same of something went wrong in previous step" 
         exit 100
 fi
@@ -235,7 +236,7 @@ then
 	echo "skipping index ./$NameStub.overlap.hashcount.fastq.bam"
 else
 
-	samtools index ./$NameStub.overlap.hashcount.fastq.bam
+	$samtools index ./$NameStub.overlap.hashcount.fastq.bam
 fi 
 
 echo "$RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam  -mod Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash "
@@ -245,8 +246,8 @@ echo ""
 echo ""
 dumbFix=$(awk '{split($1, a, ".V2"); print a[1]}' <<< $NameStub)
 echo "$RUFUSinterpret -mob ./Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 8 -r $humanRef -hf $HashList -o  ./$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e ./Intermediates/$NameStub.ref.RepRefHash"
-echo "samtools view ./$NameStub.overlap.hashcount.fastq.bam | grep -v chrUn  "
-samtools view ./$NameStub.overlap.hashcount.fastq.bam | grep -v chrUn | \
+echo "$samtools view ./$NameStub.overlap.hashcount.fastq.bam | grep -v chrUn  "
+$samtools view ./$NameStub.overlap.hashcount.fastq.bam | grep -v chrUn | \
 	$RUFUSinterpret \
 		-mQ 1 \
 		-r $humanRef \

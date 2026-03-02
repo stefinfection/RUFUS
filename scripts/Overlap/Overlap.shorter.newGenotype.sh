@@ -32,8 +32,7 @@ mkdir ./TempOverlap/
 mkdir ./Intermediates/
 echo "Overlaping $File"
 
-: "${RUFUS_ROOT:=/opt/RUFUS}"
-RDIR="$RUFUS_ROOT"
+RDIR=/opt/RUFUS
 
 OverlapHash=$RDIR/bin/Overlap
 OverlapRebion2=$RDIR/bin/OverlapRegion

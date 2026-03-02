@@ -1,38 +1,44 @@
 #!/bin/bash
 
 usage() {
-	echo "Usage: $0 [-s subject]-d source_dir] [-h]"
+	echo "Usage: $0 [-w window_size] [-r reference] [-s subject] [-c control1,control2,control3...] [-d source_dir] [-h]"
 	echo "Options:"
+	echo " -w window_size	Required: The size of the window used in the RUFUS run"
+	echo " -r reference	Required: The reference used in the RUFUS run"
+	echo " -c controls	The control bam files used in the RUFUS run, if any"
 	echo " -s subject_file	Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located" # TODO: make this not required
+	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located"
 	echo " -h help	Print help message"
 	exit 1
 }
 
-# Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
-clean_up_post_temps() {
-  files=("$TEMP_FINAL_VCF" "rufus.cmd" )
-
-  for file in "${files[@]}"; do
-	if [ "$file" != "" ]; then
-    	find . -maxdepth 1 -type f -name "$file*" -delete
-	fi
-  done
-
-  find . -type d -name "Intermediates" -exec rm -rf {} +
-  find . -type d -name "TempOverlap" -exec rm -rf {} +
+report_empty_and_exit() {
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again."
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." >&2
+  echo "RUFUS did not find any variants for the provided parameters. Please adjust and try again." > results.out
+  exit 0
 }
-trap 'clean_up_post_temps' EXIT
+
+# static paths
+bcftools="/opt/bcftools/bcftools"
+samtools="/opt/samtools/samtools"
+
+# initialize vars
+CONTROLS=()
+WINDOW_SIZE=0
+REFERENCE=""
+SUBJECT_FILE=""
+SOURCE_DIR="/mnt"
 
 # parse command line arguments
-SUBJECT_FILE=""
-SOURCE_DIR="."
-
-while getopts "h:s:d:" option; do 
+while getopts ":w:r:c:s:d:h" option; do 
 	case $option in 
 		h) usage;;
+		w) WINDOW_SIZE=$OPTARG;;
+		r) REFERENCE=$OPTARG;;
 		s) SUBJECT_FILE=$OPTARG;;
 		d) SOURCE_DIR=$OPTARG;;
+		c) IFS=',' read -r -a CONTROLS <<< "$OPTARG";;
 		\?) echo "Invalid option: -$OPTARG" >&2
 		    usage;;	
 		*) echo "Option -$OPTARG requires an argument" >&2
@@ -41,80 +47,237 @@ while getopts "h:s:d:" option; do
 done
 shift $((OPTIND-1))
 
-if [[ -z "$SUBJECT_FILE" ]]; then
-	echo "ERROR: Missing required option -s (subject cram/bam)" >&2
-	exit 1
+# check for mandatory command line arguments
+if [[ -z "$WINDOW_SIZE" ]]; then
+	    echo "ERROR: Missing required option -w (window size)" >&2
 fi
 
+if [[ -z "$REFERENCE" ]]; then
+	    echo "ERROR: Missing required option -r (reference)" >&2
+fi
 
-echo "RUFUS post-process version E-0.1.0"
+if [[ -z "$SOURCE_DIR" ]]; then
+	echo "ERROR: Missing required option -d (source directory for RUFUS vcf(s))" >&2
+fi
+
+if [ ${#CONTROLS[@]} -eq 0 ]; then
+	    echo "No controls provided, using internal control" >&2
+fi
+
+# Make supp directory
+SUPPLEMENTAL_DIR="${SOURCE_DIR}/rufus_supplementals/"
+
+# Cleans up intermediate files, reports no variants found in both out + error, and exits failure code
+clean_up_early_intermeds() {
+  local SUBJECT_FILE="$1"
+  local ALL_ARGS=("$@")
+  local CONTROLS=("${ALL_ARGS[@]:1}")
+  local PATH_TO_OUTPUT="${SOURCE_DIR}"
+
+  # TODO: will need to not hard code eventually to accommodate other builds/species
+  # NOTE: don't need chr10-22 because 1* and 2* will get rid of these
+  chroms=(
+    "chr1"
+    "chr2"
+    "chr3"
+    "chr4"
+    "chr5"
+    "chr6"
+    "chr7"
+    "chr8"
+    "chr9"
+    "chrM"
+    "chrX"
+    "chrY"
+  )
+
+  # Clean up intermediate files
+  echo "Cleaning up early intermediates..." >&2
+
+  # Have to do this piecemeal because too many files with windowed mode for single rm command
+  for chrom in "${chroms[@]}"; do
+    if ls ${PATH_TO_OUTPUT}/${SUBJECT_FILE}*${chrom}*.generator* 1> /dev/null 2>&1; then
+      rm ${PATH_TO_OUTPUT}/${SUBJECT_FILE}*${chrom}*.generator*
+    fi
+  done
+
+  for control in "${CONTROLS[@]}"; do
+    # Have to do this piecemeal because too many files with windowed mode for single rm command
+    for chrom in "${chroms[@]}"; do
+        if ls ${PATH_TO_OUTPUT}/${control}*${chrom}*.generator* 1> /dev/null 2>&1; then
+          rm ${PATH_TO_OUTPUT}/${control}*${chrom}*.generator*
+        fi
+      done
+  done
+
+  # Remove intermediate files if they exist
+  if [ -d "${PATH_TO_OUTPUT}/Intermediates" ] && [ -d "${PATH_TO_OUTPUT}/TempOverlap" ]; then
+    rm -r ${PATH_TO_OUTPUT}/Intermediates
+    rm -r ${PATH_TO_OUTPUT}/TempOverlap
+  fi
+
+  if [ -e "${PATH_TO_OUTPUT}/temp*.vcf*" ]; then
+    rm ${PATH_TO_OUTPUT}/temp*.vcf*
+  fi
+}
+
+# Strip off path from subject file if provided
+SUBJECT_FILE=$(basename $SUBJECT_FILE)
+
+cd $SOURCE_DIR
+echo "RUFUS post-process version E-0.0.1"
 date
 start_time=$(date +"%s")
 
-# Have to define all of these before first possible exit
-SUBJECT_STRING=$(basename "$SUBJECT_FILE")
-TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf.gz"
-TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf.gz"
-FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.vcf"
+POST_PROCESS_DIR=/opt/RUFUS/post_process/
+TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
+TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_FILE}.combined.vcf.gz"
+GERMLINE_VCF="with_germline.RUFUS.Final.${SUBJECT_FILE}.combined.vcf.gz"
 
 # Slight name change if not doing a windowed run
-if [ "$WINDOW_SIZE" -eq 0 ]; then
+if [ "$WINDOW_SIZE" == "0" ]; then
+  # TODO: need to test full genome run
 	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_FILE}.vcf.gz"
-fi
+	TEMP_PREFILTERED_VCF="${SUPP_DIR}temp.RUFUS.Prefiltered.${SUBJECT_FILE}.vcf.gz"
 
-# Check to see if temp vcf(s) exists, if not report empty results and exit
-if read -r first_match < <(compgen -G "temp.RUFUS.Final*vcf.gz"); then
-    echo "Found temporary vcf(s)"
+  # Check to see if final vcf exists, if not report empty results and exit
+  if [ ! -e "$TEMP_FINAL_VCF" ]; then
+    clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+    report_empty_and_exit
+    exit 0
+  fi
 else
-  	echo "Could not find any temporary vcf(s) from calling stage. Exiting..."
+  # Start processing windowed run
+  TAB_DELIM_CONTROL_STRING=""
+  if [ ${#CONTROLS[@]} -eq 0 ]; then
+      TAB_DELIM_CONTROL_STRING="internal"
+  else
+      IFS=$'\t'
+      TAB_DELIM_CONTROL_STRING="${CONTROLS[*]}"
+  fi
+  echo "Windowed run performed, trimming and combining region vcfs..."
+  bash ${POST_PROCESS_DIR}trim_and_combine.sh $SUBJECT_FILE $TAB_DELIM_CONTROL_STRING $WINDOW_SIZE
 fi
 
-MERGED="merged.vcf"
-NO_HEAD="no_header.vcf"
-FINAL_GZ="${FINAL_VCF}.gz"
+# Get number of variants reported
+VARS_REPORTED=$($bcftools view -H $TEMP_FINAL_VCF | wc -l)
 
-# Concat vcfs if in windowed mode
-if [ "$WINDOW_SIZE" -ne 0 ]; then
-	# Concatenate all intermediates
-	find . -maxdepth 1 -type f -name 'temp.RUFUS.Final.*.vcf.gz' -print |
-	sort -V > regions.txt
+# Keep germline vcf - todo: need to only do this if we have control files and not just hashes
+# cp $TEMP_FINAL_VCF $GERMLINE_VCF
+# mv $GERMLINE_VCF $SUPPLEMENTAL_DIR
 
-	split -l 200 regions.txt regions.chunk.
+# Check for empty vcf AFTER trimming and combining
+# If we don't have any variants here, the entire run didn't find any variants & we'll report a failure
+if [ "$VARS_REPORTED" == "0" ]; then
+  clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+  report_empty_and_exit
+fi
 
-	for f in regions.chunk.*; do
-			echo "-- BCFTools ---------------------------"
-			bcftools concat -a -D -f $f -Oz -o "$f.vcf.gz"
-			bcftools index "$f.vcf.gz"
-	done
+# Check for empty lines
+echo "Checking vcf formatting..."
+bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_FINAL_VCF "final_no_gx.vcf"
+#bash ${POST_PROCESS_DIR}remove_no_genotype.sh $TEMP_PREFILTERED_VCF "prefiltered_no_gx.vcf"
+rm $TEMP_FINAL_VCF*
+#rm $TEMP_PREFILTERED_VCF
+mv "final_no_gx.vcf.gz" $TEMP_FINAL_VCF
+#mv "prefiltered_no_gx.vcf.gz" $TEMP_PREFILTERED_VCF
 
-	ls regions.chunk.*.vcf.gz > final.list
-	bcftools concat -a -D -f final.list -Ov -o $MERGED
+# Sort
+echo "Sorting..."
+$bcftools sort $TEMP_FINAL_VCF | bgzip > "sorted.${TEMP_FINAL_VCF}"
+# TODO: when fix formatting on prefiltered vcf, comment two lines below back in
+#$bcftools sort $TEMP_PREFILTERED_VCF | bgzip > "sorted.${TEMP_PREFILTERED_VCF}"
 
-	bcftools sort -T "tmp_bcftools.XXXXXX" -O -o "$NO_HEAD" "$MERGED" \
-	|| { echo "Error: bcftools sort failed"; exit 1; }
+rm $TEMP_FINAL_VCF*
+#rm $TEMP_PREFILTERED_VCF
+$bcftools index "sorted.$TEMP_FINAL_VCF"
 
+# Remove coinheriteds if we have at least one control
+COINHERITED_REMOVED_VCF="coinherited_removed.vcf.gz"
+if [ ${#CONTROLS[@]} -eq 0 ]; then
+    echo "No controls provided, skipping coinherited removal..."
+    mv "sorted.$TEMP_FINAL_VCF" "$COINHERITED_REMOVED_VCF"
+    mv "sorted.$TEMP_FINAL_VCF".csi "$COINHERITED_REMOVED_VCF".csi
+    #mv "sorted.$TEMP_PREFILTERED_VCF" $TEMP_PREFILTERED_VCF
 else
-	# Just sort and add header for whole genome mode
-	bcftools sort -T "tmp_bcftools.XXXXXX" -O -o "$NO_HEAD" "$TEMP_FINAL_VCF" \
-		|| { echo "Error: bcftools sort failed"; exit 1; }
+  echo "Removing coinheriteds..."
+  IFS=$','
+  CONTROL_STRING="${CONTROLS[*]}"
+  bash ${POST_PROCESS_DIR}remove_coinheriteds.sh "$REFERENCE" "sorted.${TEMP_FINAL_VCF}" "$COINHERITED_REMOVED_VCF" "$SOURCE_DIR" "$CONTROL_STRING"
+  rm "sorted.$TEMP_FINAL_VCF"*
 fi
 
-# Inject rufus command into header
-bcftools view -h $NO_HEAD | head -n -1 > "$FINAL_VCF" || { echo "Error: bcftools view on merged vcf failed"; exit 1; }
-cat rufus.cmd >> "$FINAL_VCF" || { echo "Could not find rufus.cmd"; exit 1; }
-bcftools view -h $NO_HEAD | tail -n 1 >> "$FINAL_VCF"
-bcftools view -H $NO_HEAD >> "$FINAL_VCF" 
+# Add HD_AF field
+echo "Adding kmer-based allele frequencies..." 
+AF_ADDED_VCF="hd_af.${COINHERITED_REMOVED_VCF}"
+SUBJECT_SAMPLE_NAME=$($bcftools view -h $COINHERITED_REMOVED_VCF | tail -n 1 | awk -F'\t' '{ print $10 }')
+bash ${POST_PROCESS_DIR}add_hd_med.add_hd_af.sh "$COINHERITED_REMOVED_VCF" "$SUBJECT_SAMPLE_NAME"
+$bcftools index $AF_ADDED_VCF
 
-bgzip "$FINAL_VCF" || { echo "Error: bgzip failed on final vcf"; exit 1; }
-tabix -f -p vcf "$FINAL_GZ" \
-|| { echo "Error: tabix failed"; exit 1; }
-echo "-----------------------------------------"
-echo "Done: $FINAL_GZ"
+# Compose final vcfs
+SUBJECT_STRING=$(basename $SUBJECT_FILE)
+FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.combined.vcf"
+PREFILTERED_VCF="RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf"
 
-echo "Concatenating & sorting complete."
+# Inject RUFUS command into header
+echo "Composing final vcfs..."
+$bcftools view -h $AF_ADDED_VCF | head -n -1 > $FINAL_VCF
+
+RUN_COMMAND_FILE="${SOURCE_DIR}/rufus_temp/rufus.cmd"
+while read line; do
+  echo -e "$line" >> $FINAL_VCF
+done < "$RUN_COMMAND_FILE"
+rm $RUN_COMMAND_FILE
+
+$bcftools view -h $AF_ADDED_VCF | tail -n 1 >> $FINAL_VCF
+$bcftools view -H $AF_ADDED_VCF >> $FINAL_VCF
+bgzip $FINAL_VCF
+$bcftools index "$FINAL_VCF.gz"
+
+#TODO: Comment back in after prefiltered vcf cleaned up
+#$bcftools view -h $TEMP_PREFILTERED_VCF | head -n -1 > $PREFILTERED_VCF
+#$bcftools view -h $TEMP_PREFILTERED_VCF | tail -n 1 >> $PREFILTERED_VCF
+#$bcftools view -H $TEMP_PREFILTERED_VCF >> $PREFILTERED_VCF
+#bgzip $PREFILTERED_VCF
+#$bcftools index "$PREFILTERED_VCF.gz"
+#mv "$PREFILTERED_VCF.gz"* rufus_supplementals/
+
+# Only need to move and rename if did a windowed run
+# if [ "$WINDOW_SIZE" != "0" ]; then
+# 	mv $TEMP_PREFILTERED_VCF prefiltered.vcf.gz
+# 	mv $TEMP_PREFILTERED_VCF.tbi prefiltered.vcf.gz.tbi
+# 	mv prefiltered.vcf.gz* rufus_supplementals/
+# fi
+
+
+# TODO: Separate SVs and SNV/Indels
+#echo "Separating snvs/indels and SVs..."
+
+# Cleanup
+#rm $TEMP_PREFILTERED_VCF*
+rm $COINHERITED_REMOVED_VCF*
+#rm "normed.sorted.$TEMP_FINAL_VCF"*
+rm "$AF_ADDED_VCF"*
+
+# TODO: only do this if not reporting in developer mode
+# ls ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# ls ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam | xargs $samtools merge ${SUPPLEMENTAL_DIR}unique_reads.bam
+# $samtools sort ${SUPPLEMENTAL_DIR}unique_contigs.bam -o ${SUPPLEMENTAL_DIR}unique_contigs.sorted.bam
+# $samtools sort ${SUPPLEMENTAL_DIR}unique_reads.bam -o ${SUPPLEMENTAL_DIR}unique_reads.sorted.bam
+# rm ${SUPPLEMENTAL_DIR}unique_contigs.bam
+# rm ${SUPPLEMENTAL_DIR}unique_reads.bam
+# rm ${SUPPLEMENTAL_DIR}*generator.V2.overlap.hashcount.fastq.bam*
+# rm ${SUPPLEMENTAL_DIR}*generator.Mutations.fastq.bam*
+
+# cat ${SUPPLEMENTAL_DIR}*.HashList > ${SUPPLEMENTAL_DIR}unique_kmer_counts.txt
+# rm ${SUPPLEMENTAL_DIR}*.HashList
+
+clean_up_early_intermeds "$SUBJECT_FILE" "${CONTROLS[@]}"
+
+echo "Post-processing complete."
 end_time=$(date +"%s")
-time_delta=$(( end_time - start_time ))
+time_delta=$(( $end_time - $start_time ))
 hours=$(( time_delta / 3600 ))
 minutes=$(( (time_delta % 3600) / 60 ))
 seconds=$(( time_delta % 60 ))
-printf "RUFUS combine stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
+printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 GEN=$1
 K=$2
@@ -6,25 +6,25 @@ T=$3
 L=$4
 HASH_SIZE=$5
 
-: "${RUFUS_ROOT:=/opt/RUFUS}"
-RDIR="$RUFUS_ROOT"
-JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
+RDIR=/opt/RUFUS/
 
-trap 'rm -f "$FIFO_FQ"' EXIT
+JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
 
 # If we're using a region-specific hash, adjust size accordingly (1MB hashes made w/ 1G)
 if [ -e "$GEN.Jhash" ]
 then
 	echo "Skipping jelly, $GEN.Jhash alreads exists"
 else
-	# Extra thread safety
-	PID=$$
-	FIFO_FQ="${GEN}.fq.${PID}"
-
-	rm -f "$FIFO_FQ"
-	mkfifo "$FIFO_FQ"
-
-	bash "$GEN" | "$RDIR/bin/PassThroughSamCheck" "$GEN.Jelly.chr" > "$FIFO_FQ" &
+	echo "Running jellyfish for $GEN"
+	if [ -e $GEN.Jhash.temp ]; then 
+		rm $GEN.Jhash.temp
+	fi
+	mkfifo $GEN.Jhash.temp
+	if [ -e $GEN.fq ]; then 
+		rm $GEN.fq
+	fi
+	mkfifo $GEN.fq
+	bash $GEN | $RDIR/bin/PassThroughSamCheck $GEN.Jelly.chr > $GEN.fq &
 
 	# -C is canonical ("Count both strand, canonical representation")
 	# -L is filtering out low frequency kmers ("Don't output k-mer with count < lower-count")
@@ -36,15 +36,17 @@ else
 	# guessing this starting number is far too low and there's a lot of memory swapping happening here
 	# good area of parallelization and possible merging after - will neeed to think through
 	
-	"$JELLYFISH" count --disk -m "$K" -L "$L" -s "$HASH_SIZE" -t "$T" -o "$GEN.Jhash" -C "$FIFO_FQ"
+	$JELLYFISH count --disk -m $K -L $L -s $HASH_SIZE -t $T -o $GEN.Jhash -C $GEN.fq
+	rm $GEN.Jhash.temp
+	rm $GEN.fq
 
 	wait
 fi
 
-if [ ! -s "$GEN.Jhash.histo" ]; then 
-	"$JELLYFISH" histo -f -o "$GEN.Jhash.histo" "$GEN.Jhash"
+if [ ! -s $GEN.Jhash.histo ]; then 
+	$JELLYFISH histo -f -o $GEN.Jhash.histo $GEN.Jhash
 fi
-if [ $(awk '$2 > 0' "$GEN.Jhash.histo" | wc -l ) -eq "0" ]; then  
+if [ $(awk '$2 > 0' $GEN.Jhash.histo | wc -l ) -eq "0" ]; then  
 	exit 1
 fi
 exit 0

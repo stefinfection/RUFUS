@@ -1,12 +1,16 @@
 #!/bin/bash
-set -euo pipefail
 
-: "${WORK_DIR:?WORK_DIR must be set}"
-
-# Takes in a list of regions to perform a pileup on in bam, returns a single bgzipped pileup vcf
-regions=$1
+chr=$1
 bam=$2
 ref=$3
+start_coord=$4
+end_coord=$5
 
-DEPTH=${DEPTH:-100}
-bcftools mpileup -Oz -d $DEPTH -f "$ref" -r "${regions}" "$bam"
+DEPTH=500
+BCFTOOLS="/opt/bcftools/bcftools"
+
+if [ ! -z "$start_coord" ] && [ ! -z "$end_coord" ]; then
+  $BCFTOOLS mpileup -Ov -d $DEPTH -f $ref -r "${chr}:${start_coord}-${end_coord}" -o mpileup_${chr}_${start_coord}_${end_coord}.vcf $bam
+else
+  $BCFTOOLS mpileup -Ov -d $DEPTH -f $ref -r "${chr}" -o mpileup_${chr}.vcf $bam
+fi

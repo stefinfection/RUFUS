@@ -1,5 +1,5 @@
 RUFUS_BRANCH="docker"
-RUFUS_VERSION="v1.1.6"
+RUFUS_VERSION="v1.0.0"
 
 # todo: put RDIR in here
 # todo: put post process version here
