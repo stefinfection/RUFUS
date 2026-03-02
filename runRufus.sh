@@ -5,6 +5,9 @@ GLOBALS_FILE="/opt/RUFUS/resources/globals.txt" # Path to globals file inside co
 set -a
 source <(grep -v '^#' $GLOBALS_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
 set +a
+
+source "$EXEC_HELPERS"
+
 echo -n "You are running the $RUFUS_BRANCH"
 echo " version of RUFUS: $RUFUS_VERSION"
 

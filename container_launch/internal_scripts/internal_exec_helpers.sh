@@ -134,7 +134,6 @@ get_control_arg() {
 
     echo "$ctrl_arg"
 }
-export -f get_control_arg
 
 # Returns RUFUS argument string for 1000G hashes as appropriate (without -e)
 # Called by main rufus script
@@ -151,7 +150,6 @@ get_kg1_arg() {
 
     echo "$kg1_arg"
 }
-export -f get_kg1_arg
 
 
 # Returns RUFUS flag for control prebuilt hashes, if optioned
@@ -171,7 +169,6 @@ get_control_hash_flag() {
 
     echo "$ctrl_hash_arg"
 }
-export get_control_hash_flag
 
 # Returns RUFUS flag for kg1 prebuilt hashes, if optioned
 # Otherwise, returns empty string
@@ -190,7 +187,6 @@ get_kg1_hash_flag() {
 
     echo "$kg1_hash_arg"
 }
-export get_kg1_hash_flag
 
 # Returns RUFUS argument string for reference
 # Agnostic to BWA index status
@@ -205,7 +201,6 @@ get_ref_arg() {
         ref_arg="-cr ${REF_INDEX_DIR}${ref_base}"
     fi
 }
-export -f get_ref_arg
 
 # Returns single string of arguments provided directly to RUFUS run script
 # All args here are not relative to a region
@@ -263,7 +258,6 @@ get_post_process_args() {
         -d $RUNTIME_TEMP_DIR \
         $concat_ctrl_post_arg"
 }
-export -f get_post_process_args
 
 # ----------------- OTHER HELPERS ----------------- #
 
