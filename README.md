@@ -33,7 +33,7 @@ curl "https://zenodo.org/records/18284901/files/rufus_v1.1.0.sif" -o rufus.sif
 RUFUS requires the following data to run:
 1) A subject sample in BAM/CRAM format (this may be unaligned if using whole genome mode)
 2) One or more control samples in BAM/CRAM format (these may be unaligned)
-3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same data directory if you have them to save time creating them during the RUFUS run.*\
+3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same directory as the reference to save time creating them during the RUFUS run.*\
 \
 To create the BWA indexes, run the following commands:
    ```
@@ -41,11 +41,11 @@ To create the BWA indexes, run the following commands:
    samtools faidx {REFERENCE.fa}
    ```
 
-**All of the above required files, as well as any optional ones, must be located in a single directory, which will be mounted to the singularity container.**
+All input files are specified by their full paths. The necessary host directories are automatically bind-mounted into the singularity container.
 
 ### Output Data
 
-RUFUS will, by default, output the following files *in the same bound directory containing the input data*:
+RUFUS will, by default, output the following files *in the current working directory*:
 1) A VCF file containing the called variants
 2) A supplemental directory with:
     * A pre-filtered VCF file
@@ -59,7 +59,7 @@ RUFUS will, by default, output the following files *in the same bound directory 
 RUFUS has two execution stages:
 1) The calling stage, invoked by the following
 ```
-singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/runRufus.sh [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [-c|<controls-1>] ... [-c|<controls-n>] ...OPTIONS
+singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/runRufus.sh [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [-c|<controls-1>] ... [-c|<controls-n>] ...OPTIONS
 ```
 With the following usage:
 ```
@@ -79,7 +79,7 @@ Optional Arguments:
 
 2) The post-processing stage, invoked by the following
 ```
-singularity exec --bind {PATH_TO_LOCAL_DATA_DIR}:/mnt {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh [-w window_size] [-r reference] [-subject] [-c control1,control2,control3...] [-d source_dir]
+singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh [-w window_size] [-r reference] [-subject] [-c control1,control2,control3...]
 ```
 With the following usage:
 ```
@@ -88,8 +88,7 @@ Required Arguments:
     -r reference The reference used in the RUFUS run
     -c controls  The control bam files used in the RUFUS run
     -s subject_file  The name of the subject file: must be the same as that supplied to the RUFUS run
-    -d source_dir    The source directory where the vcf(s) made by the calling stage are located
-Optional Arguments:    
+Optional Arguments:
 	-h help  Print help message
 ```
 
@@ -110,11 +109,10 @@ bash launch_rufus.sh
 The full usage options for the helper script are as follows:
 ```
 Required Arguments:
-    -d data_directory The directory containing the subject, control, and reference files to be used in the run
-    -s subject    The subject sample of interest; must be located in data_directory
-    -c control(s) A single control or comma-delimited array of multiple controls; must be located in data_directory
+    -s subject    Full path to the subject sample BAM/CRAM
+    -c control(s) A single control or comma-delimited array of multiple controls (full paths)
     -b genome_build  The desired genome build; currently only supports GRCh38
-    -r reference  The reference file matching the genome build; must be located in data_directory
+    -r reference  Full path to the reference file matching the genome build
     -a slurm_account  The account for the slurm job
     -p slurm_partition    The partition for the slurm job
     -l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array
@@ -145,7 +143,7 @@ scontrol show config | grep "default_queue_depth"
 
 #### Example Invocation of the helper script
 ```
-singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -d /home/my_data_dir/ -s subject.bam -c control_a.bam, control_b.bam -r GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu" -f /home/my_container_path/
+singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam,/home/controls/control_b.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu"
 ```
 
 ## 

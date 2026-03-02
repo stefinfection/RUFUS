@@ -22,6 +22,35 @@ CHUNK_UTILITIES=${UTIL_PATH}chunk_utilities.sh
 
 NUM_CHUNKS=$(get_num_chunks "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG")
 
+# Resolve per-region hashes (download from S3 if needed, validate all exist)
+RESOLVE_HASHES=${RUFUS_ROOT}/resource_helpers/resolve_hashes.sh
+. $RESOLVE_HASHES
+
+if [ -n "$KG1_HASH_VERSION" ]; then
+    KG1_HASH_DIR="$(pwd)/rufus_hashes/kg1"
+    download_hashes "kg1" "$KG1_HASH_VERSION" "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG" "$KG1_HASH_DIR" \
+        || { echo "ERROR: Failed to download KG1 hashes"; exit 1; }
+fi
+
+if [ -n "$CONTROL_HASH_VERSION" ]; then
+    CONTROL_HASH_DIR="$(pwd)/rufus_hashes/control"
+    download_hashes "control" "$CONTROL_HASH_VERSION" "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG" "$CONTROL_HASH_DIR" \
+        || { echo "ERROR: Failed to download control hashes"; exit 1; }
+fi
+
+if [ -n "$KG1_HASH_DIR" ]; then
+    validate_all_region_hashes "$KG1_HASH_DIR" "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG" \
+        || { echo "ERROR: KG1 hash validation failed"; exit 1; }
+fi
+
+if [ -n "$CONTROL_HASH_DIR" ]; then
+    validate_all_region_hashes "$CONTROL_HASH_DIR" "$WINDOW_SIZE_RUFUS_ARG" "$GENOME_BUILD_RUFUS_ARG" \
+        || { echo "ERROR: Control hash validation failed"; exit 1; }
+fi
+
+# Re-compute bind mounts now that hash dirs may have been set by S3 downloads
+BIND_MOUNTS="$(collect_bind_dirs)"
+
 WORKING_DIR=$(pwd)
 
 echo -en "##RUFUS_callCommand=" > rufus.cmd
@@ -47,23 +76,27 @@ function write_out_rest_of_rufus_args() {
       echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "-f $REFERENCE_HASH_RUFUS_ARG " >> rufus.cmd
     fi
+
+    # Static exclude hashes (same for all regions)
     if [ -n "$EXCLUDE_HASH_LIST_RUFUS_ARG" ]; then
       for exclude in "${EXCLUDE_HASH_LIST_RUFUS_ARG[@]}"; do
         echo -en "-e $exclude " >> $RUFUS_SLURM_SCRIPT
         echo -en "-e $exclude " >> rufus.cmd
       done
     fi
+
+    # Per-region hash args (resolved at SLURM job runtime via glob)
+    if [ -n "$KG1_HASH_DIR" ] || [ -n "$CONTROL_HASH_DIR" ]; then
+      echo -en "\$HASH_ARGS " >> $RUFUS_SLURM_SCRIPT
+      echo -en "\$HASH_ARGS " >> rufus.cmd
+    fi
+
     echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
     echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
 
     if [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]; then
       echo -en "\$REGION_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "\$REGION_ARG " >> rufus.cmd
-    fi
-
-    if [ "$KG1_EXCLUSION_THRESHOLD" -ne 0 ]; then
-      echo -en "\$KG1_REGION_FILE_ARG " >> $RUFUS_SLURM_SCRIPT
-      echo -en "\$KG1_REGION_FILE_ARG " >> rufus.cmd
     fi
     
     printf '\n' >> "$RUFUS_SLURM_SCRIPT"
@@ -92,8 +125,8 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
   echo -e "#SBATCH -o ${WORKING_DIR}/slurm_out/rufus_call_%j.out" >> $RUFUS_SLURM_SCRIPT
   echo -e "#SBATCH -e ${WORKING_DIR}/slurm_out/rufus_call_%j.err" >> $RUFUS_SLURM_SCRIPT
   printf '\n' >> $RUFUS_SLURM_SCRIPT
-	echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-  echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
+	echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+  echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
   write_out_rest_of_rufus_args
 else
   # Add a chunk for post-processing
@@ -166,9 +199,8 @@ else
       echo -e "    kg1_region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/singularity/launch_utilities/get_1kg_region_file.sh \"\$curr_job\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
       echo -e "    KG1_REGION_FILE_ARG=\"-xkg1 \$kg1_region_arg\"" >> $RUFUS_SLURM_SCRIPT
     fi
-    # TODO: need to get rid of all /mnt here
-    echo -en "   srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-    echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+    echo -en "   srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+    echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
 	  echo -en "-pa \$SLURM_ARRAY_TASK_ID " >> $RUFUS_SLURM_SCRIPT
 	  echo -en "-cn \$curr_job " >> $RUFUS_SLURM_SCRIPT
     write_out_rest_of_rufus_args
@@ -182,8 +214,8 @@ else
       # Write out the region argument and srun command
       echo -e "region_arg=\$(singularity exec ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/singularity/launch_utilities/get_region.sh \"\$SLURM_ARRAY_TASK_ID\" \"$WINDOW_SIZE_RUFUS_ARG\" \"$GENOME_BUILD_RUFUS_ARG\")" >> $RUFUS_SLURM_SCRIPT
       echo -e "REGION_ARG=\"-R \$region_arg\"" >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s /mnt/$SUBJECT_RUFUS_ARG " >> rufus.cmd
+      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
       write_out_rest_of_rufus_args
   fi
 fi
@@ -213,13 +245,10 @@ echo "" >> $PP_SLURM_SCRIPT
 IFS=$','
 CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
-BOUND_DATA_DIR="/mnt"
-
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> $PP_SLURM_SCRIPT
+echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG" >> $PP_SLURM_SCRIPT
 
 echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
-echo -e "srun singularity exec --bind ${HOST_DATA_DIR_RUFUS_ARG}:/mnt ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG -d ${BOUND_DATA_DIR}" >> rufus.cmd
-mv rufus.cmd "${HOST_DATA_DIR_RUFUS_ARG}"
+echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG" >> rufus.cmd
 
 # Compose invocation script to be executed outside of container
 EXE_SCRIPT=launch_rufus.sh
