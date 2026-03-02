@@ -120,10 +120,16 @@ Required Arguments:
 Optional Arguments:
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
-    -f reference_hash: Jhash file containing reference kMer hash list
-    -x exclude_hash: Single or comma-delimited list of Jhash file(s) containing kMers to exclude from unique hash list
-    -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif	
-    -z rufus_threads  Number of threads provided to RUFUS; defaults to 36
+    -f reference_hash   Jhash file containing reference kMer hash list
+    -x exclude_hash     Single or comma-delimited list of Jhash file(s) containing kMers to exclude (static, same for all regions)
+    -K kg1_hash_dir     Full path to directory of per-region KG1 Jhash files (files named *{region}*.Jhash)
+    -G kg1_version      KG1 hash version to download from S3 (e.g., v3.0)
+    -D ctrl_hash_dir    Full path to directory of per-region control Jhash files (files named *{region}*.Jhash)
+    -V ctrl_version     Control hash version to download from S3 (e.g., v1.0)
+    -M memory_per_call  How much memory to allot to the rufus calling stage job (e.g., 150G or 20G)
+    -C cpus_per_call    How many cpus to allot to each rufus calling stage job
+    -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif
+    -z rufus_threads  Number of threads provided to RUFUS; defaults to 36 for entire genome; 10 for 1MB windows
     -e email  The email address to notify with slurm updates
     -q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20
     -t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
@@ -141,11 +147,23 @@ To maximize parallelism, filling in the slurm job queue limit (-q) is recommende
 scontrol show config | grep "default_queue_depth"
 ```
 
-#### Example Invocation of the helper script
+#### Example Invocations of the helper script
+
+Basic windowed mode:
 ```
 singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam,/home/controls/control_b.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu"
 ```
 
-## 
+With local per-region hash directories:
+```
+singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -K /data/kg1_hashes/v3.0/ -D /data/ctrl_hashes/v1.0/
+```
+
+With S3-downloaded hashes (downloaded at setup time):
+```
+singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -G v3.0 -V v1.0
+```
+
+*Note*: `-K`/`-G` (KG1 hashes) and `-D`/`-V` (control hashes) are mutually exclusive per type. You may mix local and S3 across types (e.g., `-K /local/kg1/ -V v1.0`). Hash files in local directories must be named with the region string (e.g., `*chr1_1_1000000*.Jhash` for region `chr1:1-1000000`, or `*wg*.Jhash` for whole-genome mode).
 
 =======
