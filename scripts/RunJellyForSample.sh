@@ -6,8 +6,6 @@ Threads=$3
 Min=$4
 _arg_cramref=$5
 
-samtools="/opt/samtools/samtools"
-
     sampleFileName=$(basename "$1")
     echo "file name is" "$sampleFileName"
     sampleExtension="${sampleFileName##*.}"
@@ -21,7 +19,7 @@ samtools="/opt/samtools/samtools"
     then
             sampleGenerator="$sampleFileName".generator
             ParentGenerators+=("$sampleGenerator")
-            echo "$samtools view -F 3328 $sample" > "$sampleGenerator"
+            echo "samtools view -F 3328 $sample" > "$sampleGenerator"
             echo "You provided the control bam file" "$sample"
     elif [[ "$sampleExtension" == "cram" ]]
     then
@@ -32,7 +30,7 @@ samtools="/opt/samtools/samtools"
                 echo "ERROR cram reference not provided for cram input";
                  kill -9 $$
             fi
-            echo "$samtools view -F 3328 -T $_arg_cramref $sample" > "$sampleGenerator"
+            echo "samtools view -F 3328 -T $_arg_cramref $sample" > "$sampleGenerator"
             echo "You provided the control cram file" "$sample"    
     elif [[ "$sampleExtension" = "generator" ]]
     then

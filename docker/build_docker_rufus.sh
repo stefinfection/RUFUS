@@ -1,1 +1,1 @@
-sudo docker build -t rufus:latest .
+sudo docker build --no-cache -t rufus:dac .

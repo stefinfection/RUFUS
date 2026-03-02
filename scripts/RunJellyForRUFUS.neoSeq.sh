@@ -5,7 +5,7 @@ K=$2
 T=$3
 L=$4
 
-RDIR=/opt/RUFUS
+: "${RUFUS_ROOT:=/opt/RUFUS}"
 JELLYFISH="$RDIR/bin/externals/jellyfish/src/jellyfish_project/bin/jellyfish"
 SORT="$RDIR/scripts/sort"
 
