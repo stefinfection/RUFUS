@@ -14,7 +14,7 @@
 stop_container() {
     docker stop rufus-worker
 }
-#trap 'stop_container' EXIT
+trap 'stop_container' EXIT
 
 # Check for required argument
 ENV_FILE="$1"
