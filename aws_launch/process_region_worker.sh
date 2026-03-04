@@ -17,109 +17,61 @@ set -a
 source <(grep -v '^#' $ENV_FILE | grep -v '^[[:space:]]*$' | sed 's/\r$//')
 set +a
 
-# Fetches control or kg1 hash from S3 for region if region arg provided, or whole genome hash otherwise
-# Returns path inside container to downloaded hash (/home/ubuntu/downloaded_{type}_hashes/{Jhash})
-fetch_hash() {
-    local region="$1"
-    local hash_type="$2"
-    # Capitalize all letters in hash_type
-    local hash_type_upper=$(echo "$hash_type" | tr '[:lower:]' '[:upper:]')
-    # Output var
-    local hash=""
-    
-    # Get the hash version - use specific version if set, otherwise use default
-    local version_var="${hash_type_upper}_HASH_VERSION"
-    local hash_version="${!version_var}"
-    
-    if [ -z "$hash_version" ]; then
-        local default_var="DEFAULT_${hash_type_upper}_HASH_VERSION"
-        hash_version="${!default_var}"
-    fi
-    
-    # TODO: do I need to docker exec mkdir -p downloaded_*_hashes here?
-    if [ -z "$region" ]; then
-        # If we don't have a region, use entire genome wide Jhash
-        echo "Fetching version ${hash_version} whole genome ${hash_type} hash" >&2
-        docker exec ${CONTAINER_ID} bash $RUFUS_ROOT/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "wg" >&2
-        hash="/home/ubuntu/downloaded_${hash_type}_hashes/wg_${hash_type}_${hash_version}.Jhash"
-    else
-        # Convert chrN:n-m to chrN_n_m
-        echo "Fetching version ${hash_version} ${hash_type} hash for region: $region" >&2
-        local fmtd_reg=$(echo "$region" | tr ':-' '_')
-        docker exec ${CONTAINER_ID} bash $RUFUS_ROOT/resource_helpers/download_hash.sh "${hash_type}" "${hash_version}" "$fmtd_reg" >&2
-        hash="/home/ubuntu/downloaded_${hash_type}_hashes/${fmtd_reg}_${hash_type}_${hash_version}.Jhash"
-    fi
-
-    echo "$hash"
-}
-export -f fetch_hash
-
-# Looks for control or kg1 hashes in ${type_HASH_LOCAL_DIR} first
-# At this point, we know that if a local directory has been provided and mounted, it contains at least one *.Jhash file
-# If local directory contains multiple *.Jhash files matching region or WG, will return error code
-# If can't find, will pull from S3
+# Resolves a hash file for a given region and hash type.
+# Checks local directory first (via shared resolve_hashes.sh), falls back to S3 download.
+#
+# Args:
+#   $1 - region: region string (e.g., chr1:1-1000000) or empty for whole-genome
+#   $2 - geo_type: "local" to check local dir first, "remote" for S3 only
+#   $3 - hash_type: e.g., "kg1", "control"
+#
+# Returns: prints resolved hash file path to stdout
 get_hash() {
     local region="$1"
     local geo_type="$2"
     local hash_type="$3"
+    local hash_type_upper
+    hash_type_upper=$(echo "$hash_type" | tr '[:lower:]' '[:upper:]')
 
-    local hash_type_upper=$(echo "$hash_type" | tr '[:lower:]' '[:upper:]')
-
-    # Output vars
-    local hash=""
-    local output_echo=""
-    
-    # Get the user's original directory path for error messages
-    local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
-    local host_dir="${!env_var}"
-
-    # TODO: I think I can get rid of this now 
-    #local cont_dir="${hash_type}_hashes"
-        
-    # Local hashes
-    if [ "$geo_type" == "local" ]; then
-        # Whole genome mode and we're looking locally
-        if [ "$region" == "" ]; then
-            file_count=$(docker exec "$CONTAINER_ID" bash -c "ls ${host_dir}/*wg*.Jhash 2>/dev/null | wc -l")
-            if [ "$file_count" -gt 1 ]; then
-                echo "ERROR: Multiple whole genome ${hash_type} hash files found in ${host_dir}:" >&2
-                ls "${host_dir}"/*wg*.Jhash >&2
-                echo "Please ensure only one *wg*.Jhash file exists in the directory." >&2
-                return 1
-            elif [ "$file_count" -eq 1 ]; then
-                hash=$(docker exec "$CONTAINER_ID" bash -c "ls ${host_dir}/*wg*.Jhash")
-                output_echo+="Using local whole genome ${hash_type} hash at $hash"
-            else
-                # File does not exist locally, fetch from S3
-                output_echo+="Could not find local whole genome ${hash_type} hash in ${host_dir}. The file in this directory must be named like \"*wg*.Jhash\" for RUFUS to recognize it. Will attempt to fetch from S3."
-                hash=$(fetch_hash "$region" "$hash_type")
-            fi
-        # Region mode and we're looking locally
-        else
-            fmtd_reg=$(echo "$region" | tr ':-' '_')
-            file_count=$(docker exec "$CONTAINER_ID" bash -c "ls ${host_dir}/*${fmtd_reg}*.Jhash 2>/dev/null | wc -l")
-            if [ "$file_count" -gt 1 ]; then
-                echo "ERROR: Multiple ${hash_type} hash files for region $region found in ${host_dir}:" >&2
-                ls "${host_dir}"/*${fmtd_reg}*.Jhash >&2
-                echo "Please ensure only one *${fmtd_reg}*.Jhash file exists in the directory." >&2
-                return 1
-            elif [ "$file_count" -eq 1 ]; then
-                hash=$(docker exec "$CONTAINER_ID" bash -c "ls ${host_dir}/*${fmtd_reg}*.Jhash")
-                output_echo+="Using local ${hash_type} hash for region $region at: $hash"
-            else
-                # File does not exist locally, fetch from S3
-                output_echo+="Could not find local ${hash_type} hash for region $region in ${host_dir}. The file in this directory must be named like \"*${fmtd_reg}*.Jhash\" for RUFUS to recognize it. Will attempt to fetch from S3."
-                hash=$(fetch_hash "$region" "$hash_type")
-            fi
-        fi
-    # Remote fetching of hashes
+    local fmtd_region
+    if [ -z "$region" ]; then
+        fmtd_region="wg"
     else
-        output_echo+="Fetching ${hash_type} hash from S3."
-        hash=$(fetch_hash "$region" "$hash_type")
+        fmtd_region=$(echo "$region" | tr ':-' '_')
     fi
-    
-    echo -e "$output_echo" >&2
-    echo "$hash"
+
+    # Try local resolution via shared resolve_hashes.sh
+    if [ "$geo_type" == "local" ]; then
+        local env_var="${hash_type_upper}_HASH_LOCAL_DIR"
+        local host_dir="${!env_var}"
+
+        local resolved
+        resolved=$(docker exec "$CONTAINER_ID" bash -c \
+            "source ${RUFUS_ROOT}/resource_helpers/resolve_hashes.sh && resolve_hash_for_region '${host_dir}' '${fmtd_region}'" 2>/dev/null)
+
+        if [ $? -eq 0 ] && [ -n "$resolved" ]; then
+            echo "Using local ${hash_type} hash for ${fmtd_region}: $resolved" >&2
+            echo "$resolved"
+            return 0
+        fi
+
+        echo "Could not find local ${hash_type} hash for ${fmtd_region} in ${host_dir}. Falling back to S3." >&2
+    fi
+
+    # S3 download fallback
+    local version_var="${hash_type_upper}_HASH_VERSION"
+    local hash_version="${!version_var}"
+    if [ -z "$hash_version" ]; then
+        local default_var="DEFAULT_${hash_type_upper}_HASH_VERSION"
+        hash_version="${!default_var}"
+    fi
+
+    echo "Fetching version ${hash_version} ${hash_type} hash for ${fmtd_region} from S3" >&2
+    docker exec "$CONTAINER_ID" bash -c \
+        "cd /home/ubuntu && bash ${RUFUS_ROOT}/resource_helpers/download_hash.sh '${hash_type}' '${hash_version}' '${fmtd_region}'" >&2 \
+        || { echo "ERROR: Failed to download ${hash_type} hash for ${fmtd_region} from S3" >&2; return 1; }
+
+    echo "/home/ubuntu/${fmtd_region}_${hash_type}_${hash_version}.Jhash"
 }
 export -f get_hash
 
