@@ -62,7 +62,7 @@ fi
 
 # static vars
 CONTROL_VCF="$WORK_DIR/isec_control.$FMTD_REGION.vcf.gz"
-NORMED_VCF="$WORK_DIR/normed.${RUFUS_VCF}"
+NORMED_VCF="$WORK_DIR/normed.$(basename "$RUFUS_VCF")"
 BWA="$RUFUS_ROOT/bin/externals/bwa/src/bwa_project/bwa"
 PILEUP_SCRIPT="$RUFUS_ROOT/post_process/single_pileup.sh"
 
