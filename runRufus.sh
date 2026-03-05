@@ -1331,6 +1331,44 @@ else
 	exit 0
 fi
 
+# Sanitize intermediate VCF: remove malformed records from RUFUS.Interpret output
+# Keeps header lines as-is. For data lines, requires:
+#   - at least 8 tab-delimited fields (CHROM POS ID REF ALT QUAL FILTER INFO)
+#   - POS (col 2) is a positive integer
+#   - REF (col 4) is non-empty and contains only valid bases (ACGTN)
+#   - ALT (col 5) is non-empty, not just ".", and contains only valid VCF ALT characters
+#   - If INFO (col 8) contains END=<n>, then END >= POS (prevents tabix "end < begin" error)
+sanitized_vcf="${intermed_vcf}.sanitized.vcf"
+awk -F'\t' '
+/^#/ { print; next }
+{
+	if (NF < 8) next
+	if ($2 !~ /^[0-9]+$/ || $2+0 < 1) next
+	if ($4 == "" || $4 == "." || $4 !~ /^[ACGTNacgtn]+$/) next
+	if ($5 == "" || $5 == ".") next
+	if ($5 !~ /^[ACGTNacgtn.,*<>\[\]0-9:]+$/) next
+	# Check END >= POS if END tag is present in INFO field
+	info = $8
+	if (match(info, /END=[0-9]+/)) {
+		end_val = substr(info, RSTART+4, RLENGTH-4) + 0
+		if (end_val < $2+0) next
+	}
+	print
+}
+' "$intermed_vcf" > "$sanitized_vcf"
+
+sanitized_count=$(grep -vc "^#" "$sanitized_vcf" || true)
+original_count=$(grep -vc "^#" "$intermed_vcf" || true)
+removed_count=$((original_count - sanitized_count))
+if [ "$removed_count" -gt 0 ]; then
+	echo "WARNING: Removed $removed_count malformed VCF record(s) from RUFUS.Interpret output ($sanitized_count of $original_count records kept)." >&2
+fi
+if [ "$sanitized_count" -eq 0 ]; then
+	echo "No valid VCF records remain after sanitization for this region." >&2
+	exit 0
+fi
+mv "$sanitized_vcf" "$intermed_vcf"
+
 # Trim off generator postfix
 DEDUPED_VCF="$WORK_DIR/deduped.${formatted_region}.vcf"
 
@@ -1351,7 +1389,39 @@ else
 fi
 
 bgzip "$DEDUPED_VCF"
-tabix -C "$DEDUPED_VCF.gz"
+# Index with tabix, iteratively removing records that cause indexing failures
+# This catches any malformed records that slip past the awk sanitizer
+tabix_max_retries=50
+tabix_attempt=0
+while true; do
+	tabix_stderr=$(tabix -C "$DEDUPED_VCF.gz" 2>&1) && break
+
+	tabix_attempt=$((tabix_attempt + 1))
+	if [ "$tabix_attempt" -ge "$tabix_max_retries" ]; then
+		echo "ERROR: tabix failed after removing $tabix_attempt malformed record(s). Giving up." >&2
+		echo "Last tabix error: $tabix_stderr" >&2
+		exit 100
+	fi
+
+	# Parse the 1-based sequence number from: "Invalid record on sequence #N"
+	bad_seq=$(echo "$tabix_stderr" | grep -oP 'sequence #\K[0-9]+' | head -1)
+	if [ -z "$bad_seq" ]; then
+		echo "ERROR: tabix failed with unexpected error: $tabix_stderr" >&2
+		exit 100
+	fi
+
+	echo "WARNING: tabix indexing failed on data record #${bad_seq}, removing it and retrying (attempt $tabix_attempt)." >&2
+	echo "  tabix error: $tabix_stderr" >&2
+
+	# Decompress, remove the offending data line, recompress
+	tmp_fix_vcf="${DEDUPED_VCF}.tabixfix.vcf"
+	zcat "$DEDUPED_VCF.gz" | awk -v bad="$bad_seq" '
+		/^#/ { print; next }
+		{ data_line++; if (data_line != bad) print }
+	' > "$tmp_fix_vcf"
+	bgzip -f "$tmp_fix_vcf"
+	mv "$tmp_fix_vcf.gz" "$DEDUPED_VCF.gz"
+done
 
 # Update reference alleles
 REF_VCF="$WORK_DIR/ref.${formatted_region}.vcf"

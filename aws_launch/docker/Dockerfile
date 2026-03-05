@@ -2,7 +2,7 @@ FROM ubuntu:22.04 AS BUILD
 
 # Metadata labels
 LABEL author="Stephanie Georges"
-LABEL version="v0.1.0-epsilon"
+LABEL version="v1.1.7"
 
 # Set environment variables for installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -98,7 +98,7 @@ RUN cd /opt && \
 
 # Install RUFUS
 RUN cd /opt && \
-    git clone https://github.com/stefinfection/RUFUS.git -b d1.1.6 && \
+    git clone https://github.com/stefinfection/RUFUS.git -b d1.1.7 && \
     cd RUFUS && \
     mkdir -p bin && \
     cd bin && \
