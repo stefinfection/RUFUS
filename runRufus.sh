@@ -677,6 +677,7 @@ then
 elif [[ "$ProbandExtension" == "bam" ]]
 then
  # check for index file (needed for mpileup in post processing)
+	echo "Looking for $_arg_subject.bai"
     if [[ ! -e "$_arg_subject".bai ]]
     then
         echo "Index file for subject bam file $_arg_subject not found. Please place in data directory and rerun."
@@ -728,7 +729,7 @@ do
     elif [[ "$parentExtension" == "bam" ]]
     then
 		# check for index file (needed for mpileup in post processing)
-		if [[ ! -e "$parentFileName".bai ]]
+		if [[ ! -e "$parent".bai ]]
 		then
 			echo "Index file for control bam file $parentFileName not found. Please place in data directory and rerun."
 			exit 1
@@ -739,7 +740,7 @@ do
     elif [[ "$parentExtension" == "cram" ]] 
     then
 		# check for index file (needed for mpileup in post processing)
-		if [[ ! -e "$parentFileName".crai ]]
+		if [[ ! -e "$parent".crai ]]
 		then
 			echo "Index file for control cram file $parentFileName not found. Please place in data directory and rerun."
 			exit 1
@@ -755,7 +756,7 @@ do
 		_arg_ref="$_arg_cramref"
     elif [[ "$parentExtension" = "generator" ]]
     then
-		parentGenerator="${parentFileName}${region_postfix}"
+		parentGenerator="${parent}${region_postfix}"
         ParentGenerators+=("$parentGenerator")
     fi
 done
@@ -1079,7 +1080,6 @@ else
 
 	# echo "About to make MAIN fifo"
     mkfifo "${FIFO_MAIN}"
-	echo "Made it past opening fifo main"
 
 	# NOTE: the modifiedJelly merge is actually the opposite of a merge
 	# It intersects all of the provided Jhash files, and keeps only complements, or unique kmers
