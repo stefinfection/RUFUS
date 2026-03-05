@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: left off here - need to change this to just concat and maybe do some statistics printing if in region mode
+
 usage() {
 	echo "Usage: $0 [-s subject]-d source_dir] [-h]"
 	echo "Options:"

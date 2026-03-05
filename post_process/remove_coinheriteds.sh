@@ -151,18 +151,18 @@ rm -f $MERGED_PILEUP
 echo "Starting pileup call..."
 bcftools call -cv -Oz -o "$CONTROL_VCF" "$SORTED_MERGED_PILEUP"
 bcftools index "$CONTROL_VCF"
-rm "$SORTED_MERGED_PILEUP"*    
+rm "$SORTED_MERGED_PILEUP"*
 
 #intersect the control vcf with formatted rufus vcf
 echo "Starting intersection..."
-bcftools isec -Oz -w1 -n=1 -p "$ISEC_OUT_DIR" "$NORMED_VCF" "$CONTROL_VCF"    
+bcftools isec -Oz -w1 -n=1 -p "$ISEC_OUT_DIR" "$NORMED_VCF" "$CONTROL_VCF"   
 
 # save the new vcf as rufus final vcf
 OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
-OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.csi"
+OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.tbi"
 
-cp "$OUTFILE" "${OUT_VCF}" 
-cp "$OUT_INDEX" "${OUT_VCF}.csi" 
+cp "$OUTFILE" "${OUT_VCF}"
+cp "$OUT_INDEX" "${OUT_VCF}.tbi"
 rm "$CONTROL_VCF"*
 
 # clean up aligned control file, if it exists
