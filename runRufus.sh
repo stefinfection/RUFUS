@@ -435,7 +435,12 @@ assign_positional_args ()
 # Cleans up intermediary files created by RUFUS run if keep file flag is not set
 clean_up_files ()
 {
+  local exit_code=$?
   echo "Cleaning up..." >&2
+  if [ "$exit_code" -ne 0 ]; then
+    echo "Script exited with error (exit code $exit_code). Preserving WORK_DIR for debugging: $WORK_DIR" >&2
+    return
+  fi
   if [ "$_arg_dev_file_output" == "FALSE" ]; then
 
     # Remove files from sub directories for this region only
@@ -677,7 +682,6 @@ then
 elif [[ "$ProbandExtension" == "bam" ]]
 then
  # check for index file (needed for mpileup in post processing)
-	echo "Looking for $_arg_subject.bai"
     if [[ ! -e "$_arg_subject".bai ]]
     then
         echo "Index file for subject bam file $_arg_subject not found. Please place in data directory and rerun."
