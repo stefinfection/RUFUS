@@ -5410,9 +5410,15 @@ int main(int argc, char *argv[]) {
     VCFOutFile << stripped_name;
     for (int i = 0; i < ParentHashFilePaths.size(); i++) {
         string ParPath = argv[ParentHashFilePaths[i]];
-        int startpos = ParPath.find("overlap.asembly.hash.fastq.");
-        int endpos = ParPath.find(".generator.Jhash");
-        string Par = ParPath.substr(startpos + 27, endpos - (startpos + 27));
+        string Par = ParPath.substr(0, ParPath.find(".generator"));
+        auto lastSlash = Par.rfind('/');
+        if (lastSlash != std::string::npos) {
+            Par = Par.substr(lastSlash + 1);
+        }
+        auto chrPos = Par.rfind(".chr");
+        if (chrPos != std::string::npos) {
+            Par = Par.substr(0, chrPos);
+        }
         ParNames.push_back(Par);
         VCFOutFile << "\t" << Par;
     }
