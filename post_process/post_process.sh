@@ -3,10 +3,9 @@
 # TODO: left off here - need to change this to just concat and maybe do some statistics printing if in region mode
 
 usage() {
-	echo "Usage: $0 [-s subject]-d source_dir] [-h]"
+	echo "Usage: $0 [-s subject] [-d source_dir] [-h]"
 	echo "Options:"
 	echo " -s subject_file	Required: The name of the subject file: must be the same as that supplied to the RUFUS run"
-	echo " -d source_dir	Required: The source directory where the RUFUS vcf(s) are located" # TODO: make this not required
 	echo " -h help	Print help message"
 	exit 1
 }
@@ -28,13 +27,12 @@ trap 'clean_up_post_temps' EXIT
 
 # parse command line arguments
 SUBJECT_FILE=""
-SOURCE_DIR="."
 
-while getopts "h:s:d:" option; do 
+while getopts "hw:s:" option; do 
 	case $option in 
 		h) usage;;
 		s) SUBJECT_FILE=$OPTARG;;
-		d) SOURCE_DIR=$OPTARG;;
+		w) WINDOW_SIZE=$OPTARG;;
 		\?) echo "Invalid option: -$OPTARG" >&2
 		    usage;;	
 		*) echo "Option -$OPTARG requires an argument" >&2
@@ -49,7 +47,7 @@ if [[ -z "$SUBJECT_FILE" ]]; then
 fi
 
 
-echo "RUFUS post-process version E-0.1.0"
+echo "RUFUS post-process version d-1.1.7"
 date
 start_time=$(date +"%s")
 
@@ -69,6 +67,7 @@ if read -r first_match < <(compgen -G "temp.RUFUS.Final*vcf.gz"); then
     echo "Found temporary vcf(s)"
 else
   	echo "Could not find any temporary vcf(s) from calling stage. Exiting..."
+	exit 1
 fi
 
 MERGED="merged.vcf"
@@ -85,27 +84,27 @@ if [ "$WINDOW_SIZE" -ne 0 ]; then
 
 	for f in regions.chunk.*; do
 			echo "-- BCFTools ---------------------------"
-			bcftools concat -a -D -f $f -Oz -o "$f.vcf.gz"
-			bcftools index "$f.vcf.gz"
+			bcftools concat -a -D -f $f -Oz -o "$f".vcf.gz
+			bcftools index "$f".vcf.gz
 	done
 
 	ls regions.chunk.*.vcf.gz > final.list
 	bcftools concat -a -D -f final.list -Ov -o $MERGED
 
-	bcftools sort -T "tmp_bcftools.XXXXXX" -O -o "$NO_HEAD" "$MERGED" \
+	bcftools sort -T "tmp_bcftools.XXXXXX" -Ov -o "$NO_HEAD" "$MERGED" \
 	|| { echo "Error: bcftools sort failed"; exit 1; }
 
 else
 	# Just sort and add header for whole genome mode
-	bcftools sort -T "tmp_bcftools.XXXXXX" -O -o "$NO_HEAD" "$TEMP_FINAL_VCF" \
+	bcftools sort -T "tmp_bcftools.XXXXXX" -Ov -o "$NO_HEAD" "$TEMP_FINAL_VCF" \
 		|| { echo "Error: bcftools sort failed"; exit 1; }
 fi
 
 # Inject rufus command into header
-bcftools view -h $NO_HEAD | head -n -1 > "$FINAL_VCF" || { echo "Error: bcftools view on merged vcf failed"; exit 1; }
+bcftools view -h "$NO_HEAD" | head -n -1 > "$FINAL_VCF" || { echo "Error: bcftools view on merged vcf failed"; exit 1; }
 cat rufus.cmd >> "$FINAL_VCF" || { echo "Could not find rufus.cmd"; exit 1; }
 bcftools view -h $NO_HEAD | tail -n 1 >> "$FINAL_VCF"
-bcftools view -H $NO_HEAD >> "$FINAL_VCF" 
+bcftools view -H $NO_HEAD >> "$FINAL_VCF"
 
 bgzip "$FINAL_VCF" || { echo "Error: bgzip failed on final vcf"; exit 1; }
 tabix -f -p vcf "$FINAL_GZ" \
