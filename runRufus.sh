@@ -507,6 +507,7 @@ check_empty_hashes ()
 
 		if [ "$found_zero" = false ]; then
 		echo "No control kmers found in region $region_arg" >&2
+		_region_exit_reason="no_control_kmers"
 		exit 0
 		fi
 	fi
@@ -514,6 +515,7 @@ check_empty_hashes ()
 	# Subject
 	if [ ! -f "$subject_file" ] || [ "$(cat "$subject_file")" -ne 0 ]; then
 		echo "No subject kmers found in region $region_arg" >&2
+		_region_exit_reason="no_subject_kmers"
 		exit 0
 	fi
 
@@ -534,6 +536,34 @@ else
 	formatted_region="wg"
 	region_postfix=".${formatted_region}"
 fi
+
+# Region status logging: each invocation appends a line to a shared log in WORK_ROOT.
+# The EXIT trap handles all logging so we only need to set _region_exit_reason before exiting.
+REGION_LOG="${WORK_ROOT}/region_status.log"
+_region_exit_reason=""
+
+log_region_exit() {
+  local exit_code=$?
+  # Only log in region mode
+  if [ "$formatted_region" = "wg" ] || [ -z "$formatted_region" ]; then
+    return
+  fi
+
+  local status reason
+  if [ "$exit_code" -eq 0 ]; then
+    if [ "$_region_exit_reason" = "success" ]; then
+      status="VARIANTS_CALLED"
+    else
+      status="NO_VARIANTS"
+    fi
+    reason="${_region_exit_reason:-unknown}"
+  else
+    status="ERROR"
+    reason="exit_code=${exit_code};${_region_exit_reason:-unknown}"
+  fi
+  printf '%s\t%s\t%s\n' "$formatted_region" "$status" "$reason" >> "$REGION_LOG"
+}
+trap 'log_region_exit' EXIT
 
 # Make region specific directory so no file overlaps
 WORK_DIR="${WORK_ROOT}/rufus_${formatted_region}"
@@ -685,6 +715,7 @@ then
     if [[ ! -e "$_arg_subject".bai ]]
     then
         echo "Index file for subject bam file $_arg_subject not found. Please place in data directory and rerun."
+        _region_exit_reason="missing_subject_bam_index"
         exit 1
     fi
     ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
@@ -695,6 +726,7 @@ then
     if [[ ! -e "$_arg_subject".crai ]]
     then
         echo "Index file for subject cram file $_arg_subject not found. Please place in data directory and rerun."
+        _region_exit_reason="missing_subject_cram_index"
         exit 1
     fi
 	if [ "$_arg_cramref" == "" ]
@@ -736,6 +768,7 @@ do
 		if [[ ! -e "$parent".bai ]]
 		then
 			echo "Index file for control bam file $parentFileName not found. Please place in data directory and rerun."
+			_region_exit_reason="missing_control_bam_index"
 			exit 1
 		fi
 	    	parentGenerator="${parentFileName}${region_postfix}.generator"
@@ -747,6 +780,7 @@ do
 		if [[ ! -e "$parent".crai ]]
 		then
 			echo "Index file for control cram file $parentFileName not found. Please place in data directory and rerun."
+			_region_exit_reason="missing_control_cram_index"
 			exit 1
 		fi
 		parentGenerator="${parentFileName}${region_postfix}.generator"
@@ -890,6 +924,7 @@ done
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
+_region_exit_reason="jellyfish_stage"
 CONTROL_EXIT_FILES=()
 SUBJECT_EXIT_FILE="$RUFUS_TMP/jelly_exit_subject.${formatted_region}.txt"
 
@@ -947,9 +982,11 @@ do
 		if [ -z $_arg_region ]
 		then
 			echo "ERROR: No hashes identified for $parent. This is very unlikely for a whole genome run and quality of input files should be examined. Exiting with non-zero status..."
+			_region_exit_reason="no_hashes_for_parent"
 			exit 100
 		else
 			echo "WARNING:$parent.Jhash is empty - this can happen if $parent has zero coverage for the region provided to RUFUS. Stopping run."
+			_region_exit_reason="parent_empty_hash"
 			exit 0
 		fi
      fi
@@ -978,6 +1015,7 @@ done
 
 
 
+_region_exit_reason="model_stage"
 #######################__RUFUS_Model__############################################
 #if [ $_arg_exome == "FALSE" ] #[	-z "$_arg_min" ]
 if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
@@ -1052,21 +1090,25 @@ fi
 if [ "$_arg_stop" = "jelly" ];
 then
         echo "-StJ used, stopping run";
+        _region_exit_reason="user_stop_after_jelly"
         exit 1;
 fi
 #######################################################################################
 
-if [ -z $MutantMinCov ]; then 
+if [ -z $MutantMinCov ]; then
 	echo "ERROR: No min coverage set, possible error in Model"
+	_region_exit_reason="no_min_coverage_from_model"
 	exit 100
 fi
 if [ "$MutantMinCov" -lt "2" ]
 then
 	echo "ERROR, model couldn't pick a sensible lower cutoff, check your subject bam file"
-        exit
+        _region_exit_reason="model_bad_cutoff"
+        exit 1
 fi
 #################################__HASH_LIST_FILTER__#####################################
 
+_region_exit_reason="hash_list_stage"
 echo "Identifying unique subject kMers..."
 FIFO_PREFIX="$WORK_DIR/${ProbandGenerator}.$$"
 FIFO_MAIN="${FIFO_PREFIX}.temp"
@@ -1101,9 +1143,11 @@ if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '
   if [ -z $_arg_region ]
   then
     echo "ERROR: No mutant hashes pulled from fastqs. This is very unlikely for a whole genome run and quality of input files should be examined. Exiting with non-zero status..."
+    _region_exit_reason="no_mutant_hashes_wg"
     exit 100
   else
     echo "WARNING: No mutant hashes identified in region $_arg_region. Stopping run."
+    _region_exit_reason="no_mutant_hashes"
     exit 0
   fi
 fi
@@ -1111,9 +1155,11 @@ fi
 if [ "$_arg_stop" = "hash" ];
 then
         echo "-StH used, stopping run";
+        _region_exit_reason="user_stop_after_hash"
         exit 1;
 fi
 ######################__RUFUS_FILTER__##################################################
+_region_exit_reason="filter_stage"
 echo "Filtering unique reads containing unique kMers..."
 
 if [ "$_pairedEnd" = "true" ]
@@ -1163,9 +1209,11 @@ then
 		if [ -z $_arg_region ]
 		then
 			echo "ERROR: No reads passed the filtering step in the entire genome. This is extremely unlikely and input files should be examined."
+			_region_exit_reason="no_reads_passed_filter_wg"
 			exit 100
 		else
 			echo "No reads passed the filtering step in region $_arg_region. Stopping run."
+			_region_exit_reason="no_reads_passed_filter"
 			exit 0
 		fi
 	fi
@@ -1226,7 +1274,8 @@ else
 		else
 			echo "Running RUFUS.filter from single FASTQ files"
 			echo "havent written this yet EXITing"
-			exit
+			_region_exit_reason="se_fastq_not_implemented"
+			exit 1
 			#########WRITE THIS##########	
 			wait
 		fi
@@ -1236,9 +1285,11 @@ else
 	  	if [ -z $_arg_region ]
 		then
 			echo "ERROR: No mutant hashes pulled from fastqs. This is extremely unlikely for a whole genome run and quality of input files should be examined."
+			_region_exit_reason="no_mutant_fastq_reads_wg"
 			exit 100
 		else
-			echo "WARNING: No mutant fastq reads identified in region $_arg_region. This usually means unique kmers came from reads that did not pass the sam check. Stopping RUFUS run." 
+			echo "WARNING: No mutant fastq reads identified in region $_arg_region. This usually means unique kmers came from reads that did not pass the sam check. Stopping RUFUS run."
+			_region_exit_reason="no_mutant_fastq_reads"
 			exit 0
 		fi
 	fi
@@ -1277,9 +1328,11 @@ if [ $( samtools view "${ProbandGenerator}".Mutations.fastq.bam | head | wc -l |
 		if [ -z $_arg_region ]
 		then
 			echo "ERROR: All reads failed to align to the reference genome. This is extremely unlikely for a whole genome run and something likely went wrong."
+			_region_exit_reason="no_reads_aligned_wg"
 			exit 100
 		else
        		echo "WARNING: No reads aligned to the reference for ${ProbandGenerator}.Mutations.fastq for the region $_arg_region. Stopping RUFUS run."
+			_region_exit_reason="no_reads_aligned"
 			exit 0
 		fi
 fi 
@@ -1287,6 +1340,7 @@ fi
 if [ "$_arg_stop" = "filter" ];
 then
         echo "-StF used, stopping run";
+        _region_exit_reason="user_stop_after_filter"
         exit 1;
 fi
 ###################__RUFUS_OVERLAP__#############################################
@@ -1294,6 +1348,7 @@ if [ -e ${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.FINAL.vcf.gz ]
 then
     echo "########### Skipping overlap step ###########"
 else
+    _region_exit_reason="overlap_stage"
     echo "########### Starting RUFUS overlap ###########"
 
 	# Have to assign something here to maintain argument order
@@ -1317,17 +1372,20 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
+_region_exit_reason="vcf_processing_stage"
 intermed_vcf="${WORK_DIR}/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
 
 if [[ -s "$intermed_vcf" ]]; then
 	count=$(bcftools view -H "$intermed_vcf" | wc -l)
 	if [ "$count" -eq 0 ]; then
 	  	echo "Intermediate vcf contains no variants, indicating no variants found for this region." >&2
+		_region_exit_reason="no_interpret_passing_vars_e"
 		exit 0
 	fi
   	# safe to proceed (file exists, non-empty, has variants)
 else
 	echo "Intermediate vcf not present, indicating no variants found for this region." >&2
+	_region_exit_reason="no_interpret_passing_vars_dne"
 	exit 0
 fi
 
@@ -1365,6 +1423,7 @@ if [ "$removed_count" -gt 0 ]; then
 fi
 if [ "$sanitized_count" -eq 0 ]; then
 	echo "No valid VCF records remain after sanitization for this region." >&2
+	_region_exit_reason="no_records_after_sanitization"
 	exit 0
 fi
 mv "$sanitized_vcf" "$intermed_vcf"
@@ -1381,8 +1440,6 @@ if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
 	bash $RDIR/scripts/VilterAutosomeOnly $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
-	#todo: guessing this is asynch because of stream in perl script title - which causes the next line to run before the file is created
-	#todo: instead will incorporate 1mb mode, trim and combine, then filter inheriteds
 else
 	echo "excluding mosaic"
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
@@ -1400,6 +1457,7 @@ while true; do
 	if [ "$tabix_attempt" -ge "$tabix_max_retries" ]; then
 		echo "ERROR: tabix failed after removing $tabix_attempt malformed record(s). Giving up." >&2
 		echo "Last tabix error: $tabix_stderr" >&2
+		_region_exit_reason="tabix_max_retries"
 		exit 100
 	fi
 
@@ -1407,6 +1465,7 @@ while true; do
 	bad_seq=$(echo "$tabix_stderr" | grep -oP 'sequence #\K[0-9]+' | head -1)
 	if [ -z "$bad_seq" ]; then
 		echo "ERROR: tabix failed with unexpected error: $tabix_stderr" >&2
+		_region_exit_reason="tabix_unexpected_error"
 		exit 100
 	fi
 
@@ -1479,5 +1538,6 @@ hours=$(( time_delta / 3600 ))
 minutes=$(( (time_delta % 3600) / 60 ))
 seconds=$(( time_delta % 60 ))
 printf "RUFUS call stage completed in: %02d:%02d:%02d\n" $hours $minutes $seconds
+_region_exit_reason="success"
 exit 0
 # ] <-- needed because of Argbash
