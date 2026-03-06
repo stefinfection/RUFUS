@@ -268,8 +268,9 @@ PP_HEADER_LINES=("#!/bin/bash"
 "#SBATCH --account=${SLURM_ACCOUNT_RUFUS_ARG}" 
 "#SBATCH --partition=${SLURM_PARTITION_RUFUS_ARG}"
 "#SBATCH --output=${WORKING_DIR}/slurm_out/rufus_post_process_%j.out"   
-"#SBATCH --error=${WORKING_DIR}/slurm_err/rufus_post_process_%j.err" 
-"#SBATCH --nodes=1"
+"#SBATCH --error=${WORKING_DIR}/slurm_err/rufus_post_process_%j.err"
+"#SBATCH --cpus-per-task=10"
+"#SBATCH --mem=1G"
 )
 
 for line in "${PP_HEADER_LINES[@]}"
@@ -286,10 +287,10 @@ echo "" >> $PP_SLURM_SCRIPT
 IFS=$','
 CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
-echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG" >> $PP_SLURM_SCRIPT
+echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -s $SUBJECT_RUFUS_ARG -w $WINDOW_SIZE_RUFUS_ARG" >> $PP_SLURM_SCRIPT
 
 echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
-echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -w $WINDOW_SIZE_RUFUS_ARG -r $REFERENCE_RUFUS_ARG -c $CONTROL_STRING -s $SUBJECT_RUFUS_ARG" >> rufus.cmd
+echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -s $SUBJECT_RUFUS_ARG -w $WINDOW_SIZE_RUFUS_ARG" >> rufus.cmd
 
 # Compose invocation script to be executed outside of container
 EXE_SCRIPT=launch_rufus.sh
