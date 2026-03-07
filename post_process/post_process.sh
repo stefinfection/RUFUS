@@ -19,6 +19,11 @@ clean_up_post_temps() {
 	fi
   done
 
+  find . -maxdepth 1 -type f -name "temp.RUFUS.Final*vcf.gz*" -delete
+  find . -maxdepth 1 -type f -name "regions.chunk.*" -delete
+  find . -maxdepth 1 -type f -name "regions.txt" -delete
+  find . -maxdepth 1 -type f -name "final.list" -delete
+  rm -f "$MERGED" "$NO_HEAD"
   find . -type d -name "Intermediates" -exec rm -rf {} +
   find . -type d -name "TempOverlap" -exec rm -rf {} +
 }

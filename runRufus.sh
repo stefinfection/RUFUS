@@ -432,26 +432,8 @@ assign_positional_args ()
 }
 
 
-# Cleans up intermediary files created by RUFUS run if keep file flag is not set
-clean_up_files ()
-{
-  local exit_code=$?
-  echo "Cleaning up..." >&2
-  if [ "$exit_code" -ne 0 ]; then
-    echo "Script exited with error (exit code $exit_code). Preserving WORK_DIR for debugging: $WORK_DIR" >&2
-    return
-  fi
-  if [ "$_arg_dev_file_output" == "FALSE" ]; then
-
-    # Remove files from sub directories for this region only
-	if [[ "$WORK_DIR" == "$WORK_ROOT"/rufus_* ]]; then
-		rm -rf "$WORK_DIR"
-	else
-		echo "Refusing to remove unsafe WORK_DIR: $WORK_DIR" >&2
-	fi
-  fi
-}
-trap 'clean_up_files' EXIT
+# Combined EXIT trap: logs region status, then cleans up intermediary files
+# NOTE: the actual trap is set later, after region logging variables are initialized
 
 # This function wraps the Jellyfish hash table creation script in order to keep track of exit statuses.
 # It writes all exit statuses for controls to a single file, jelly_exit_code_controls.log and the exit status for the subject to jelly_exit_code_subject.log
@@ -542,28 +524,41 @@ fi
 REGION_LOG="${WORK_ROOT}/region_status.log"
 _region_exit_reason=""
 
-log_region_exit() {
+on_exit() {
   local exit_code=$?
-  # Only log in region mode
-  if [ "$formatted_region" = "wg" ] || [ -z "$formatted_region" ]; then
-    return
+
+  # --- Region status logging (only in region mode) ---
+  if [ "$formatted_region" != "wg" ] && [ -n "$formatted_region" ]; then
+    local status reason
+    if [ "$exit_code" -eq 0 ]; then
+      if [ "$_region_exit_reason" = "success" ]; then
+        status="VARIANTS_CALLED"
+      else
+        status="NO_VARIANTS"
+      fi
+      reason="${_region_exit_reason:-unknown}"
+    else
+      status="ERROR"
+      reason="exit_code=${exit_code};${_region_exit_reason:-unknown}"
+    fi
+    printf '%s\t%s\t%s\n' "$formatted_region" "$status" "$reason" >> "$REGION_LOG"
   fi
 
-  local status reason
-  if [ "$exit_code" -eq 0 ]; then
-    if [ "$_region_exit_reason" = "success" ]; then
-      status="VARIANTS_CALLED"
-    else
-      status="NO_VARIANTS"
-    fi
-    reason="${_region_exit_reason:-unknown}"
-  else
-    status="ERROR"
-    reason="exit_code=${exit_code};${_region_exit_reason:-unknown}"
+  # --- File cleanup ---
+  echo "Cleaning up..." >&2
+  if [ "$exit_code" -ne 0 ]; then
+    echo "Script exited with error (exit code $exit_code). Preserving WORK_DIR for debugging: $WORK_DIR" >&2
+    return
   fi
-  printf '%s\t%s\t%s\n' "$formatted_region" "$status" "$reason" >> "$REGION_LOG"
+  if [ "$_arg_dev_file_output" == "FALSE" ]; then
+    if [[ "$WORK_DIR" == "$WORK_ROOT"/rufus_* ]]; then
+      rm -rf "$WORK_DIR"
+    else
+      echo "Refusing to remove unsafe WORK_DIR: $WORK_DIR" >&2
+    fi
+  fi
 }
-trap 'log_region_exit' EXIT
+trap 'on_exit' EXIT
 
 # Make region specific directory so no file overlaps
 WORK_DIR="${WORK_ROOT}/rufus_${formatted_region}"
