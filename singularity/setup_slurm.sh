@@ -91,8 +91,13 @@ function write_out_rest_of_rufus_args() {
       echo -en "\$HASH_ARGS " >> rufus.cmd
     fi
 
-    echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
-    echo -en "-r $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
+    # Use -cr for CRAM inputs, -r otherwise
+    local ref_flag="-r"
+    if [[ "$SUBJECT_RUFUS_ARG" == *.cram ]]; then
+        ref_flag="-cr"
+    fi
+    echo -en "$ref_flag $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
+    echo -en "$ref_flag $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
 
     if [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]; then
       echo -en "\$REGION_ARG " >> $RUFUS_SLURM_SCRIPT
