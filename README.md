@@ -1,7 +1,7 @@
 RUFUS Singularity Container
 =====
 
-K-mer based variant detection. v0.1.0-epsilon. 
+K-mer based variant detection. d1.1.8.
 
 Developed by Stephanie Georges, MS\
 Based on the thesis project of Andrew Farrell, PhD\
@@ -52,6 +52,7 @@ RUFUS will, by default, output the following files *in the current working direc
     * A BAM file containing the raw reads containing the mutant kmers
     * A BAM file containing the assembled contigs from the raw reads containing the mutant kmers
     * A hash table containing the unique subject kmers and their counts
+3) In windowed (region) mode, a `region_status.log` file summarizing the outcome of each region (variants called, no variants found with reason, or error with exit code)
 
  
 ### The Two Stages of RUFUS
@@ -74,23 +75,24 @@ Optional Arguments:
     -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)
     -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)
     -f,--refhash: Jhash file containing reference hashList
+    -R,--region: genomic region to call variants on (e.g., chr1:1-1000000); used in windowed mode
     -h,--help: Print help
 ```
 
 2) The post-processing stage, invoked by the following
 ```
-singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh [-w window_size] [-r reference] [-subject] [-c control1,control2,control3...]
+singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh -s <subject> -w <window_size>
 ```
 With the following usage:
 ```
 Required Arguments:
-    -w window_size   The size of the window used in the RUFUS run
-    -r reference The reference used in the RUFUS run
-    -c controls  The control bam files used in the RUFUS run
     -s subject_file  The name of the subject file: must be the same as that supplied to the RUFUS run
+    -w window_size   The size of the window used in the RUFUS run (0 for whole genome mode)
 Optional Arguments:
-	-h help  Print help message
+    -h help  Print help message
 ```
+
+In windowed mode, the post-processing stage will print a region status summary showing how many regions called variants, how many had no variants (with breakdown by reason), and how many encountered errors. The final VCF header will include a `##RUFUS_runMode` line indicating region mode was used.
 
 
 ## Using the SLURM Helper Script & Executing the SLURM Batch Scripts
