@@ -551,6 +551,8 @@ on_exit() {
     return
   fi
   if [ "$_arg_dev_file_output" == "FALSE" ]; then
+    # Must cd out of WORK_DIR before removing it (rm -rf silently fails on CWD in some filesystems/containers)
+    cd "$WORK_ROOT"
     if [[ "$WORK_DIR" == "$WORK_ROOT"/rufus_* ]]; then
       rm -rf "$WORK_DIR"
     else
