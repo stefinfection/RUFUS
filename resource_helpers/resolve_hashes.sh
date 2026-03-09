@@ -28,7 +28,7 @@ resolve_hash_for_region() {
     local fmtd_region="$2"
 
     local -a matches
-    mapfile -t matches < <(find "$hash_dir" -maxdepth 1 -name "*${fmtd_region}*.Jhash" -type f 2>/dev/null)
+    mapfile -t matches < <(find "$hash_dir" -maxdepth 1 -name "*${fmtd_region}*.Jhash" \( -type f -o -type l \) 2>/dev/null)
 
     if [ ${#matches[@]} -eq 0 ]; then
         echo "ERROR: No hash file found matching '*${fmtd_region}*.Jhash' in ${hash_dir}" >&2
