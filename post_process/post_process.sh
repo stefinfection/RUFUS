@@ -23,7 +23,7 @@ clean_up_post_temps() {
   find . -maxdepth 1 -type f -name "regions.chunk.*" -delete
   find . -maxdepth 1 -type f -name "regions.txt" -delete
   find . -maxdepth 1 -type f -name "final.list" -delete
-  rm -f "$MERGED" "$NO_HEAD"
+  rm -f "$MERGED" "$NO_HEAD" "rufus.cmd"
   find . -type d -name "Intermediates" -exec rm -rf {} +
   find . -type d -name "TempOverlap" -exec rm -rf {} +
 }
@@ -133,10 +133,21 @@ else
 		|| { echo "Error: bcftools sort failed"; exit 1; }
 fi
 
-# Inject rufus command into header
-bcftools view -h "$NO_HEAD" | head -n -1 > "$FINAL_VCF" || { echo "Error: bcftools view on merged vcf failed"; exit 1; }
-bcftools view -h $NO_HEAD | tail -n 1 >> "$FINAL_VCF"
-bcftools view -H $NO_HEAD >> "$FINAL_VCF"
+# Build final VCF with correct header
+# Strip per-region RUFUSCommandLine and inject full-run rufus.cmd instead
+RUFUS_CMD_FILE="rufus.cmd"
+if [ "$WINDOW_SIZE" -ne 0 ] && [ -f "$RUFUS_CMD_FILE" ]; then
+	bcftools view -h "$NO_HEAD" | grep -v "^##RUFUSCommandLine" | head -n -1 > "$FINAL_VCF" \
+		|| { echo "Error: bcftools view on merged vcf failed"; exit 1; }
+	cat "$RUFUS_CMD_FILE" >> "$FINAL_VCF"
+	echo "##RUFUS_runMode=region (window_size=${WINDOW_SIZE})" >> "$FINAL_VCF"
+	bcftools view -h "$NO_HEAD" | tail -n 1 >> "$FINAL_VCF"
+else
+	bcftools view -h "$NO_HEAD" | head -n -1 > "$FINAL_VCF" \
+		|| { echo "Error: bcftools view on merged vcf failed"; exit 1; }
+	bcftools view -h "$NO_HEAD" | tail -n 1 >> "$FINAL_VCF"
+fi
+bcftools view -H "$NO_HEAD" >> "$FINAL_VCF"
 
 bgzip "$FINAL_VCF" || { echo "Error: bgzip failed on final vcf"; exit 1; }
 tabix -f -p vcf "$FINAL_GZ" \
