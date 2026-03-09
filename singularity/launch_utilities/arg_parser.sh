@@ -174,6 +174,30 @@ for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	fi
 done
 
+# Validate that subject and control files are all the same type (bam, cram, or fastq)
+get_input_type() {
+	case "$1" in
+		*.cram) echo "cram" ;;
+		*.bam) echo "bam" ;;
+		*.fastq.gz|*.fq.gz) echo "fastq" ;;
+		*.fastq|*.fq) echo "fastq" ;;
+		*) echo "unknown" ;;
+	esac
+}
+
+SUBJECT_TYPE=$(get_input_type "$SUBJECT_RUFUS_ARG")
+if [ "$SUBJECT_TYPE" == "unknown" ]; then
+	echo "ERROR: subject file $SUBJECT_RUFUS_ARG has an unrecognized file type. Supported types: .bam, .cram, .fastq, .fq, .fastq.gz, .fq.gz" >&2
+	exit 1
+fi
+for control in "${CONTROLS_RUFUS_ARG[@]}"; do
+	CTRL_TYPE=$(get_input_type "$control")
+	if [ "$CTRL_TYPE" != "$SUBJECT_TYPE" ]; then
+		echo "ERROR: all subject and control files must be the same type, but subject is ${SUBJECT_TYPE} and control $control is ${CTRL_TYPE}. Please ensure all inputs are either all BAMs, all CRAMs, or all FASTQs." >&2
+		exit 1
+	fi
+done
+
 # Check that reference file exists
 if [ ! -f "$REFERENCE_RUFUS_ARG" ]; then
 	echo "ERROR: reference file $REFERENCE_RUFUS_ARG does not exist or cannot be read." >&2
