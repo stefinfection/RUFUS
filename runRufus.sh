@@ -1003,6 +1003,7 @@ fi
 
 ##################__GENERATE_JHASH_HISTOGRAMS__#################################
 ######TODO I can probably get rid of this if I just make model read either tab or space
+# .Jhash.histo files are created in RunJellyForRUFUS.sh call
 perl -ni -e 's/ /\t/;print' "$ProbandGenerator".Jhash.histo
 for parent in "${ParentGenerators[@]}"
 do
@@ -1143,8 +1144,9 @@ if [ $(head  "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList | wc -l | awk '
     _region_exit_reason="no_mutant_hashes_wg"
     exit 100
   else
-    echo "WARNING: No mutant hashes identified in region $_arg_region. Stopping run."
-    _region_exit_reason="no_mutant_hashes"
+	# debug: where amy run exited
+    echo "WARNING: No unique hashes identified in region $_arg_region. Stopping run."
+    _region_exit_reason="no_unique_hashes"
     exit 0
   fi
 fi
@@ -1174,14 +1176,8 @@ then
 		    if [ -e "${FIFO_M2}" ]; then
 	            rm  "${FIFO_M2}"
 	        fi
-		    # if [ -e "${FIFO_MAIN}" ]; then 
-			#     rm "${FIFO_MAIN}"
-	        # fi
-		    #echo "running this one "echo "DEBUG:"
 
 		    mkfifo "${FIFO_M1}" "${FIFO_M2}"
-		    #sleep 1
-			#bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" > "${FIFO_MAIN}" &
 		    bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" &
 		      $RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
