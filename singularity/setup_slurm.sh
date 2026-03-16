@@ -55,6 +55,12 @@ WORKING_DIR=$(pwd)
 
 echo -en "##RUFUS_callCommand=" > rufus.cmd
 
+# Build subject args string for runRufus.sh (each subject gets its own -s flag)
+SUBJECT_ARGS_STRING=""
+for subj in "${SUBJECTS_RUFUS_ARG[@]}"; do
+    SUBJECT_ARGS_STRING+="-s $subj "
+done
+
 # Compose run script(s)
 RUFUS_SLURM_SCRIPT="rufus_call.slurm"
 HEADER_LINES=("#!/bin/bash"
@@ -91,9 +97,9 @@ function write_out_rest_of_rufus_args() {
       echo -en "\$HASH_ARGS " >> rufus.cmd
     fi
 
-    # Use -cr for CRAM inputs, -r otherwise
+    # Use -cr for CRAM inputs, -r otherwise (check first subject)
     local ref_flag="-r"
-    if [[ "$SUBJECT_RUFUS_ARG" == *.cram ]]; then
+    if [[ "${SUBJECTS_RUFUS_ARG[0]}" == *.cram ]]; then
         ref_flag="-cr"
     fi
     echo -en "$ref_flag $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
@@ -147,8 +153,8 @@ if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
     echo -e "HASH_ARGS=\"${WG_HASH_ARGS}\"" >> $RUFUS_SLURM_SCRIPT
   fi
 
-	echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-  echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
+	echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh $SUBJECT_ARGS_STRING" >> $RUFUS_SLURM_SCRIPT
+  echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh $SUBJECT_ARGS_STRING" >> rufus.cmd
   write_out_rest_of_rufus_args
 else
   # Add a chunk for post-processing
@@ -230,8 +236,8 @@ else
         echo -e "    HASH_ARGS=\"\$HASH_ARGS -e \$ctrl_hash\"" >> $RUFUS_SLURM_SCRIPT
       fi
     fi
-    echo -en "   srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-    echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
+    echo -en "   srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh $SUBJECT_ARGS_STRING" >> $RUFUS_SLURM_SCRIPT
+    echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash /opt/RUFUS/runRufus.sh $SUBJECT_ARGS_STRING" >> rufus.cmd
 	  echo -en "-pa \$SLURM_ARRAY_TASK_ID " >> $RUFUS_SLURM_SCRIPT
 	  echo -en "-cn \$curr_job " >> $RUFUS_SLURM_SCRIPT
     write_out_rest_of_rufus_args
@@ -260,8 +266,8 @@ else
         fi
       fi
 
-      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
-      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh -s $SUBJECT_RUFUS_ARG " >> rufus.cmd
+      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh $SUBJECT_ARGS_STRING" >> $RUFUS_SLURM_SCRIPT
+      echo -en "srun --mem=${MEM_PER_JOB} singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/runRufus.sh $SUBJECT_ARGS_STRING" >> rufus.cmd
       write_out_rest_of_rufus_args
   fi
 fi
@@ -292,10 +298,10 @@ echo "" >> $PP_SLURM_SCRIPT
 IFS=$','
 CONTROL_STRING="${CONTROLS_RUFUS_ARG[*]}"
 
-echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -s $SUBJECT_RUFUS_ARG -w $WINDOW_SIZE_RUFUS_ARG" >> $PP_SLURM_SCRIPT
+echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -s ${SUBJECTS_RUFUS_ARG[0]} -w $WINDOW_SIZE_RUFUS_ARG" >> $PP_SLURM_SCRIPT
 
 echo -en "##RUFUS_postProcessCommand=" >> rufus.cmd
-echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -s $SUBJECT_RUFUS_ARG -w $WINDOW_SIZE_RUFUS_ARG" >> rufus.cmd
+echo -e "srun singularity exec --bind ${BIND_MOUNTS} ${CONTAINER_PATH_RUFUS_ARG} bash ${RUFUS_ROOT}/post_process/post_process.sh -s ${SUBJECTS_RUFUS_ARG[0]} -w $WINDOW_SIZE_RUFUS_ARG" >> rufus.cmd
 
 # Compose invocation script to be executed outside of container
 EXE_SCRIPT=launch_rufus.sh

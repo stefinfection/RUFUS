@@ -8,9 +8,9 @@ DEFAULT_WG_MEM_PER_JOB="150G"
 
 
 usage() {
-  echo "Usage: $0 [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...options"
+  echo "Usage: $0 [-s subject1,subject2,...] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...options"
   echo "Required Arguments:"
-  echo "-s subject    Full path to the subject sample BAM/CRAM"
+  echo "-s subject(s) A single subject or comma-delimited array of multiple subject BAM/CRAM files (full paths)"
   echo "-c control(s) A single control or comma-delimited array of multiple controls (full paths)"
   echo "-b genome_build  The desired genome build; currently only supports GRCh38"
   echo "-r reference  Full path to the reference file matching the genome build"
@@ -40,7 +40,7 @@ usage() {
 }
 
 # Initialize variables
-SUBJECT_RUFUS_ARG=""
+SUBJECTS_RUFUS_ARG=()
 CONTROL_STRING_RUFUS_ARG=""
 CONTROLS_RUFUS_ARG=()
 GENOME_BUILD_RUFUS_ARG="GRCh38"
@@ -68,7 +68,7 @@ CPUS_PER_JOB=""
 while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:" opt; do
     case ${opt} in
         s)
-            SUBJECT_RUFUS_ARG=$OPTARG
+            IFS=',' read -r -a SUBJECTS_RUFUS_ARG <<< "$OPTARG"
             ;;
         c)
             IFS=',' read -r -a CONTROLS_RUFUS_ARG <<< "$OPTARG"
@@ -149,16 +149,18 @@ done
 shift $((OPTIND - 1))
 
 # Check for required strings
-if [[ -z "$SUBJECT_RUFUS_ARG" || -z "$GENOME_BUILD_RUFUS_ARG" || -z "$REFERENCE_RUFUS_ARG" || -z "$SLURM_ACCOUNT_RUFUS_ARG" || -z "$SLURM_PARTITION_RUFUS_ARG" || -z "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" ]]; then
+if [[ ${#SUBJECTS_RUFUS_ARG[@]} -eq 0 || -z "$GENOME_BUILD_RUFUS_ARG" || -z "$REFERENCE_RUFUS_ARG" || -z "$SLURM_ACCOUNT_RUFUS_ARG" || -z "$SLURM_PARTITION_RUFUS_ARG" || -z "$SLURM_ARRAY_JOB_LIMIT_RUFUS_ARG" ]]; then
     echo "ERROR: Missing required argument(s); please see usage instructions with -h." >&2
     exit 1
 fi
 
-# Check that subject file exists
-if [ ! -f "$SUBJECT_RUFUS_ARG" ]; then
-	echo "ERROR: subject file $SUBJECT_RUFUS_ARG does not exist or cannot be read." >&2
-	exit 1
-fi
+# Check that all subject files exist
+for subject in "${SUBJECTS_RUFUS_ARG[@]}"; do
+	if [ ! -f "$subject" ]; then
+		echo "ERROR: subject file $subject does not exist or cannot be read." >&2
+		exit 1
+	fi
+done
 
 # Check that all control files exist
 for control in "${CONTROLS_RUFUS_ARG[@]}"; do
@@ -185,11 +187,19 @@ get_input_type() {
 	esac
 }
 
-SUBJECT_TYPE=$(get_input_type "$SUBJECT_RUFUS_ARG")
+# Validate type of first subject, then ensure all subjects + controls match
+SUBJECT_TYPE=$(get_input_type "${SUBJECTS_RUFUS_ARG[0]}")
 if [ "$SUBJECT_TYPE" == "unknown" ]; then
-	echo "ERROR: subject file $SUBJECT_RUFUS_ARG has an unrecognized file type. Supported types: .bam, .cram, .fastq, .fq, .fastq.gz, .fq.gz" >&2
+	echo "ERROR: subject file ${SUBJECTS_RUFUS_ARG[0]} has an unrecognized file type. Supported types: .bam, .cram, .fastq, .fq, .fastq.gz, .fq.gz" >&2
 	exit 1
 fi
+for subject in "${SUBJECTS_RUFUS_ARG[@]:1}"; do
+	SUBJ_TYPE=$(get_input_type "$subject")
+	if [ "$SUBJ_TYPE" != "$SUBJECT_TYPE" ]; then
+		echo "ERROR: all subject files must be the same type, but first subject is ${SUBJECT_TYPE} and $subject is ${SUBJ_TYPE}. Please ensure all inputs are either all BAMs, all CRAMs, or all FASTQs." >&2
+		exit 1
+	fi
+done
 for control in "${CONTROLS_RUFUS_ARG[@]}"; do
 	CTRL_TYPE=$(get_input_type "$control")
 	if [ "$CTRL_TYPE" != "$SUBJECT_TYPE" ]; then
@@ -266,7 +276,7 @@ collect_bind_dirs() {
     seen_dirs["$(pwd)"]=1
     dirs+=("$(pwd)")
 
-    local files=("$SUBJECT_RUFUS_ARG" "$REFERENCE_RUFUS_ARG")
+    local files=("${SUBJECTS_RUFUS_ARG[@]}" "$REFERENCE_RUFUS_ARG")
     for control in "${CONTROLS_RUFUS_ARG[@]}"; do
         files+=("$control")
     done
@@ -313,7 +323,7 @@ BIND_MOUNTS="$(collect_bind_dirs)"
 
 # Export variables for use in the main script
 export BIND_MOUNTS
-export SUBJECT_RUFUS_ARG
+export SUBJECTS_RUFUS_ARG
 export CONTROL_STRING_RUFUS_ARG
 export CONTROLS_RUFUS_ARG
 export GENOME_BUILD_RUFUS_ARG

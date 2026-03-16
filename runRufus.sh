@@ -69,7 +69,7 @@ _positionals=()
 _arg_exclude=()
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_controls=()
-_arg_subject=
+_arg_subjects=()
 _arg_ref=
 _arg_threads=3
 _arg_kmersize=25
@@ -95,8 +95,8 @@ _arg_abs_coord_index=0
 print_help ()
 {
 	printf "%s\n" "The general script's help msg"
-	printf 'Usage: %s [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [<controls-1>] ... [<controls-n>] ...\n' "$0"
-	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
+	printf 'Usage: %s [-s|--subject <arg>] ... [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [<controls-1>] ... [<controls-n>] ...\n' "$0"
+	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (can be used multiple times for split files from the same sample)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multipe times)"
 	printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
 	printf "\t%s\n" "-eR, --exclude-region-hash: Region-specific Jhash file of kmers to exclude from mutation list; only support 1mb region sizes"
@@ -118,9 +118,9 @@ print_help ()
 print_devhelp ()
 {
 	printf "%s\n" "The general script's help msg"
-	printf 'Usage: %s [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [<controls-1>] ... [<control\
+	printf 'Usage: %s [-s|--subject <arg>] ... [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [<controls-1>] ... [<control\
 s-n>] ...\n' "$0"
-	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (no default, only one subject per run for now)"
+	printf "\t%s\n" "-s,--subject: bam/cram/fastq(or pair of fastq files)/generator file containing the subject of interest (can be used multiple times for split files from the same sample)"
 	printf "\t%s\n" "-c, --controls: bam/cram/fastq(or pair of fastq files)/generator file for the sequence data of the control sample (can be used multiple times)"
 	printf "\t%s\n" "-e,--exclude: Jhash file of kmers to exclude from mutation list, k must be  (no default, can be used multiple times)"
 	printf "\t%s\n" "-se, --single_end_reads: subject bam file is single end reads, not paired (default is to assume paired end data)"
@@ -174,7 +174,7 @@ parse_commandline ()
                 genName=$FileName
                 if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then
                         #echo "" > "$FileName".generator
-                        _arg_subject=("$2")
+                        _arg_subjects+=("$2")
                 fi
                 while [[ $2 != -* ]]; do
                         FileName=$(basename "$2")
@@ -189,7 +189,7 @@ parse_commandline ()
                                         echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
                                 fi
                         else
-                                _arg_subject=("$2")
+                                _arg_subjects+=("$2")
                         fi
                         shift
                 done
@@ -599,7 +599,7 @@ printf "%q " "$@"     >> "$rufus_invoc_file"
 
 if [ "$_arg_dev_reporting" = "TRUE" ]; then
 	echo "Verbose developer reporting on..."
-	echo "  _arg_subject=$_arg_subject" 
+	echo "  _arg_subjects=${_arg_subjects[*]}"
 	echo "  _arg_ref=$_arg_ref" 
 	echo "  _arg_threads=$_arg_threads" 
 	echo "  _arg_kmersize=$_arg_kmersize" 
@@ -635,11 +635,11 @@ then
     _arg_threads=$(nproc); 
 fi
 
-if [ -z $_arg_subject ]
-then 
-	echo "ERROR: you must provide a subject sample (sample you want to call variants in)"
+if [ ${#_arg_subjects[@]} -eq 0 ]
+then
+	echo "ERROR: you must provide at least one subject sample (sample you want to call variants in)"
 	kill -9 $$
-fi 
+fi
 
 if [ ${#_arg_exclude[@]} -eq "0" ] && [ ${#_arg_controls[@]} -eq "0" ]
 then
@@ -698,48 +698,54 @@ fi
 Parents=("${_arg_controls[@]}")
 
 #########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
-ProbandFileName=$(basename "$_arg_subject")
+# Use first subject file for naming conventions
+ProbandFileName=$(basename "${_arg_subjects[0]}")
 ProbandExtension="${ProbandFileName##*.}"
+ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
 
-######## checking proband extension, FASTQ is not handled, need to add that, for the meantime generator dumping to SAM needs to be used #############
-if [[ "$ProbandExtension" != "cram" ]] && [[ "$ProbandExtension" != "bam" ]] || [[ ! -e "$_arg_subject" ]] && [[ "$ProbandExtension" != "generator" ]]
-then 
-    echo "The proband bam/generator file" "$_arg_subject" " was not provided or does not exist; killing run with non-zero exit status"
-    kill -9 $$
-elif [[ "$ProbandExtension" == "bam" ]]
-then
- # check for index file (needed for mpileup in post processing)
-    if [[ ! -e "$_arg_subject".bai ]]
+# Build concatenated generator from all subject files
+> "$ProbandGenerator"
+for subject in "${_arg_subjects[@]}"
+do
+    subjectFileName=$(basename "$subject")
+    subjectExtension="${subjectFileName##*.}"
+
+    if [[ "$subjectExtension" != "cram" ]] && [[ "$subjectExtension" != "bam" ]] && [[ "$subjectExtension" != "generator" ]] || [[ ! -e "$subject" ]]
     then
-        echo "Index file for subject bam file $_arg_subject not found. Please place in data directory and rerun."
-        _region_exit_reason="missing_subject_bam_index"
-        exit 1
-    fi
-    ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
-    echo "samtools view -F 3328 $_arg_subject $_arg_region" > "$ProbandGenerator"
-elif [[ "$ProbandExtension" == "cram" ]]
-then
- # check for index file (needed for mpileup in post processing)
-    if [[ ! -e "$_arg_subject".crai ]]
+        echo "The proband bam/cram/generator file $subject was not provided or does not exist; killing run with non-zero exit status"
+        kill -9 $$
+    elif [[ "$subjectExtension" == "bam" ]]
     then
-        echo "Index file for subject cram file $_arg_subject not found. Please place in data directory and rerun."
-        _region_exit_reason="missing_subject_cram_index"
-        exit 1
+        if [[ ! -e "$subject".bai ]]
+        then
+            echo "Index file for subject bam file $subject not found. Please place in data directory and rerun."
+            _region_exit_reason="missing_subject_bam_index"
+            exit 1
+        fi
+        echo "samtools view -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+    elif [[ "$subjectExtension" == "cram" ]]
+    then
+        if [[ ! -e "$subject".crai ]]
+        then
+            echo "Index file for subject cram file $subject not found. Please place in data directory and rerun."
+            _region_exit_reason="missing_subject_cram_index"
+            exit 1
+        fi
+        if [ "$_arg_cramref" == "" ]
+        then
+            echo "ERROR cram reference not provided for cram input"
+            kill -9 $$
+        fi
+        echo "samtools view -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        _arg_ref="$_arg_cramref"
+    elif [[ "$subjectExtension" == "generator" ]]
+    then
+        cat "$subject" >> "$ProbandGenerator"
+    else
+        echo "unknown error during generator generation, killing run with non-zero exit status"
+        kill -9 $$
     fi
-	if [ "$_arg_cramref" == "" ]
-	then 
-		echo "ERROR cram reference not provided for cram input"; 
-		kill -9 $$ 
-	fi
-    ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
-    echo "samtools view -F 3328 -T $_arg_cramref $_arg_subject $_arg_region" > "$ProbandGenerator"
-	_arg_ref="$_arg_cramref"
-elif [[ "$ProbandExtension" == "generator" ]]
-then
-    ProbandGenerator="${ProbandFileName}${region_postfix}"
-else 
-    echo "unknown error during generator generation, killing run with non-zero exit status"
-fi
+done
 
 # Have to do this after proband check in case cram reference is used
 _arg_ref_cat="${_arg_ref%.*}"
