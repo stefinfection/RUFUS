@@ -33,6 +33,7 @@ usage() {
   echo "-t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)"
   echo "-M memory_per_call    How much memory to allot to the rufus calling stage job; default 150G for entire genome; 20G for 1MB windows (e.g. 150G or 20G)"
   echo "-C cpus_per_call      How many cpus to allot to each rufus calling stage job; default 40 for entire genome; 12 for 1MB windows"
+  echo "-d dev_binds     Comma-delimited list of host:container bind mounts for dev testing (e.g., /local/runRufus.sh:/opt/RUFUS/runRufus.sh)"
   echo "-h help	Print usage"
   echo ""
   echo "Output files are written to the current working directory."
@@ -63,9 +64,10 @@ CONTROL_HASH_DIR=""
 CONTROL_HASH_VERSION=""
 MEM_PER_JOB=""
 CPUS_PER_JOB=""
+DEV_BIND_MOUNTS_ARG=()
 
 # Parse command line options using getopts
-while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:" opt; do
+while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:d:" opt; do
     case ${opt} in
         s)
             IFS=',' read -r -a SUBJECTS_RUFUS_ARG <<< "$OPTARG"
@@ -133,6 +135,9 @@ while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:" opt; do
         C)
 			CPUS_PER_JOB=$OPTARG
 			;;
+        d)
+            IFS=',' read -r -a DEV_BIND_MOUNTS_ARG <<< "$OPTARG"
+            ;;
         h)
             usage
             ;;
@@ -266,6 +271,25 @@ if [ -z $CONTAINER_PATH_RUFUS_ARG ]; then
 	fi
 fi
 
+# Validate dev bind mounts and build singularity --bind args string
+DEV_BIND_ARGS=""
+if [ ${#DEV_BIND_MOUNTS_ARG[@]} -gt 0 ]; then
+    for bind_spec in "${DEV_BIND_MOUNTS_ARG[@]}"; do
+        host_path="${bind_spec%%:*}"
+        container_path="${bind_spec#*:}"
+        if [ "$host_path" == "$bind_spec" ]; then
+            echo "ERROR: dev bind mount '$bind_spec' must be in host:container format (e.g., /local/runRufus.sh:/opt/RUFUS/runRufus.sh)" >&2
+            exit 1
+        fi
+        if [ ! -e "$host_path" ]; then
+            echo "ERROR: dev bind mount host path does not exist: $host_path" >&2
+            exit 1
+        fi
+        DEV_BIND_ARGS+=" --bind ${bind_spec}"
+    done
+    echo "DEV MODE: additional bind mounts:${DEV_BIND_ARGS}"
+fi
+
 # Collect unique parent directories for all input files to use as bind mounts.
 # Singularity --bind preserves host paths inside the container (no remapping needed).
 collect_bind_dirs() {
@@ -346,3 +370,4 @@ export CONTROL_HASH_DIR
 export CONTROL_HASH_VERSION
 export MEM_PER_JOB
 export CPUS_PER_JOB
+export DEV_BIND_ARGS
