@@ -1502,7 +1502,7 @@ bcftools index "$TRIMMED_VCF"
 
 NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
 if [ ${#_arg_controls[@]} -ne "0" ]; then
-	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c ${Parents[@]}
+	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c "$(IFS=','; echo "${Parents[*]}")"
 else
 	mv "$TRIMMED_VCF" "$NO_CO_VCF"
 fi

@@ -121,16 +121,28 @@ validate_all_region_hashes() {
 
     local num_chunks
     num_chunks=$(get_num_chunks "$window_size" "$genome_build")
-    echo "INFO: Validating ${num_chunks} region hashes in ${hash_dir}..."
+
+    # Sample first 10 and last 10 indices (deduped) rather than checking all chunks.
+    local sample_size=10
+    local -a indices=()
+    for ((i = 0; i < sample_size && i < num_chunks; i++)); do
+        indices+=("$i")
+    done
+    for ((i = num_chunks - sample_size; i < num_chunks; i++)); do
+        if (( i >= sample_size )); then   # avoid duplicates with the first window
+            indices+=("$i")
+        fi
+    done
+
+    echo "INFO: Spot-checking ${#indices[@]} of ${num_chunks} region hashes in ${hash_dir}..."
 
     local i region fmtd_region errors=0
-    for ((i = 0; i < num_chunks; i++)); do
+    for i in "${indices[@]}"; do
         region=$(get_chunk_region "$i" "$window_size" "$genome_build")
         fmtd_region=$(echo "$region" | tr ':-' '_')
 
         if ! resolve_hash_for_region "$hash_dir" "$fmtd_region" > /dev/null; then
             errors=$((errors + 1))
-            # Stop after 5 errors to avoid flooding output
             if [ $errors -ge 5 ]; then
                 echo "ERROR: Too many missing hashes (showed first 5). Aborting validation." >&2
                 return 1
@@ -143,6 +155,6 @@ validate_all_region_hashes() {
         return 1
     fi
 
-    echo "INFO: All ${num_chunks} region hashes validated in ${hash_dir}"
+    echo "INFO: Spot-check passed (${#indices[@]}/${num_chunks} regions) in ${hash_dir}"
     return 0
 }

@@ -110,7 +110,7 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	# Running in WG mode, split pileup by chr
 	if [ "$WINDOW_SIZE" -ne 0 ]; then
 		# Likely dealing with a small number of variants, send in a single list of sites
-		regions=$(bcftools view -H "$NORMED_VCF" | awk '!/^#/ {printf "%s%s:%d-%d", sep, $1, $2, $2; sep="|"} END{print ""}')
+		regions=$(bcftools view -H "$NORMED_VCF" | awk '!/^#/ {printf "%s%s:%d-%d", sep, $1, $2, $2; sep=","} END{print ""}')
 		bash $PILEUP_SCRIPT "$regions" "${CONTROL_BAM}" "${REFERENCE_FILE}" > "$CURR_MERGED_PILEUP"
 	else
 		# Better to do chromosome by chromosome for speed for entire genome
@@ -154,7 +154,7 @@ bcftools index "$CONTROL_VCF"
 rm "$SORTED_MERGED_PILEUP"*
 
 #intersect the control vcf with formatted rufus vcf
-CONTROL_RECORD_COUNT=$(bcftools view -H "$CONTROL_VCF" | head -1 | wc -l)
+CONTROL_RECORD_COUNT=$(bcftools view -H "$CONTROL_VCF" | wc -l)
 if [ "$CONTROL_RECORD_COUNT" -eq 0 ]; then
 	echo "Control VCF has zero variant records — skipping intersection, copying subject VCF directly."
 	cp "$NORMED_VCF" "${OUT_VCF}"
