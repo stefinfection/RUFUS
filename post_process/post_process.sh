@@ -56,7 +56,7 @@ if [[ -z "$WINDOW_SIZE" ]]; then
 fi
 
 
-echo "RUFUS post-process version d-1.1.7"
+echo "RUFUS post-process version d-1.1.9"
 date
 start_time=$(date +"%s")
 

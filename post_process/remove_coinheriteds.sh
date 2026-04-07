@@ -132,28 +132,33 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	pileups+=("$CURR_MERGED_PILEUP")
 done
 
-# Combine control specific pileups if there are mutliple
+# Combine control specific pileups if there are multiple
 if [ "${#pileups[@]}" -gt 1 ]; then
-	echo "about to merge"
-	bcftools merge -Oz -o "$MERGED_PILEUP" "${pileups[@]}"
+	echo "about to merge ${pileups[@]}"
+	total_records=$(for p in "${pileups[@]}"; do bcftools view -H "$p"; done | wc -l)
+    if [ "$total_records" -eq 0 ]; then
+        cp "${pileups[0]}" "$MERGED_PILEUP"
+        bcftools index "$MERGED_PILEUP"
+    else
+        bcftools merge -Oz -o "$MERGED_PILEUP" "${pileups[@]}"
+    fi
 else
-	# TODO: this needs to be tested - single control in both modes
 	cp "${pileups[0]}" "$MERGED_PILEUP"
 fi
 rm -f $WORK_DIR/*."$FMTD_REGION".ctrl.merged_pileup.vcf.gz*
 
-# sort combined pileups
+# Sort combined pileups
 bcftools sort -Oz -o "$SORTED_MERGED_PILEUP" "$MERGED_PILEUP"
 bcftools index "$SORTED_MERGED_PILEUP"
 rm -f $MERGED_PILEUP
 
-# call variants from merged pileup vcf
+# Call variants from merged pileup vcf
 echo "Starting pileup call..."
-bcftools call -cv -Oz -o "$CONTROL_VCF" "$SORTED_MERGED_PILEUP"
+bcftools view -e 'ALT="<*>" && N_ALT=1' "$SORTED_MERGED_PILEUP" | bcftools call -mv -Oz -o "$CONTROL_VCF"
 bcftools index "$CONTROL_VCF"
 rm "$SORTED_MERGED_PILEUP"*
 
-#intersect the control vcf with formatted rufus vcf
+# Intersect the control vcf with formatted rufus vcf
 CONTROL_RECORD_COUNT=$(bcftools view -H "$CONTROL_VCF" | wc -l)
 if [ "$CONTROL_RECORD_COUNT" -eq 0 ]; then
 	echo "Control VCF has zero variant records — skipping intersection, copying subject VCF directly."
@@ -172,6 +177,6 @@ else
 fi
 rm "$CONTROL_VCF"*
 
-# clean up aligned control file, if it exists
+# Clean up aligned control file, if it exists
 rm -f $WORK_DIR/temp_aligned.*.${FMTD_REGION}.bam
 rm -rf "$ISEC_OUT_DIR"
