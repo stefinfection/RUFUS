@@ -11,3 +11,7 @@ cmake-build-debug/*
 cmake-build-debug/
 singularity/rufus_v1.0.0-epsilon.sif
 temp_dac/
+cleanup.sh
+rufus_figure.pdf
+rufus_figure.py
+rufus_figure.png
