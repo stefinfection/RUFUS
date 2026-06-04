@@ -232,7 +232,7 @@ elif [ "$WINDOW_SIZE_RUFUS_ARG" -ne 1000 ]; then
 	echo "ERROR: only windows of 1000 (1MB) supported currently" >&2
     exit 1
 else
-	if [ -z $SLURM_TIME_LIMIT_RUFUS ]; then
+	if [ -z "$SLURM_TIME_LIMIT_RUFUS_ARG" ]; then
 		SLURM_TIME_LIMIT_RUFUS_ARG="01:00:00"
 	fi
     CPUS_PER_JOB=${CPUS_PER_JOB:-$DEFAULT_1MB_CPUS_PER_JOB}
