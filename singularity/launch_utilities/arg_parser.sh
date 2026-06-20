@@ -34,6 +34,7 @@ usage() {
   echo "-M memory_per_call    How much memory to allot to the rufus calling stage job; default 150G for entire genome; 20G for 1MB windows (e.g. 150G or 20G)"
   echo "-C cpus_per_call      How many cpus to allot to each rufus calling stage job; default 40 for entire genome; 12 for 1MB windows"
   echo "-d dev_binds     Comma-delimited list of host:container bind mounts for dev testing (e.g., /local/runRufus.sh:/opt/RUFUS/runRufus.sh)"
+  echo "-P par_low_cov_threshold  Control k-mer count ceiling below which a variant is flagged as low-coverage-parent/inherited (default 7; set to 0 to disable, e.g. when using an assembly as the control)"
   echo "-h help	Print usage"
   echo ""
   echo "Output files are written to the current working directory."
@@ -64,10 +65,11 @@ CONTROL_HASH_DIR=""
 CONTROL_HASH_VERSION=""
 MEM_PER_JOB=""
 CPUS_PER_JOB=""
+PAR_LOW_COV_THRESHOLD_RUFUS_ARG="7"
 DEV_BIND_MOUNTS_ARG=()
 
 # Parse command line options using getopts
-while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:d:" opt; do
+while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:d:P:" opt; do
     case ${opt} in
         s)
             IFS=',' read -r -a SUBJECTS_RUFUS_ARG <<< "$OPTARG"
@@ -137,6 +139,13 @@ while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:d:" opt; do
 			;;
         d)
             IFS=',' read -r -a DEV_BIND_MOUNTS_ARG <<< "$OPTARG"
+            ;;
+        P)
+            if ! [[ "$OPTARG" =~ ^[0-9]+$ ]]; then
+                echo "ERROR: -P par_low_cov_threshold must be a non-negative integer." >&2
+                exit 1
+            fi
+            PAR_LOW_COV_THRESHOLD_RUFUS_ARG=$OPTARG
             ;;
         h)
             usage
@@ -370,4 +379,5 @@ export CONTROL_HASH_DIR
 export CONTROL_HASH_VERSION
 export MEM_PER_JOB
 export CPUS_PER_JOB
+export PAR_LOW_COV_THRESHOLD_RUFUS_ARG
 export DEV_BIND_ARGS

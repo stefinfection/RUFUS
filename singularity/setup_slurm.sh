@@ -105,6 +105,11 @@ function write_out_rest_of_rufus_args() {
     echo -en "$ref_flag $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
     echo -en "$ref_flag $REFERENCE_RUFUS_ARG -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
 
+    if [ "${PAR_LOW_COV_THRESHOLD_RUFUS_ARG}" != "7" ]; then
+      echo -en "-plct $PAR_LOW_COV_THRESHOLD_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+      echo -en "-plct $PAR_LOW_COV_THRESHOLD_RUFUS_ARG " >> rufus.cmd
+    fi
+
     if [ "$WINDOW_SIZE_RUFUS_ARG" -ne 0 ]; then
       echo -en "\$REGION_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "\$REGION_ARG " >> rufus.cmd

@@ -37,6 +37,7 @@ invocFilePath=${11}
 refHash=${12} # Will say "empty" if not provided
 SampleJhash=${13}
 ParentsJhash=${14} # this is optional
+ParLowCovThreshold=${15:-7}
 
 
 MaxCov=100000
@@ -359,4 +360,4 @@ echo ""
 dumbFix=$(awk '{split($1, a, ".V2"); print a[1]}' <<< $NameStub)
 #echo "$RUFUSinterpret -mob $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 20 -r $humanRef -hf "$HashList" -o  $WORK_DIR/$NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $(echo $parentCRString) -sR $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e $WORK_DIR/Intermediates/$NameStub.ref.RepRefHash"
 
-samtools view -h $WORK_DIR/$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn  | $RUFUSinterpret -mob $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r "$humanRef" -hf "$HashList" -o $NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $parentCRString -sR $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e $WORK_DIR/Intermediates/$NameStub.ref.RepRefHash -rp "$RUFUS_ROOT" -ip "$invocFilePath"
+samtools view -h $WORK_DIR/$NameStub.overlap.hashcount.fastq.bam | perl $AddSA | grep -v chrUn  | $RUFUSinterpret -mob $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.MOB.sam -mod $dumbFix.Jhash.histo.7.7.dist -mQ 10 -r "$humanRef" -hf "$HashList" -o $NameStub.overlap.hashcount.fastq.bam -m $MaxAlleleSize $parentCRString -sR $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.sample -s $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.sample -e $WORK_DIR/Intermediates/$NameStub.ref.RepRefHash -rp "$RUFUS_ROOT" -ip "$invocFilePath" -plct "$ParLowCovThreshold"

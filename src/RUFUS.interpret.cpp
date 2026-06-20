@@ -4978,6 +4978,10 @@ int main(int argc, char *argv[]) {
         } else if (p == "-w") {
             cout << "Windowed mode indicated " << endl;
             isWindowed = true;
+        } else if (p == "-plct") {
+            ParLowCovThreshold = atoi(argv[i + 1]);
+            cout << "ParLowCovThreshold = " << ParLowCovThreshold << endl;
+            i += 1;
         } else {
             cout << "ERROR: unkown command line paramater -" << argv[i] << "-" << endl;
             return 0;

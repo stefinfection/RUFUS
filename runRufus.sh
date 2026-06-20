@@ -86,6 +86,8 @@ _arg_region=
 _use_region_hash="FALSE"
 _arg_filterK=1
 _arg_ParLowK=2
+_arg_ParLowCovThreshold=7
+_arg_hash_size=
 _filterMinQ=15
 _arg_stop="nope"
 _arg_dev_reporting="FALSE"
@@ -150,6 +152,8 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-fk, --filterK: kmer threshold for number of kmers required to keep a read during filtering (default = 1)"
 	printf "\t%s\n" "-fq, --filterMinQ: Minimum base quality for filter step, any kmer with any bases lower than this quality will be ignored (default = 15)"
 	printf "\t%s\n" "-pl, --ParLowK: Lowest kmer count to be kept when counting parent jellyfish tables (default = 2, using 1 will SIGNIFICANTLY increase run time and is not advised)"
+	printf "\t%s\n" "-plct, --ParLowCovThreshold: k-mer count ceiling in controls below which a variant is flagged as low-coverage-parent/inherited (default = 7, set to 0 to disable, e.g. when using an assembly as the control)"
+	printf "\t%s\n" "-hs, --hash_size: jellyfish initial hash size (-s) for the subject/control count step, e.g. 32G (default: 1G in region mode, 8G in whole-genome mode). Must match the -s used to build any pre-made control/DSA hash being merged against."
 	printf "\t%s\n" "-StJ: Stop run after jellyfish steps" #TODO: dont require reference and other non needed options if this is set
 	printf "\t%s\n" "-StH: Stop run after hash compare steps" #TODO: dont require reference and other non needed options if this is set
 	printf "\t%s\n" "-StF: Stop run after filter steps" 
@@ -305,6 +309,24 @@ parse_commandline ()
 		fi
 		shift
 		;;
+	-plct|--ParLowCovThreshold)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_ParLowCovThreshold=$2
+		if ! [[ $_arg_ParLowCovThreshold =~ $re ]] ; then
+			echo "arg -plct or --ParLowCovThreshold must be a number "
+			exit 100
+		fi
+		shift
+		;;
+	-hs|--hash_size)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_hash_size=$2
+		if ! [[ $_arg_hash_size =~ ^[0-9]+[GMKgmk]?$ ]] ; then
+			echo "arg -hs or --hash_size must be a jellyfish hash size, e.g. 32G, 500M, or a plain integer"
+			exit 100
+		fi
+		shift
+		;;
 	-R|--region)
 			test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
 			_arg_region="$2"
@@ -449,10 +471,19 @@ make_jelly_hash ()
   local exit_file="$7"
 
   # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
-  hash_size="8G"
+  # TODO: need to warn if memory allotment smaller than this
+  # TODO: also need to provide optional arg for hash size and/or automatic detection based on mem allotment
+  hash_size="64G"
   if [ "$formRegionArg" != "wg" ]; then
 	echo "We're in windowed mode, use a smaller hash size to allow for 1kg comparison"
 	hash_size="1G"
+  fi
+
+  # Allow the region-based default to be overridden by the -hs/--hash_size argument.
+  # NOTE: this must match the -s used to build any pre-made control/DSA hash being merged against.
+  if [ -n "$_arg_hash_size" ]; then
+	echo "Overriding default hash size ($hash_size) with provided -hs/--hash_size value: $_arg_hash_size"
+	hash_size="$_arg_hash_size"
   fi
 
   set +e
@@ -614,7 +645,8 @@ if [ "$_arg_dev_reporting" = "TRUE" ]; then
 	echo "  _pairedEnd=$_pairedEnd" 
 	echo "  _arg_region=$_arg_region" 
 	echo "  _arg_filterK=$_arg_filterK" 
-	echo "  _arg_ParLowK=$_arg_ParLowK" 
+	echo "  _arg_ParLowK=$_arg_ParLowK"
+	echo "  _arg_hash_size=$_arg_hash_size"
 	echo "  _filterMinQ=$_filterMinQ"
 	echo "  _arg_dev_file_output=$_arg_dev_file_output"
 fi
@@ -789,7 +821,7 @@ do
 		parentGenerator="${parentFileName}${region_postfix}.generator"
 		ParentGenerators+=("$parentGenerator")
 	    if [ "$_arg_cramref" == "" ]
-	    then 
+	    then
 			echo "ERROR cram reference not provided for cram input"; 
 			kill -9 $$ 
 	    fi
@@ -1355,8 +1387,8 @@ else
 		_arg_refhash="empty"
 	fi
 
-    echo " bash  $RUFUSOverlap $_arg_ref ${ProbandGenerator}.Mutations.fastq 5 $ProbandGenerator ${ProbandGenerator}.k${K}_c${MutantMinCov}.HashList $K $Threads $_MaxAlleleSize $_arg_ref_bwa $rufus_invoc_file $_arg_refhash ${ProbandGenerator}.Jhash $parentsString"
-    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" 
+    echo " bash  $RUFUSOverlap $_arg_ref ${ProbandGenerator}.Mutations.fastq 5 $ProbandGenerator ${ProbandGenerator}.k${K}_c${MutantMinCov}.HashList $K $Threads $_MaxAlleleSize $_assemblySpeed $_arg_ref_bwa $rufus_invoc_file $_arg_refhash ${ProbandGenerator}.Jhash $parentsString $_arg_ParLowCovThreshold"
+    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ParLowCovThreshold"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi
