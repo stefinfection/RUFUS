@@ -24,7 +24,9 @@ else
 	rm -f "$FIFO_FQ"
 	mkfifo "$FIFO_FQ"
 
-	bash "$GEN" | "$RDIR/bin/PassThroughSamCheck" "$GEN.Jelly.chr" > "$FIFO_FQ" &
+	# bash "$GEN" | "$RDIR/bin/PassThroughSamCheck" "$GEN.Jelly.chr" > "$FIFO_FQ" &
+	# samtools fastq validated bit-identical to PassThroughSamCheck for counting (job 16682513); generator now emits -h so the header is present.
+	bash "$GEN" | samtools fastq -@ "$T" - > "$FIFO_FQ" &
 
 	# -C is canonical ("Count both strand, canonical representation")
 	# -L is filtering out low frequency kmers ("Don't output k-mer with count < lower-count")

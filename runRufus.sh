@@ -471,9 +471,7 @@ make_jelly_hash ()
   local exit_file="$7"
 
   # If we're in windowed mode, make hash smaller to make intersections with 1kg possible
-  # TODO: need to warn if memory allotment smaller than this
-  # TODO: also need to provide optional arg for hash size and/or automatic detection based on mem allotment
-  hash_size="64G"
+  hash_size="16G"
   if [ "$formRegionArg" != "wg" ]; then
 	echo "We're in windowed mode, use a smaller hash size to allow for 1kg comparison"
 	hash_size="1G"
@@ -754,7 +752,7 @@ do
             _region_exit_reason="missing_subject_bam_index"
             exit 1
         fi
-        echo "samtools view -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view -h -@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
     elif [[ "$subjectExtension" == "cram" ]]
     then
         if [[ ! -e "$subject".crai ]]
@@ -768,7 +766,7 @@ do
             echo "ERROR cram reference not provided for cram input"
             kill -9 $$
         fi
-        echo "samtools view -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view -h -@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
         _arg_ref="$_arg_cramref"
     elif [[ "$subjectExtension" == "generator" ]]
     then
@@ -808,7 +806,7 @@ do
 		fi
 	    	parentGenerator="${parentFileName}${region_postfix}.generator"
 	    	ParentGenerators+=("$parentGenerator")
-	    	echo "samtools view -F 3328 $parent $_arg_region" > "$parentGenerator"
+	    	echo "samtools view -h -@ 8 -F 3328 $parent $_arg_region" > "$parentGenerator"
     elif [[ "$parentExtension" == "cram" ]] 
     then
 		# check for index file (needed for mpileup in post processing)
@@ -825,7 +823,7 @@ do
 			echo "ERROR cram reference not provided for cram input"; 
 			kill -9 $$ 
 	    fi
-		echo "samtools view -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
+		echo "samtools view -h -@ 8 -F 3328 -T $_arg_cramref $parent  $_arg_region" > "$parentGenerator"
 		_arg_ref="$_arg_cramref"
     elif [[ "$parentExtension" = "generator" ]]
     then
@@ -1216,7 +1214,9 @@ then
 	        fi
 
 		    mkfifo "${FIFO_M1}" "${FIFO_M2}"
-		    bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" &
+		    # bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded "$WORK_DIR/$ProbandGenerator".filter.chr "${FIFO_M1}" "${FIFO_M2}" &
+	    # NOTE: collate|fastq validated == PassThroughSamCheck.stranded (pairs+RC orientation, job 16684004). collate temp prefix is on WORK_DIR (lustre) — large at genome scale; redirect to node-local if needed.
+	    bash "$ProbandGenerator" | samtools collate -@ "$Threads" -u -O - "$WORK_DIR/$ProbandGenerator".collate.tmp | samtools fastq -@ "$Threads" -n -1 "${FIFO_M1}" -2 "${FIFO_M2}" -s /dev/null -0 /dev/null - &
 		      $RUFUSfilterFASTQ "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_M1}" "${FIFO_M2}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 			rm -f "$FIFO_M1" "$FIFO_M2"
@@ -1297,7 +1297,9 @@ else
 	            fi
 	            mkfifo "${FIFO_MAIN}"
 				exec 6<>"$FIFO_MAIN"
-	            bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr > "${FIFO_MAIN}" &
+	            # bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr > "${FIFO_MAIN}" &
+	            # NOTE: single-end analogue (UNTESTED for equivalence — validate before relying on it)
+	            bash "$ProbandGenerator" | samtools fastq -@ "$Threads" - > "${FIFO_MAIN}" &
 	              $RUFUSfilterFASTQse  "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
 			exec 6>&-
