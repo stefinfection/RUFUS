@@ -32,6 +32,13 @@ jobs:
           REF="${GITHUB_REF}"
           if [[ "${REF}" == refs/tags/v* ]]; then
             TAGNAME="${REF#refs/tags/}"
+            # Release guard: a prod tag must match RUFUS_VERSION in globals.txt, so the git tag,
+            # the image tag, the OCI version label, the runtime banner, and the Zenodo version
+            # can never disagree. Fail the release rather than publish an inconsistent one.
+            if [[ "${TAGNAME}" != "${VERSION}" ]]; then
+              echo "::error::Release tag '${TAGNAME}' does not match RUFUS_VERSION '${VERSION}' in resources/globals.txt. Bump globals.txt (and commit) before tagging, or retag to match." >&2
+              exit 1
+            fi
             echo "tags=${IMAGE}:${TAGNAME},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
             echo "primary_tag=${TAGNAME}" >> "$GITHUB_OUTPUT"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
