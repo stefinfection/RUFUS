@@ -20,11 +20,11 @@ ARG BEDTOOLS_VERSION="2.31.1"
 # System + build dependencies. Most of these (parallel, gawk, vt, bc, libgsl, the lib*-dev
 # packages) are required at RUNTIME by runRufus.sh and the samtools/bcftools stack, so this
 # stays a single stage rather than a slimmed multi-stage build.
+# Note: the historical Dockerfiles added ppa:ubuntu-toolchain-r/test but never installed a
+# newer g++ from it -- the default ubuntu 22.04 g++ 11 builds RUFUS. The PPA was vestigial and
+# (under --no-install-recommends) broke the build on a missing gnupg, so it is dropped.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends software-properties-common && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
       git cmake wget g++ build-essential zlib1g-dev libbz2-dev bc \
       libgsl0-dev libncurses5-dev autoconf automake make liblzma-dev \
       libcurl4-gnutls-dev libssl-dev vt parallel gawk libjsoncpp-dev \
