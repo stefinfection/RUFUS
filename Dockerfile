@@ -38,25 +38,26 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2
     ./aws/install && \
     rm -rf awscliv2.zip aws
 
-# htslib (provides bgzip/tabix) -> /usr/local
+# htslib (provides bgzip/tabix + the libhts that samtools/bcftools link against) -> /usr/local.
+# Keep the /opt/htslib source tree so samtools/bcftools can build against it via --with-htslib;
+# run ldconfig so the runtime linker picks up the freshly installed /usr/local/lib/libhts.
 RUN cd /opt && \
     git clone --recurse-submodules https://github.com/samtools/htslib.git --depth 1 --branch "${HTSLIB_VERSION}" && \
-    cd htslib && autoreconf -i && ./configure && make && make install && \
-    cd /opt && rm -rf htslib
+    cd htslib && autoreconf -i && ./configure && make && make install && ldconfig
 
-# samtools -> /usr/local
+# samtools -> /usr/local (linked against the /opt/htslib source above)
 RUN cd /opt && \
     git clone https://github.com/samtools/samtools.git --depth 1 --branch "${HTSLIB_VERSION}" && \
     cd samtools && autoheader && autoconf -Wno-syntax && \
-    ./configure && make && make install && \
+    ./configure --with-htslib=/opt/htslib && make && make install && \
     cd /opt && rm -rf samtools
 
-# bcftools -> /usr/local
+# bcftools -> /usr/local (last htslib consumer; drop the htslib source tree afterward)
 RUN cd /opt && \
     git clone https://github.com/samtools/bcftools.git --depth 1 --branch "${HTSLIB_VERSION}" && \
     cd bcftools && autoheader && autoconf && \
-    ./configure --enable-libgsl && make && make install && \
-    cd /opt && rm -rf bcftools
+    ./configure --with-htslib=/opt/htslib --enable-libgsl && make && make install && \
+    cd /opt && rm -rf bcftools htslib
 
 # bamtools -> /usr/local
 RUN cd /opt && \
