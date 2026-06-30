@@ -5,6 +5,9 @@ src/externals/gkno_launcher/
 cloud/1000G.RUFUSreference.sorted.min45.tab
 *.o
 *test*
+# Keep the tracked CI test suite (the broad *test* rule above is for scratch output).
+!tests/
+!tests/**
 .idea/
 .idea/*
 cmake-build-debug/*
