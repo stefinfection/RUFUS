@@ -76,7 +76,13 @@ RUN cd /opt && \
 # RUFUS — built from the checked-out source tree (not a pinned git clone), so each branch/tag
 # builds its own code. CMake fetches and builds the bundled externals (modified jellyfish, etc.).
 COPY . /opt/RUFUS
-RUN cd /opt/RUFUS && mkdir -p bin && cd bin && cmake ../ && make
+# externals/modifiedJellyfish.cmake expects src/modifiedJellyfish.tar.gz, but on this branch the
+# source is checked in unpacked as src/modifiedJellyfish/ (the tarball is not tracked). The old
+# `git clone -b <tag>` builds pulled tagged snapshots that still carried the committed tarball;
+# building the branch tree directly does not, so regenerate it from the tracked directory.
+RUN cd /opt/RUFUS && \
+    tar -czf src/modifiedJellyfish.tar.gz -C src modifiedJellyfish && \
+    mkdir -p bin && cd bin && cmake ../ && make
 
 # Drop the largest build-only packages; keep the rest since runtime depends on them.
 RUN apt-get purge -y --auto-remove git wget && \
