@@ -19,6 +19,13 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
       primary_tag: ${{ steps.meta.outputs.primary_tag }}
+    # Records a deployment to the matching GitHub Environment, giving a glanceable dev/stage/prod
+    # dashboard. The name is derived from the git ref (must be known at job start, so it uses the
+    # github context, not a step output). Arm the release gate by adding a required reviewer to the
+    # `production` environment in the repo settings — a v* tag build then waits for approval here.
+    environment:
+      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || github.ref == 'refs/heads/master' && 'staging' || 'development' }}
+      url: https://hub.docker.com/r/stefinfection/rufus/tags
     steps:
       - uses: actions/checkout@v5
         with:
