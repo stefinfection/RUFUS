@@ -20,7 +20,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       primary_tag: ${{ steps.meta.outputs.primary_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive   # src/modifiedJellyfish is a submodule the image build needs
 
@@ -54,11 +54,11 @@ jobs:
             echo "is_release=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Build locally first (load into the runner's docker) so the smoke test can gate the push.
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -89,7 +89,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install apptainer
         uses: eWaterCycle/setup-apptainer@v2
