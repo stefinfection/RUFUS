@@ -28,7 +28,7 @@ RUN apt-get update && \
       git cmake wget g++ build-essential zlib1g-dev libbz2-dev bc \
       libgsl0-dev libncurses5-dev autoconf automake make liblzma-dev \
       libcurl4-gnutls-dev libssl-dev vt parallel gawk libjsoncpp-dev \
-      libjsoncpp25 curl unzip ca-certificates && \
+      libjsoncpp25 curl unzip ca-certificates file && \
     rm -rf /var/lib/apt/lists/*
 
 # AWS CLI — required at runtime: resource_helpers/download_hash.sh fetches region-specific
