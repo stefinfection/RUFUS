@@ -7,7 +7,10 @@ SET(MODIFIED_JELLYFISH_LIB)
 
 
 ExternalProject_Add(${MODIFIED_JELLYFISH_PROJECT}
-	URL ${PROJECT_SOURCE_DIR}/src/modifiedJellyfish.tar.gz
+	# Source lives in the src/modifiedJellyfish git submodule (repo: stefinfection/modified-jellyfish).
+	# Copy it into the build tree and build there (BUILD_IN_SOURCE) so the tracked submodule working
+	# copy stays pristine -- no configure/make artifacts leak back into it.
+	DOWNLOAD_COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/src/modifiedJellyfish ${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project
 
         CONFIGURE_COMMAND ${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/configure --prefix=${PROJECT_SOURCE_DIR}/bin/externals/modified_jellyfish/src/modified_jellyfish_project/
         BUILD_IN_SOURCE 1

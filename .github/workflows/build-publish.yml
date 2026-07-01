@@ -21,6 +21,8 @@ jobs:
       primary_tag: ${{ steps.meta.outputs.primary_tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive   # src/modifiedJellyfish is a submodule the image build needs
 
       - name: Resolve version and image tags
         id: meta

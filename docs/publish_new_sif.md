@@ -4,6 +4,21 @@ RUFUS has **one** container definition — the root [`Dockerfile`](../Dockerfile
 separate Singularity `.def`; SIFs are produced from the Docker image via `apptainer`. Builds,
 tests, and publishing are automated by [`.github/workflows/build-publish.yml`](../.github/workflows/build-publish.yml).
 
+## Submodule: modified jellyfish
+
+RUFUS's custom jellyfish fork lives in its own repository
+([stefinfection/modified-jellyfish](https://github.com/stefinfection/modified-jellyfish)) and is
+pinned here as a git submodule at `src/modifiedJellyfish`. The container build compiles it from
+that submodule. **Clone RUFUS with the submodule**, or the build (and any local `cmake`) will fail:
+```bash
+git clone --recursive https://github.com/stefinfection/RUFUS.git
+# already cloned without --recursive:
+git submodule update --init --recursive
+```
+To change the jellyfish source: edit/commit/tag the modified-jellyfish repo, then in RUFUS
+`cd src/modifiedJellyfish && git checkout <new-tag> && cd ../.. && git add src/modifiedJellyfish`
+and commit the updated pointer.
+
 ## Tag mapping (CI)
 
 | Git event                | Docker Hub tag(s)                         | Stage |
