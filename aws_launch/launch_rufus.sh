@@ -295,32 +295,47 @@ set_up_kg1() {
 }
 export -f set_up_kg1
 
+# Echoes the BWA index files missing for the given reference, one per line.
+# Empty output means the reference is fully indexed.
+#
+# runRufus.sh receives this path verbatim as -r/-cr and prefers the
+# extension-stripped prefix when <prefix>.sa exists, falling back to the
+# reference path itself, so resolve the same prefix it will actually load.
+# The .fai hangs off the decompressed name, which is what samtools faidx
+# indexes and what build_bwa_indexes.sh produces.
+missing_ref_indexes() {
+    local ref_path="$1"
+    local index_base="$ref_path"
+    local fai_target="${ref_path%.gz}"
+
+    if [[ -e "${ref_path%.*}.sa" ]]; then
+        index_base="${ref_path%.*}"
+    fi
+
+    for ext in sa bwt pac amb ann; do
+        [[ -e "${index_base}.${ext}" ]] || echo "${index_base}.${ext}"
+    done
+    [[ -e "${fai_target}.fai" ]] || echo "${fai_target}.fai"
+}
+export -f missing_ref_indexes
+
 set_up_ref() {
 
     local ref_path=$(realpath "${REFERENCE_FASTA}") # Absolute path on host machine
     local path_to_ref="$(dirname ${ref_path})"      # Directory on host machine
 
     local build_refs="FALSE"
+    if [[ -n "$(missing_ref_indexes "$ref_path")" ]]; then
+        build_refs="TRUE"
+    fi
 
     # We'll assume indexes are in same dir as reference unless found otherwise
     local mount_clause="-v ${path_to_ref}:${path_to_ref}:ro "
-        
-    # Determine the base filename (without .gz if present)
-    if [[ "$ref_path" == *.gz ]]; then
-        ref_file="${ref_path%.gz}"
-    else
-        ref_file="$ref_path"
+    if [ "$build_refs" == "TRUE" ]; then
+        # Indexes are written next to the reference, so this cannot be read-only
+        mount_clause="-v ${path_to_ref}:${path_to_ref} "
     fi
-    
-    # Check all required index files in one loop
-    for ext in sa bwt pac amb ann fai; do
-        if [[ ! -e "${ref_file}.${ext}" ]]; then
-            build_refs="TRUE"
-            break
-        fi
-    done
-    mount_clause="-v ${path_to_ref}:${path_to_ref} " # Don't make RO if we have to build
-    
+
     echo "$mount_clause|$build_refs"
 }
 export -f set_up_ref
@@ -404,8 +419,27 @@ cp ~/RUFUS/aws_launch/process_region_worker.sh "${PR_WORKER}"
 
 # Check for BWA indexes and create if necessary
 if [ "$build_refs" == "TRUE" ]; then
-    echo "Generating BWA indexes for reference fasta..."
-    docker exec -u "${USER_SPEC}" ${CONTAINER_ID} bash ${RROOT}/resource_helpers/build_bwa_indexes.sh "${REFERENCE_FASTA}"
+    echo "Generating BWA indexes for reference fasta (roughly an hour for a human-sized reference)..."
+    if ! docker exec -u "${USER_SPEC}" ${CONTAINER_ID} bash ${RROOT}/resource_helpers/build_bwa_indexes.sh "${REFERENCE_FASTA}"; then
+        echo "ERROR: failed to build BWA indexes for ${REFERENCE_FASTA}" >&2
+        exit 1
+    fi
+fi
+
+# Confirm the indexes RUFUS will load are actually present before queueing any work.
+# Covers both a silently incomplete build above and indexes removed since set_up_ref ran.
+# Without this the missing index only surfaces at the bwa mem step, which is hours into
+# every region job.
+missing_indexes=$(missing_ref_indexes "${REFERENCE_FASTA}")
+if [ -n "$missing_indexes" ]; then
+    echo "ERROR: reference ${REFERENCE_FASTA} is missing required index files:" >&2
+    while IFS= read -r missing_index; do
+        echo "       $missing_index" >&2
+    done <<< "$missing_indexes"
+    echo "RUFUS aligns candidate reads with BWA and cannot run without these." >&2
+    echo "Build them with:" >&2
+    echo "       bash \${RUFUS_ROOT}/resource_helpers/build_bwa_indexes.sh ${REFERENCE_FASTA}" >&2
+    exit 1
 fi
 
 # Start work
