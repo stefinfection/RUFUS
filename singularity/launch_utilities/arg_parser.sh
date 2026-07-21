@@ -228,6 +228,38 @@ if [ ! -f "$REFERENCE_RUFUS_ARG" ]; then
     exit 1
 fi
 
+# Check that BWA indexes exist alongside the reference.
+# runRufus.sh prefers the extension-stripped prefix when <prefix>.sa is present and
+# otherwise falls back to the reference path itself, so validate whichever it will pick.
+# Without this, the missing index only surfaces at the bwa mem step, which in region
+# mode is hours into every queued array task.
+REFERENCE_BWA_PREFIX="$REFERENCE_RUFUS_ARG"
+if [ -e "${REFERENCE_RUFUS_ARG%.*}.sa" ]; then
+	REFERENCE_BWA_PREFIX="${REFERENCE_RUFUS_ARG%.*}"
+fi
+
+MISSING_BWA_INDEXES=()
+for bwa_suffix in amb ann bwt pac sa; do
+	if [ ! -e "${REFERENCE_BWA_PREFIX}.${bwa_suffix}" ]; then
+		MISSING_BWA_INDEXES+=("${REFERENCE_BWA_PREFIX}.${bwa_suffix}")
+	fi
+done
+if [ ! -e "${REFERENCE_RUFUS_ARG}.fai" ]; then
+	MISSING_BWA_INDEXES+=("${REFERENCE_RUFUS_ARG}.fai")
+fi
+
+if [ ${#MISSING_BWA_INDEXES[@]} -ne 0 ]; then
+	echo "ERROR: reference $REFERENCE_RUFUS_ARG is missing required index files:" >&2
+	for missing in "${MISSING_BWA_INDEXES[@]}"; do
+		echo "       $missing" >&2
+	done
+	echo "RUFUS aligns candidate reads with BWA and cannot run without these." >&2
+	echo "Build them once with:" >&2
+	echo "       bash \${RUFUS_ROOT}/resource_helpers/build_bwa_indexes.sh $REFERENCE_RUFUS_ARG" >&2
+	echo "(indexing a human-sized reference takes roughly an hour)" >&2
+	exit 1
+fi
+
 # Check that window size is in valid range
 # Check if time limit has been assigned, if not - use defaults for full mode or windowed mode
 if [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
