@@ -85,6 +85,12 @@ RUN apt-get purge -y --auto-remove git wget && \
 ENV DEBIAN_FRONTEND=
 ENV PATH=/opt/RUFUS/bin:${PATH}
 ENV RUFUS_ROOT=/opt/RUFUS
+# Pin bcftools to the plugins we built above. Without this the HOST's BCFTOOLS_PLUGINS is
+# inherited into the container (near-universal on HPC, where a bcftools module is usually
+# loaded), and our bcftools dlopens the host's mismatched plugin:
+#   fill-from-fasta.so: undefined symbol: bcf_format_gt_v2
+# which kills the VCF post-processing stage. Setting it here makes the image immune to host env.
+ENV BCFTOOLS_PLUGINS=/usr/local/libexec/bcftools
 ENV LC_CTYPE=en_US.UTF-8
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US.UTF-8

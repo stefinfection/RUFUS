@@ -46,6 +46,24 @@ check_responds "bgzip"     bgzip --version
 check_responds "aws"       aws --version
 check_responds "parallel"  parallel --version
 
+# `bcftools --version` above succeeds even when plugin loading is broken, so check a plugin
+# actually dlopens. RUFUS's VCF post-processing uses fill-from-fasta; if BCFTOOLS_PLUGINS points
+# at a mismatched (e.g. host-inherited) build, this fails with `undefined symbol: ...` and every
+# run dies at the vcf_processing stage. Guard it here so CI catches it in seconds.
+echo "== bcftools plugins =="
+if [ -n "${BCFTOOLS_PLUGINS:-}" ]; then
+    echo "  ok: BCFTOOLS_PLUGINS set (${BCFTOOLS_PLUGINS})"
+else
+    echo "  FAIL: BCFTOOLS_PLUGINS not set — host env can hijack plugin loading"
+    fail=1
+fi
+if bcftools +fill-from-fasta --version >/dev/null 2>&1; then
+    echo "  ok: fill-from-fasta plugin loads"
+else
+    echo "  FAIL: fill-from-fasta plugin will not load (check BCFTOOLS_PLUGINS / ABI mismatch)"
+    fail=1
+fi
+
 echo "== RUFUS binaries =="
 check_responds "RUFUS.Filter" RUFUS.Filter
 check_responds "ModelDist"    ModelDist
