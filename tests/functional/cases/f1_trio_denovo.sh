@@ -68,16 +68,8 @@ if [ -n "$EXTRA_BIND" ]; then
   echo
 fi
 
-# TEMPORARY WORKAROUND — remove once the image sets this itself.
-# The host's BCFTOOLS_PLUGINS leaks into the container. Host bcftools is 1.23; the image ships
-# 1.21, so the image's bcftools dlopens the HOST plugin and dies:
-#   fill-from-fasta.so: undefined symbol: bcf_format_gt_v2
-# PROPER FIX: add `ENV BCFTOOLS_PLUGINS=/usr/local/libexec/bcftools` to the Dockerfile, then delete
-# this line — and the test will then correctly FAIL if that ENV ever regresses.
-ENVARGS=(--env BCFTOOLS_PLUGINS=/usr/local/libexec/bcftools)
-
 set +e
-apptainer exec "${ENVARGS[@]}" --bind "$BINDS" "$SIF" \
+apptainer exec --bind "$BINDS" "$SIF" \
   bash /opt/RUFUS/runRufus.sh \
     -s "$CHILD" -c "$MOM" -c "$DAD" -r "$REF" \
     -k 25 -L -m 5 -R chr20 -t "$THREADS" -z
