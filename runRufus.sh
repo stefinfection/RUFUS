@@ -70,6 +70,8 @@ _arg_exclude=()
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_controls=()
 _arg_subjects=()
+_arg_subject_fastqs=()
+_arg_control_fastqs=()
 _arg_ref=
 _arg_threads=3
 _arg_kmersize=25
@@ -173,30 +175,17 @@ parse_commandline ()
 	case "$_key" in
 	-s|--subject)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-		FileName=$(basename "$2")
-                Extension="${FileName##*.}"
-                genName=$FileName
-                if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then
-                        #echo "" > "$FileName".generator
-                        _arg_subjects+=("$2")
-                fi
-                while [[ $2 != -* ]]; do
-                        FileName=$(basename "$2")
-                        Extension="${FileName##*.}"
-                        if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
-                        then
-                                echo "Warning: fastq files not currently recommended"
-                                if [[ $Extension == 'gz' ]]
-                                then
-                                        echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
-                                else
-                                        echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
-                                fi
-                        else
-                                _arg_subjects+=("$2")
-                        fi
-                        shift
-                done
+		# Consume values up to the next -flag. FASTQ (unaligned) -> separate list, assembled into a
+		# whole-genome generator below; bam/cram/generator -> _arg_subjects directly.
+		while [[ $# -gt 1 && $2 != -* ]]; do
+			_ext="${2##*.}"
+			if [[ "$_ext" == "fastq" || "$_ext" == "fq" || "$_ext" == "gz" ]]; then
+				_arg_subject_fastqs+=("$2")
+			else
+				_arg_subjects+=("$2")
+			fi
+			shift
+		done
 		;;
 	-r|--ref)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
@@ -242,26 +231,10 @@ parse_commandline ()
 		;;
 	-c|--controls)
 		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
-
-		FileName=$(basename "$2")
-		Extension="${FileName##*.}"
-		genName=$FileName
-		if [[ $Extension == 'fastq' ]] || [[ $Extension == 'fq' ]] || [[ $Extension == 'gz' ]] ; then 
-			#echo "" > "$FileName".generator
-			_arg_controls+=("$2")
-		fi 
-		while [[ $2 != -* ]]; do
-			FileName=$(basename "$2")
-				Extension="${FileName##*.}"
-			if [ $Extension = "fastq" ] || [ $Extension = "fq" ] || [ $Extension = "gz" ]
-			then 
-				echo "fastq file identified"
-				if [[ $Extension == 'gz' ]]
-				then 
-					echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $2)" >> "$genName".generator
-				else
-					echo "perl $RDIR/scripts/FastqToSam.pl <(cat $2)" >> "$genName".generator
-				fi
+		while [[ $# -gt 1 && $2 != -* ]]; do
+			_ext="${2##*.}"
+			if [[ "$_ext" == "fastq" || "$_ext" == "fq" || "$_ext" == "gz" ]]; then
+				_arg_control_fastqs+=("$2")
 			else
 				_arg_controls+=("$2")
 			fi
@@ -665,13 +638,13 @@ then
     _arg_threads=$(nproc); 
 fi
 
-if [ ${#_arg_subjects[@]} -eq 0 ]
+if [ ${#_arg_subjects[@]} -eq 0 ] && [ ${#_arg_subject_fastqs[@]} -eq 0 ]
 then
 	echo "ERROR: you must provide at least one subject sample (sample you want to call variants in)"
 	kill -9 $$
 fi
 
-if [ ${#_arg_exclude[@]} -eq "0" ] && [ ${#_arg_controls[@]} -eq "0" ]
+if [ ${#_arg_exclude[@]} -eq "0" ] && [ ${#_arg_controls[@]} -eq "0" ] && [ ${#_arg_control_fastqs[@]} -eq "0" ]
 then
     echo "You must provide RUFUS with at least one control or exclude sample"
     echo "Killing run with non-zero exit status"
@@ -729,7 +702,11 @@ Parents=("${_arg_controls[@]}")
 
 #########__CREATE_ALL_GENERATOR_FILES_AND_VARIABLES__#############
 # Use first subject file for naming conventions
-ProbandFileName=$(basename "${_arg_subjects[0]}")
+if [ ${#_arg_subjects[@]} -gt 0 ]; then
+	ProbandFileName=$(basename "${_arg_subjects[0]}")
+else
+	ProbandFileName=$(basename "${_arg_subject_fastqs[0]}")
+fi
 ProbandExtension="${ProbandFileName##*.}"
 ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
 
@@ -776,6 +753,41 @@ do
         kill -9 $$
     fi
 done
+
+# FASTQ subject(s): whole-genome only -- unaligned reads cannot be region-scoped. The loop above
+# skipped them; build the generator here as one @HD header (on the first file) + unmapped SAM records.
+if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
+	if [ -n "$_arg_region" ]; then
+		echo "ERROR: FASTQ input is whole-genome only and cannot be region-scoped; remove -R/--region (or supply an aligned bam/cram)."
+		_region_exit_reason="fastq_with_region"
+		exit 1
+	fi
+	if [ -z "$_arg_ref" ]; then
+		echo "ERROR: FASTQ subject input requires a reference via -r/--ref."
+		exit 1
+	fi
+	_fq_first=1
+	for fq in "${_arg_subject_fastqs[@]}"; do
+		[ -e "$fq" ] || { echo "FASTQ subject file $fq does not exist; killing run"; kill -9 $$; }
+		_hdr=""; [ "$_fq_first" -eq 1 ] && _hdr=" header"; _fq_first=0
+		if [[ "$fq" == *.gz ]]; then
+			echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $fq)$_hdr" >> "$ProbandGenerator"
+		else
+			echo "perl $RDIR/scripts/FastqToSam.pl <(cat $fq)$_hdr" >> "$ProbandGenerator"
+		fi
+	done
+	# Paired FASTQ: filter directly from the raw mate files via the -q1/-q2 path (avoids the
+	# collate/mate-split, which needs pairing flags the counting generator does not carry). Single-end
+	# (-se) skips this and uses the RUFUS.Filter.single path on the generator. An explicit -q1/-q2 wins.
+	if [ "$_pairedEnd" = "true" ] && [ -z "${_arg_fastqA:-}" ]; then
+		if [ ${#_arg_subject_fastqs[@]} -lt 2 ]; then
+			echo "ERROR: paired FASTQ subject needs mate1 and mate2 files (-s R1 R2); for single-end reads add -se."
+			exit 1
+		fi
+		_arg_fastqA="${_arg_subject_fastqs[0]}"
+		_arg_fastqB="${_arg_subject_fastqs[1]}"
+	fi
+fi
 
 # Have to do this after proband check in case cram reference is used
 _arg_ref_cat="${_arg_ref%.*}"
@@ -832,6 +844,27 @@ do
     fi
 done
 #################################################################
+
+# FASTQ control: whole-genome only; a single control built from its mate fastq(s).
+if [ ${#_arg_control_fastqs[@]} -gt 0 ]; then
+	if [ -n "$_arg_region" ]; then
+		echo "ERROR: FASTQ control input is whole-genome only; remove -R/--region."
+		exit 1
+	fi
+	ctrlFqGen="$(basename "${_arg_control_fastqs[0]}")${region_postfix}.generator"
+	ParentGenerators+=("$ctrlFqGen")
+	> "$ctrlFqGen"
+	_fq_first=1
+	for fq in "${_arg_control_fastqs[@]}"; do
+		[ -e "$fq" ] || { echo "FASTQ control file $fq does not exist; killing run"; kill -9 $$; }
+		_hdr=""; [ "$_fq_first" -eq 1 ] && _hdr=" header"; _fq_first=0
+		if [[ "$fq" == *.gz ]]; then
+			echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $fq)$_hdr" >> "$ctrlFqGen"
+		else
+			echo "perl $RDIR/scripts/FastqToSam.pl <(cat $fq)$_hdr" >> "$ctrlFqGen"
+		fi
+	done
+fi
 
 # Note: BWA index checks done in launch script
 
@@ -1529,9 +1562,14 @@ bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
 bgzip "$GX_VCF"
 bcftools index "$GX_VCF.gz"
 
-# Trim calls to region
+# Trim calls to region. In whole-genome mode _arg_region is empty; `bcftools view -r ""` segfaults,
+# and there is nothing to trim to, so pass the calls through unchanged.
 TRIMMED_VCF="$WORK_DIR/trimed.${formatted_region}.vcf.gz"
-bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
+if [ -n "$_arg_region" ]; then
+	bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
+else
+	cp "$GX_VCF.gz" "$TRIMMED_VCF"
+fi
 bcftools index "$TRIMMED_VCF"
 
 NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
