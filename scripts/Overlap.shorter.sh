@@ -283,15 +283,25 @@ fi
 
 echo "Retrieving kMer hashes from control(s)..." 
 IFS=' ' read -r -a parents <<< "$ParentsJhash"
+
+# Per-control hash intermediates below concatenate the SUBJECT stub ($NameStub) and the CONTROL name
+# ($parent). With long input filenames that basename can exceed the 255-byte NAME_MAX and fail to
+# create ("File name too long" -> exit 100 in the overlap stage; hit by ~96-char SMaHT CRAM names).
+# RUFUS.interpret derives each control's VCF sample name from the text AFTER the marker
+# "overlap.asembly.hash.fastq." (i.e. the $parent portion) and ignores the prefix, so we use a SHORT
+# constant prefix here instead of $NameStub. The control name is preserved intact -> output VCF is
+# byte-identical; only the on-disk intermediate filename gets shorter. (One subject per WORK_DIR, so a
+# constant prefix cannot collide.)
+CtrlStub="ctrlhash"
 for parent in "${parents[@]}"
         do
 			parent=$(basename "$parent")
-            if [ -s "$WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent" ]
+            if [ -s "$WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.$parent" ]
             then
-                echo "skiping $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent already exists"
+                echo "skiping $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.$parent already exists"
             else
-				echo "pulling  $WORK_DIR/Intermediates/$NameStub".overlap.asembly.hash.fastq."$parent"
-                bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$NameStub".overlap.asembly.hash.fastq."$parent &
+				echo "pulling  $WORK_DIR/Intermediates/$CtrlStub".overlap.asembly.hash.fastq."$parent"
+                bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub".overlap.asembly.hash.fastq."$parent &
 						pid=$!
 				wait "$pid" || { echo "ERROR: hash lookup failed"; exit 100; }
             fi
@@ -309,14 +319,14 @@ fi
 for parent in "${parents[@]}"
 do
 	parent=$(basename "$parent")
-    if [ -s "$WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.$parent" ]
+    if [ -s "$WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent" ]
     then
-        echo "skipping $NameStub.overlap.asembly.hash.fastq.Ref.$parent already exitst"
+        echo "skipping $CtrlStub.overlap.asembly.hash.fastq.Ref.$parent already exitst"
     else
 	
         #echo "-$parent-"
-        #echo "  bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.$parent"
-        bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.$parent &
+        #echo "  bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent"
+        bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent &
     	echo "uncomment this"
     fi
 done
@@ -331,7 +341,7 @@ space=" "
 for parent in "${parents[@]}";
 do
 	parent=$(basename "$parent")
-    parentCRString="$parentCRString -c $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.$parent -cR $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.Ref.$parent "
+    parentCRString="$parentCRString -c $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.$parent -cR $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent "
 done
 
 ##########################################################################################
