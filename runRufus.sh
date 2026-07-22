@@ -1329,13 +1329,15 @@ else
 	                rm  "${FIFO_MAIN}"
 	            fi
 	            mkfifo "${FIFO_MAIN}"
-				exec 6<>"$FIFO_MAIN"
+				# NB: do NOT `exec 6<>"$FIFO_MAIN"` here. Holding a read+write fd on the FIFO keeps a
+				# writer open, so RUFUS.Filter.single never sees EOF after samtools fastq finishes and
+				# hangs forever (the `wait` below then never returns). The backgrounded writer and reader
+				# rendezvous on the FIFO on their own.
 	            # bash "$ProbandGenerator" | "$RDIR"/bin/PassThroughSamCheck.stranded.se "$WORK_DIR/$ProbandGenerator".filter.chr > "${FIFO_MAIN}" &
 	            # NOTE: single-end analogue (UNTESTED for equivalence — validate before relying on it)
 	            bash "$ProbandGenerator" | samtools fastq -@ "$Threads" - > "${FIFO_MAIN}" &
 	              $RUFUSfilterFASTQse  "$WORK_DIR/$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "${FIFO_MAIN}" "$ProbandGenerator" "$K" $_filterMinQ $_arg_filterK "$(echo $Threads -2 | bc)" &
 		    wait
-			exec 6>&-
 			rm -f "$FIFO_MAIN"
 		else
 			echo "Running RUFUS.filter from single FASTQ files"
