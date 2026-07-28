@@ -162,12 +162,24 @@ posterior is then discarded anyway, which is why there is no GQ or PL anywhere i
 
 These are the four things worth knowing before touching anything else.
 
-## 2.1 The copy-number model never loads in `-min` or exome runs, and the genotyper is inert **[V]**
+## 2.1 The copy-number model is never built, in any run mode, and the genotyper is inert **[V]**
 
-`ModelDist` writes **both** `.7.7.model` and `.7.7.dist` (`src/ModelDist.cpp:392, 403`). But
-`runRufus.sh:1119` only runs `ModelDist` in whole-genome mode *without* `-min`. In the `-min`
-or exome branch, `runRufus.sh:1177–1180` **hand-writes a 4-line `.7.7.model` placeholder and
-never creates `.7.7.dist` at all.**
+`ModelDist` writes **both** `.7.7.model` and `.7.7.dist` (`src/ModelDist.cpp:392, 403`), but it
+never runs. The model phase is gated on `[ -z "$_arg_min" ] && [ $_arg_exome == "FALSE" ]`, and
+`_arg_min` is initialised to `5` in the defaults block and **never cleared** — so the first test
+is never true and the `else` branch always executes, hand-writing a 4-line `.7.7.model`
+placeholder and never creating `.7.7.dist` at all.
+
+This is **not** a property of `-min` or exome mode; passing `-min` changes nothing, because the
+default already defeats the condition. The commented-out prior condition one line above the gate
+is the smoking gun: originally every non-exome run built the model, and adding the
+`-z "$_arg_min"` conjunct silently disabled it for everyone. The help text compounded it by
+claiming `-m,--min` has "no default", which is false.
+
+Confirmed across **every** run in `resources/reg_test_files/runs/`: zero `*.7.7.dist` files,
+fifteen `*.7.7.model` placeholders, zero logs containing "Starting model phase", six containing
+"min was provided". The actual behaviour is now documented inline at the gate, at the `_arg_min`
+default, and in both help blocks in `runRufus.sh`.
 
 `Overlap.shorter.sh:373` unconditionally passes `-mod <stub>.Jhash.histo.7.7.dist`.
 `ProcessDist` (4755) treats a failed open as **non-fatal** — it prints and returns, leaving
@@ -255,10 +267,11 @@ the undeclared `FILTER=fail` is real and reaches downstream tools — `bcftools`
 `[W::vcf_parse_filter] FILTER 'fail' is not defined in the header` on the RUFUS.Interpret output,
 and the `runRufus.sh` sanitizer dropped **13 of 2662 records** as malformed (2649 kept). The
 surviving genotyped VCF (`gx.wg.vcf.gz`, 1,354 calls) carries `FILTER=.` on **100%** of records —
-i.e. §2.1's inert-genotyper failure also reproduces here (this was whole-genome, not `-min`, so it
-is not exclusive to the exome/`-min` path as §2.1 first framed it; the shared cause is the
-`.7.7.dist` model not reaching interpret). So both the §2.3 header-validity defects and the §2.1
-model-absent cascade reproduce on real whole-genome data, not just the `chr20_m5` regression.
+i.e. §2.1's inert-genotyper failure also reproduces here. So both the §2.3 header-validity defects
+and the §2.1 model-absent cascade reproduce on real whole-genome data, not just the `chr20_m5`
+regression. (This run did pass `-min`, but per the corrected §2.1 that is immaterial: the model
+phase is unreachable regardless, so `-min` versus whole-genome was never the distinguishing
+factor.)
 
 ## 2.4 Two independent k-mer extraction passes with different correctness properties **[R]**
 
