@@ -61,6 +61,11 @@ jobs:
             echo "is_release=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Runs on every build, not just releases, so drift is caught on a dev push to
+      # `docker` rather than at the moment of tagging. Fix with: --write
+      - name: Check doc version strings match globals.txt
+        run: bash scripts/ci/check_doc_versions.sh
+
       - uses: docker/setup-buildx-action@v4
 
       # Build locally first (load into the runner's docker) so the smoke test can gate the push.

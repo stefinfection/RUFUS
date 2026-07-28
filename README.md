@@ -1,7 +1,7 @@
 RUFUS Singularity Container
 =====
 
-K-mer based variant detection. d1.1.8.
+K-mer based variant detection. v1.2.0.
 
 Developed by Stephanie Georges, MS\
 Based on the thesis project of Andrew Farrell, PhD\
@@ -25,7 +25,8 @@ RUFUS has two stages: a variant calling stage, and a post-processing stage. Sepa
 
  The pre-built RUFUS singularity container may be obtained from [Zenodo](https://zenodo.org/records/18284901). To download:
 ```
-curl "https://zenodo.org/records/18918769/files/rufus_d1.1.8.sif" -o rufus.sif
+VERSION=v1.2.0
+curl -L "https://zenodo.org/records/18284901/files/rufus_${VERSION}.sif" -o rufus.sif
 ```
 
 ### Input Data
