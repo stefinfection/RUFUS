@@ -3084,7 +3084,7 @@ void SamRead::parse(string read) {
         //	cout << "forward = " << forward << endl;
         //	cout << "reverse = " << reverse << endl;
         if (forward + reverse == 0)
-            StrandBias = 1;
+            StrandBias = -1;  // no strand data (all reads strandless) => unknown, not maximal bias; matches the temp2.size()<2 branch below and is skipped by the `StrandBias >= 0` filter guard
         else
             StrandBias = ((float) forward) / ((float) forward + (float) reverse);
         //	cout << "strand bias = " << StrandBias << endl;

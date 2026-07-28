@@ -880,15 +880,16 @@ int main(int argc, char* argv[]) {
 	
 					if (hashes > 0)
 					{
-						if (b[0]== 0)
-						{
-							strand.push_back(".");
-						}
-						else if (b[4] == 0) 
+						// Strand is the reverse-complement flag bit (b[4]), which is
+						// valid for single-end reads too. Do NOT gate on the paired
+						// bit (b[0]): single-end reads have it unset but still map to
+						// a real strand, and treating them as strandless ('.') makes
+						// every single-end call look 100% one-strand downstream.
+						if (b[4] == 0)
 						{
 							strand.push_back("+");
 						}
-						else if (b[4] == 1) 
+						else
 						{
 							strand.push_back("-");
 						}
