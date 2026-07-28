@@ -138,7 +138,6 @@ The full usage options for the helper script are as follows:
 ```
 Required Arguments:
     -s subject    Full path to the subject sample BAM/CRAM
-    -c control(s) A single control or comma-delimited array of multiple controls (full paths)
     -b genome_build  The desired genome build; currently only supports GRCh38
     -r reference  Full path to the reference file matching the genome build
     -a slurm_account  The account for the slurm job
@@ -146,6 +145,9 @@ Required Arguments:
     -l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array
     
 Optional Arguments:
+    -c control(s) A single control or comma-delimited array of multiple controls (full paths).
+                  Omit for single-sample mode, in which case you must supply a hash source
+                  instead -- see "Single-sample mode" below
     -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
     -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
     -f reference_hash   Jhash file containing reference kMer hash list
@@ -191,6 +193,29 @@ With S3-downloaded hashes (downloaded at setup time):
 ```
 apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -G v3.0 -V v1.0
 ```
+
+#### Single-sample mode
+
+RUFUS does not require a matched control. If you have no control sample, omit `-c` and supply a
+pre-built k-mer hash source instead — RUFUS subtracts against those hashes rather than against a
+control you sequenced. Any of `-x`, `-K`/`-G`, or `-D`/`-V` satisfies this; they are passed through
+to the calling stage as `-e/--exclude` arguments.
+
+You must supply at least one of a control or a hash source. Providing neither is rejected at the
+start of the calling stage.
+
+Single-sample, windowed, with S3-downloaded 1000 Genomes and control hashes:
+```
+apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -b GRCh38 -w 1000 -l 1000 -G v3.0 -V v1.0
+```
+
+The same run against hash directories you already hold locally:
+```
+apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -b GRCh38 -w 1000 -l 1000 -K /data/kg1_hashes/v3.0/ -D /data/ctrl_hashes/v1.0/
+```
+
+Expect lower specificity than a matched-control run: population hashes cannot subtract variation
+private to your subject the way a sequenced control can.
 
 *Note*: `-K`/`-G` (KG1 hashes) and `-D`/`-V` (control hashes) are mutually exclusive per type. You may mix local and S3 across types (e.g., `-K /local/kg1/ -V v1.0`). Hash files in local directories must be named with the region string (e.g., `*chr1_1_1000000*.Jhash` for region `chr1:1-1000000`, or `*wg*.Jhash` for whole-genome mode).
 
