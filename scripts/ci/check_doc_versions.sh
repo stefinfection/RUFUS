@@ -12,14 +12,13 @@
 # rendering, so this can never false-positive on a deliberate historical reference to an
 # older version.
 #
-# TODO(after the first successful v* release): this file can largely go away. The reason
-# README carries a version at all is that the Zenodo asset is uploaded as
-# rufus_<version>.sif (scripts/ci/zenodo_upload.sh takes `basename "$SIF_PATH"`), so both
-# the record id and the filename move every release. Publishing the asset under a stable
-# name (rufus.sif) against the concept record -- which always resolves to the latest
-# version -- makes the download URL permanent and removes the drift at its source. That
-# change touches the release job, which has never executed, so it is deliberately NOT
-# being made before the release that first exercises it.
+# The README's *download instructions* no longer carry a version at all: the Docker Hub
+# route pulls :latest (or a version the reader chooses), and the Zenodo route asks the API
+# which file to fetch from the concept record. Both are drift-free by construction, so the
+# only literal left is the human-readable tagline. Note that a stable Zenodo asset name
+# would NOT have been sufficient on its own -- Zenodo 404s on /records/<concept>/files/...,
+# because it redirects the record endpoint but not paths beneath it, so the version-specific
+# record id is unavoidable in a hand-built URL. Hence the API lookup.
 
 set -euo pipefail
 
@@ -88,11 +87,12 @@ check_rule README.md \
     "K-mer based variant detection. ${VERSION}." \
     "s/^K-mer based variant detection\..*/K-mer based variant detection. ${VERSION}./"
 
-# README download snippet, e.g. "VERSION=v1.2.0"
+# README "pin a specific version" example. The :latest line beside it is deliberately not
+# managed -- it must stay literal.
 check_rule README.md \
-    '^VERSION=' \
-    "VERSION=${VERSION}" \
-    "s/^VERSION=.*/VERSION=${VERSION}/"
+    '^apptainer pull rufus\.sif docker://stefinfection/rufus:v' \
+    "apptainer pull rufus.sif docker://stefinfection/rufus:${VERSION}" \
+    "s|^apptainer pull rufus\.sif docker://stefinfection/rufus:v.*|apptainer pull rufus.sif docker://stefinfection/rufus:${VERSION}|"
 
 if [ "$status" -ne 0 ]; then
     cat >&2 <<EOF

@@ -14,7 +14,7 @@ For questions and feature requests, please contact [stephanie.georges@genetics.u
 
 RUFUS is a reference-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with singularity installed. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the provided helper functions to create your SBATCH scripts (detailed below).
 
-RUFUS currently supports a single subject sample, multiple control samples, and only accepts GRCh38 as a reference genome. The samples must be in BAM format (though may be unaligned). The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
+RUFUS currently supports mulitple subject samples, multiple control samples, and currently only accepts GRCh38 as a reference genome. The input files may be fastqs, crams, or bams. The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
 
 RUFUS has two stages: a variant calling stage, and a post-processing stage. Separation of the stages is necessary because the calling stage may be run in a windowed fashion, requiring multiple parallel RUFUS jobs over all of the windows. The combination stage must wait to proceed until all calling jobs are complete. Algorithmic runtime increases roughly linearly with sample coverage. Generally with whole-genome mode, a 100x sample run will take 1 day. Windowed mode completes significantly faster.
 
@@ -23,11 +23,36 @@ RUFUS has two stages: a variant calling stage, and a post-processing stage. Sepa
 
 ### Obtaining the RUFUS Singularity Image
 
- The pre-built RUFUS singularity container may be obtained from [Zenodo](https://zenodo.org/records/18284901). To download:
+The pre-built RUFUS container is published to two places: Docker Hub, and
+[Zenodo](https://doi.org/10.5281/zenodo.13694210) for archival and citation. Either route gives you
+the same image.
+
+**From Docker Hub (recommended on HPC).** `apptainer` builds the SIF for you — no `sudo`, no
+manual `.def`:
+```bash
+apptainer pull rufus.sif docker://stefinfection/rufus:latest
+apptainer pull rufus.sif docker://stefinfection/rufus:v1.2.0
 ```
-VERSION=v1.2.0
-curl -L "https://zenodo.org/records/18284901/files/rufus_${VERSION}.sif" -o rufus.sif
+`:latest` always points at the most recent release; pin a specific version instead for a
+reproducible analysis. Published versions are listed at
+https://hub.docker.com/r/stefinfection/rufus/tags.
+
+**From Zenodo.** The DOI above is a *concept* DOI: it always resolves to the newest release. Zenodo
+does not expose a fixed download path for "latest", so ask its API which file to fetch rather than
+building a URL by hand — this needs no edits between releases, and is indifferent to the asset being
+renamed:
+```bash
+CONCEPT=13694210   # the concept DOI suffix, 10.5281/zenodo.13694210
+URL=$(curl -fsSL --retry 3 --retry-delay 5 "https://zenodo.org/api/records/${CONCEPT}" \
+      | python3 -c "import sys,json;print(next(f['links']['self'] for f in json.load(sys.stdin)['files'] if f['key'].endswith('.sif')))")
+[ -n "$URL" ] || { echo "could not resolve the latest RUFUS SIF from Zenodo" >&2; exit 1; }
+curl -fL --retry 3 --retry-delay 5 -o rufus.sif "$URL"
 ```
+The `-f` and the emptiness check matter: Zenodo's API intermittently returns 504s, and without
+them a failed lookup silently leaves you with a truncated or empty `rufus.sif`. If it keeps
+failing, the Docker Hub route above is the more reliable one.
+
+To browse releases instead, https://zenodo.org/records/13694210/latest opens the newest one.
 
 ### Input Data
 
