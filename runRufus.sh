@@ -476,6 +476,27 @@ check_empty_hashes ()
 	local subject_file="${@: -1}"
 	local control_files=("${@:1:$#-1}")
 
+	# RunJellyForRUFUS.sh exit-code contract: 0 = counted OK, 1 = ran but the region
+	# genuinely has no k-mers, 2 = the counting tool itself failed (OOM, disk, crash).
+	# A tool failure must never be reported as an empty region -- in a sharded run that
+	# records a lost shard as legitimately variant-free, which is a silent wrong answer
+	# rather than a visible one. Treat anything that is not a clean 0 or 1 as failure,
+	# so an unexpected code (e.g. a signal-derived 137) also fails loudly.
+	local ef ef_rc
+	for ef in "${control_files[@]}" "$subject_file"; do
+		[ -f "$ef" ] || continue
+		ef_rc="$(cat "$ef" 2>/dev/null)"
+		case "$ef_rc" in
+			0|1) ;;
+			*)
+				echo "ERROR: k-mer counting failed (exit '${ef_rc:-<empty>}', from $ef) in region $region_arg;" \
+				     "this is a tool failure, NOT an absence of coverage" >&2
+				_region_exit_reason="jellyfish_failed"
+				exit 1
+				;;
+		esac
+	done
+
 	# Check that at least one control has hashes (i.e. has a zero exit code)
 	found_zero=false
 

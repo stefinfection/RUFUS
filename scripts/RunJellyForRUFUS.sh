@@ -27,6 +27,7 @@ else
 	# bash "$GEN" | "$RDIR/bin/PassThroughSamCheck" "$GEN.Jelly.chr" > "$FIFO_FQ" &
 	# samtools fastq validated bit-identical to PassThroughSamCheck for counting (job 16682513); generator now emits -h so the header is present.
 	bash "$GEN" | samtools fastq -@ "$T" - > "$FIFO_FQ" &
+	FEEDER=$!
 
 	# -C is canonical ("Count both strand, canonical representation")
 	# -L is filtering out low frequency kmers ("Don't output k-mer with count < lower-count")
@@ -38,15 +39,52 @@ else
 	# guessing this starting number is far too low and there's a lot of memory swapping happening here
 	# good area of parallelization and possible merging after - will neeed to think through
 	
+	# Capture jellyfish's status explicitly rather than letting `set -e` abort with it.
+	# Callers must be able to tell "the tool failed" (OOM, disk full, crash) apart from
+	# "this region legitimately has no k-mers" -- both otherwise leave an empty histogram
+	# and were previously indistinguishable. In a sharded whole-genome run that turns a
+	# lost shard into a silent "no variants here". See exit-code contract below.
+	set +e
 	"$JELLYFISH" count --disk -m "$K" -L "$L" -s "$HASH_SIZE" -t "$T" -o "$GEN.Jhash" -C "$FIFO_FQ"
+	jf_rc=$?
+
+	if [ "$jf_rc" -ne 0 ]; then
+		# jellyfish is gone, so nothing is draining the FIFO and the feeder is blocked
+		# mid-write. Tear it down before reaping, or `wait` never returns.
+		rm -f "$FIFO_FQ"
+		kill "$FEEDER" 2>/dev/null
+		wait "$FEEDER" 2>/dev/null
+		set -e
+		echo "ERROR: jellyfish count failed (exit $jf_rc) for $GEN" >&2
+		exit 2
+	fi
 
 	wait
+	set -e
+
+	# A zero exit with no output file means jellyfish died without reporting it.
+	if [ ! -s "$GEN.Jhash" ]; then
+		echo "ERROR: jellyfish count reported success but produced no $GEN.Jhash" >&2
+		exit 2
+	fi
 fi
 
-if [ ! -s "$GEN.Jhash.histo" ]; then 
+if [ ! -s "$GEN.Jhash.histo" ]; then
+	set +e
 	"$JELLYFISH" histo -f -o "$GEN.Jhash.histo" "$GEN.Jhash"
+	histo_rc=$?
+	set -e
+	if [ "$histo_rc" -ne 0 ] || [ ! -s "$GEN.Jhash.histo" ]; then
+		echo "ERROR: jellyfish histo failed (exit $histo_rc) for $GEN" >&2
+		exit 2
+	fi
 fi
-if [ $(awk '$2 > 0' "$GEN.Jhash.histo" | wc -l ) -eq "0" ]; then  
+
+# Exit-code contract for callers (runRufus.sh check_empty_hashes depends on this):
+#   0 - counted OK, k-mers found
+#   1 - ran successfully, but the region genuinely contains no k-mers
+#   2 - the counting tool itself failed; the result says nothing about coverage
+if [ $(awk '$2 > 0' "$GEN.Jhash.histo" | wc -l ) -eq "0" ]; then
 	exit 1
 fi
 exit 0
