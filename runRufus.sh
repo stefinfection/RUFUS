@@ -1617,7 +1617,7 @@ else
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 fi
 
-bgzip "$DEDUPED_VCF"
+bgzip -f "$DEDUPED_VCF"
 # Index with tabix, iteratively removing records that cause indexing failures
 # This catches any malformed records that slip past the awk sanitizer
 tabix_max_retries=50
@@ -1665,8 +1665,8 @@ bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
 # Check for empty gt field
 GX_VCF="$WORK_DIR/gx.${formatted_region}.vcf"
 bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
-bgzip "$GX_VCF"
-bcftools index "$GX_VCF.gz"
+bgzip -f "$GX_VCF"
+bcftools index -f "$GX_VCF.gz"
 
 # Trim calls to region. In whole-genome mode _arg_region is empty; `bcftools view -r ""` segfaults,
 # and there is nothing to trim to, so pass the calls through unchanged.
