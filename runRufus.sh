@@ -866,7 +866,7 @@ if [ ${#_arg_control_fastqs[@]} -gt 0 ]; then
 	done
 fi
 
-# Note: BWA index checks done in launch script
+# Note: BWA index presence is validated below, once _arg_ref_bwa is resolved.
 
 ###### when we add PB need to check its reference stuff here 
 ###########################################################################
@@ -893,10 +893,41 @@ then
     kill -9 $$
 fi
 if [[ -e "$_arg_ref_cat".sa ]]
-then 
+then
     _arg_ref_bwa=$_arg_ref_cat
 else
     _arg_ref_bwa=$_arg_ref
+fi
+
+# Validate BWA/samtools indexes before any expensive stage. The launch scripts
+# check this too, but runRufus.sh can be invoked directly, and without this the
+# missing index only surfaces at the bwa mem step -- far into the run, after the
+# jellyfish, model, hashlist and filter stages. _arg_ref_bwa above resolved the
+# exact prefix bwa will load; the .fai hangs off the reference samtools reads.
+missing_bwa_indexes=()
+for bwa_suffix in amb ann bwt pac sa
+do
+    if [[ ! -e "$_arg_ref_bwa".$bwa_suffix ]]
+    then
+        missing_bwa_indexes+=("$_arg_ref_bwa.$bwa_suffix")
+    fi
+done
+if [[ ! -e "$_arg_ref".fai ]]
+then
+    missing_bwa_indexes+=("$_arg_ref.fai")
+fi
+if [[ ${#missing_bwa_indexes[@]} -ne 0 ]]
+then
+    echo "ERROR: reference $_arg_ref is missing required index files:"
+    for missing in "${missing_bwa_indexes[@]}"
+    do
+        echo "       $missing"
+    done
+    echo "RUFUS aligns candidate reads with BWA and cannot run without these."
+    echo "Build them with:"
+    echo "       bash $RDIR/resource_helpers/build_bwa_indexes.sh $_arg_ref"
+    _region_exit_reason="missing_bwa_indexes"
+    exit 1
 fi
 
 
