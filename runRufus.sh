@@ -1679,9 +1679,21 @@ fi
 bcftools index "$TRIMMED_VCF"
 
 NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
-if [ ${#_arg_controls[@]} -ne "0" ]; then
-	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c "$(IFS=','; echo "${Parents[*]}")"
+# remove_coinheriteds pileups each control at the variant sites, so it needs an alignable BAM/CRAM.
+# A control given as a pre-built hash (a .generator stub) or fastq has no BAM to pile up (bwa would
+# align an empty file -> mpileup fails on the empty bam). Collect only the BAM/CRAM controls and run
+# the filter over those; skip entirely if none -- the HashList subtraction has already removed those
+# controls' k-mers, so the co-inherited pileup is a secondary check with nothing to pile up.
+_bamcram_controls=()
+for _ctrl in "${Parents[@]}"; do
+	case "$_ctrl" in
+		*.bam|*.cram) _bamcram_controls+=("$_ctrl") ;;
+	esac
+done
+if [ ${#_bamcram_controls[@]} -ne "0" ]; then
+	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c "$(IFS=','; echo "${_bamcram_controls[*]}")"
 else
+	[ ${#_arg_controls[@]} -ne "0" ] && echo "Skipping remove_coinheriteds: no BAM/CRAM control to pile up (controls are hash/generator/fastq); HashList subtraction already handled them." >&2
 	mv "$TRIMMED_VCF" "$NO_CO_VCF"
 fi
 
