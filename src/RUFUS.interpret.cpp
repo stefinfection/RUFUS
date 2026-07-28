@@ -689,8 +689,11 @@ string SamRead::getClippedSequence(int pos, string type) {
 string SamRead::filterSV() {
     string Filter = "";
 
-    if (StrandBias >= 0) {
-        if (StrandBias > 0.99 || StrandBias < 0.01)
+    // DP isn't reachable here (SV path), so guard on forward+reverse, the strand-
+    // classified read count the ratio is computed from. ~10 reads corresponds to a
+    // ~30x site, matching the DP>=30 guard on the main path.
+    if (StrandBias >= 0 && (forward + reverse) >= 10) {
+        if (StrandBias > 0.95 || StrandBias < 0.05)
             Filter += "SB;";
     }
     if (AlignmentSegments > SegThreshold || AlignmentSegmentsCigar > SegThresholdCigar) {
@@ -2652,9 +2655,11 @@ void SamRead::parseMutations(char *argv[], vector <SamRead> &reads) {
                 }
                 //else
                 //  	cout << "GOOD COVERAGE" << endl;
-                if (StrandBias >= 0) {
+                // Only assess strand bias with enough coverage: below 30x (DP = RO+AO)
+                // the strand ratio is too noisy to trust, so skip the SB label entirely.
+                if (StrandBias >= 0 and (MutRefMode + MutAltMode) >= 30) {
 
-                    if (StrandBias > 0.99999 or StrandBias < 0.00001) {
+                    if (StrandBias > 0.95 or StrandBias < 0.05) {
                         Denovo = "StrandBias";
                         stringstream ss;
                         ss << StrandBias;
