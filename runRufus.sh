@@ -75,6 +75,10 @@ _arg_control_fastqs=()
 _arg_ref=
 _arg_threads=3
 _arg_kmersize=25
+# NOTE: this default is load-bearing beyond its face value. The model phase (see MODEL PHASE
+# below) only runs when _arg_min is EMPTY, so initialising it here means that branch is never
+# taken and ModelDist never runs. Clearing this default would silently enable the model and
+# change genotyping behaviour across the board -- do not "tidy" it without reading that block.
 _arg_min=5
 _arg_refhash=
 _arg_saliva="FALSE"
@@ -109,7 +113,7 @@ print_help ()
 	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
 	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
 	printf "\t%s\n" "-k,--kersize: size of k-mer to use (no default)"
-	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+	printf "\t%s\n" "-m,--min: minimum k-mer count to call a variant (default 5 -- see NOTE below)"
 	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
 	printf "\t%s\n" "-L, --Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"
@@ -117,6 +121,11 @@ print_help ()
 	printf "\t%s\n" "-o, --devOutput: Prints very verbose run information to stdout"
 	printf "\t%s\n" "-h,--help: Print help"
 	printf "\t%s\n" "-d: Print dev help"
+	printf "\n"
+	printf "\t%s\n" "NOTE on -m/--min and the coverage model: -m always carries a value (default 5), and the"
+	printf "\t%s\n" "coverage-model phase only runs when -m is unset, so in practice the model is never built."
+	printf "\t%s\n" "RUFUS uses -m directly as the minimum k-mer count. A consequence is that the GT and"
+	printf "\t%s\n" "FILTER columns of the VCF are not model-derived; see MODEL PHASE in runRufus.sh."
 }
 
 print_devhelp ()
@@ -132,7 +141,7 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
 	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
 	printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
-	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+	printf "\t%s\n" "-m,--min: minimum k-mer count to call a variant (default 5 -- see NOTE below)"
 	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
 	printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
@@ -145,7 +154,7 @@ s-n>] ...\n' "$0"
 
 	printf "\t%s\n" "-f,--refhash: Jhash file containing reference hashList (no default)"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequencing.  Distribution model is not used, -m = 20, saliva fix is set, max kmer depth set to 1 million (EXPERIMENTAL values used here have not been exhaustivly tested)"
+	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequencing. Sets saliva fix and max kmer depth of 1 million (EXPERIMENTAL values used here have not been exhaustivly tested). The distribution model is not used -- though see the NOTE below, it is not used in any mode. The intended -m = 20 override is also inactive: -m already has a default, so an exome run uses -m 5 unless you pass -m explicitly."
 	printf "\t%s\n" "-q1,--fastq1: If starting from fastq files, a list of the mate1 fastq files to improve RUFUS.filter"
 	printf "\t%s\n" "-q2,--fastq2: If starting from fastq files, a list of the mate2 fastq files to improve RUFUS.filter"
 	printf "\t%s\n" "-vs, --Very_Short_Assembly: use very short assembly methods, recommended when you are expecting over 10,000 variants "
@@ -164,6 +173,19 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-d,--devhelp: HELP!!! for developers"
 	printf "\t%s\n" "-pa,--passArray: pass the slurm array index to the script for debugging purposes"
 	printf "\t%s\n" "-cn,--currAbsNum: pass the calculated absolute coordinate value to the script for debugging purposes"
+	printf "\n"
+	printf "\t%s\n" "################################################################################################"
+	printf "\t%s\n" "NOTE: the coverage-distribution model (ModelDist) is never built, in any run mode."
+	printf "\t%s\n" "################################################################################################"
+	printf "\t%s\n" "The model phase is gated on '[ -z \$_arg_min ] && [ \$_arg_exome == FALSE ]', but _arg_min is"
+	printf "\t%s\n" "initialised to 5 in the defaults block and never cleared, so the first test is never true and"
+	printf "\t%s\n" "the else branch always runs. That branch writes a 4-line placeholder .7.7.model and never"
+	printf "\t%s\n" "produces the .7.7.dist that RUFUS.interpret is passed via -mod, so ProcessDist fails to open"
+	printf "\t%s\n" "it (non-fatally) and the Bayesian genotyper is inert. Observable effects: GT is '.' and FILTER"
+	printf "\t%s\n" "is '.' on essentially every SNV/indel record, FILTER=PASS is unreachable on that path, and"
+	printf "\t%s\n" "Dist1XCutoff falls back to 100000 which disables the repeat filter in PickDepthSomatic."
+	printf "\t%s\n" "This is documented, not fixed: enabling the model activates several latent defects in"
+	printf "\t%s\n" "RUFUS.interpret at the same time. See docs/RUFUS.interpret.audit.md section 2.1."
 
 }
 re='^[0-9]+$'; 
@@ -697,10 +719,15 @@ if [ "$_arg_exome" == "TRUE" ]; then
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
 
-	if [ -z $_arg_min ]; then 
-		echo "Minimum not provided, picking a min of 20 for the alt count" 
+	# NOTE: this block is dead for the same reason the model phase is (see MODEL PHASE below):
+	# _arg_min is initialised to 5 in the defaults block and never cleared, so it is never
+	# empty and the 20 is never applied. An exome run therefore uses -m 5 like everything
+	# else unless the user passes -m explicitly. Documented, not changed -- raising the
+	# effective exome minimum from 5 to 20 is a real behaviour change, not a cleanup.
+	if [ -z $_arg_min ]; then
+		echo "Minimum not provided, picking a min of 20 for the alt count"
 		_arg_min="20"
-	fi 
+	fi
 fi
 
 
@@ -1136,6 +1163,31 @@ done
 
 _region_exit_reason="model_stage"
 #######################__RUFUS_Model__############################################
+# MODEL PHASE -- READ THIS BEFORE CHANGING THE CONDITION BELOW.
+#
+# As written, the `then` branch is UNREACHABLE and ModelDist never runs, in any mode.
+# `_arg_min` is initialised to 5 in the defaults block near the top of this file and is
+# never cleared, so `[ -z "$_arg_min" ]` is never true and the `else` branch always runs.
+# The commented-out line directly below is the previous condition: originally every
+# non-exome run built the model, and adding the `-z "$_arg_min"` conjunct silently
+# disabled it for everyone, because of that default.
+#
+# Confirmed empirically across every run in resources/reg_test_files/runs/: zero
+# *.7.7.dist files, fifteen *.7.7.model placeholders (written by the else branch), zero
+# logs containing "Starting model phase", six containing "min was provided".
+#
+# Downstream effect: the else branch writes a 4-line placeholder .7.7.model and never
+# produces the .7.7.dist that Overlap.shorter.sh passes to RUFUS.interpret via -mod.
+# ProcessDist treats the failed open as non-fatal, so DistGlobal stays empty and the
+# Bayesian genotyper is inert -- GT and FILTER come out '.' on essentially every
+# SNV/indel record, FILTER=PASS is unreachable on that path, and Dist1XCutoff falls back
+# to 100000, which disables the repeat filter in PickDepthSomatic.
+#
+# This is DOCUMENTED, NOT FIXED, and deliberately so: restoring the condition would
+# enable the model for the first time and simultaneously activate several latent defects
+# in RUFUS.interpret (uninitialised read in BayseanGenotyper, out-of-bounds depth-clamp
+# reads, unconstrained GT ploidy in ParseGenotype). Those have to be fixed in the same
+# change or output gets worse, not better. See docs/RUFUS.interpret.audit.md section 2.1.
 #if [ $_arg_exome == "FALSE" ] #[	-z "$_arg_min" ]
 if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
 then
