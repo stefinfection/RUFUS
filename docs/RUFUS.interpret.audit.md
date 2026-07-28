@@ -250,6 +250,16 @@ undeclared in the header. **100% of BND records are unmated** — the ID column 
 string like `OrphanBND-LC=0bnd_1-DeNovo` while MATEID is the bare `bnd_2`, so they can never
 match, and the reciprocal `LastDitch` call reassigns both BNDids anyway. [R]
 
+**Verified on a production run (SMHT004 3A, 300× whole-genome, `-m 5`, DSA + tech control, Jul 2026) [V]:**
+the undeclared `FILTER=fail` is real and reaches downstream tools — `bcftools` emitted
+`[W::vcf_parse_filter] FILTER 'fail' is not defined in the header` on the RUFUS.Interpret output,
+and the `runRufus.sh` sanitizer dropped **13 of 2662 records** as malformed (2649 kept). The
+surviving genotyped VCF (`gx.wg.vcf.gz`, 1,354 calls) carries `FILTER=.` on **100%** of records —
+i.e. §2.1's inert-genotyper failure also reproduces here (this was whole-genome, not `-min`, so it
+is not exclusive to the exome/`-min` path as §2.1 first framed it; the shared cause is the
+`.7.7.dist` model not reaching interpret). So both the §2.3 header-validity defects and the §2.1
+model-absent cascade reproduce on real whole-genome data, not just the `chr20_m5` regression.
+
 ## 2.4 Two independent k-mer extraction passes with different correctness properties **[R]**
 
 `LookUpKmers` (2948) and `BuildUpHashCountTable` (1310) both walk the contig building k-mer/count
