@@ -1,4 +1,4 @@
-RUFUS Singularity Container
+RUFUS
 =====
 
 K-mer based variant detection. v1.2.0.
@@ -12,16 +12,16 @@ For questions and feature requests, please contact [stephanie.georges@genetics.u
 
 ## RUFUS Overview
 
-RUFUS is a reference-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with singularity installed. At a high level, you'll need to download the pre-built singularity container (detailed below) and set up a batch script corresponding to your resource manager. If your HPC system uses SLURM, you can utilize the provided helper functions to create your SBATCH scripts (detailed below).
+RUFUS is a reference-bias-free, K-mer based variant detection algorithm, for short-read DNA sequence data. RUFUS is intended to run on a high performance computing (HPC) cluster with Apptainer (formerly Singularity) or Docker installed. At a high level, you'll need to download the pre-built container (detailed below) and either use the provided setup script to generate a SLURM script that runs RUFUS or manually create an execution script directly. 
 
-RUFUS currently supports mulitple subject samples, multiple control samples, and currently only accepts GRCh38 as a reference genome. The input files may be fastqs, crams, or bams. The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
+RUFUS calls variants in a single subject against one or more control samples, and currently only accepts GRCh38 as a reference genome. Input files may be FASTQ, CRAM, BAM, or a RUFUS generator file. Where a sample is split across several files, pass each file to the same flag — they are combined into one sample. The reference genome must be in FASTA format, and must be indexed by BWA. If the BWA indexes are not detected in the same directory as the reference genome, RUFUS will create them.
 
 RUFUS has two stages: a variant calling stage, and a post-processing stage. Separation of the stages is necessary because the calling stage may be run in a windowed fashion, requiring multiple parallel RUFUS jobs over all of the windows. The combination stage must wait to proceed until all calling jobs are complete. Algorithmic runtime increases roughly linearly with sample coverage. Generally with whole-genome mode, a 100x sample run will take 1 day. Windowed mode completes significantly faster.
 
 
 ## Running RUFUS
 
-### Obtaining the RUFUS Singularity Image
+### Obtaining the RUFUS Image
 
 The pre-built RUFUS container is published to two places: Docker Hub, and
 [Zenodo](https://doi.org/10.5281/zenodo.13694210) for archival and citation. Either route gives you
@@ -57,8 +57,8 @@ To browse releases instead, https://zenodo.org/records/13694210/latest opens the
 ### Input Data
 
 RUFUS requires the following data to run:
-1) A subject sample in BAM/CRAM format (this may be unaligned if using whole genome mode)
-2) One or more control samples in BAM/CRAM format (these may be unaligned)
+1) A subject sample in FASTQ/BAM/CRAM/generator format. BAM/CRAM may be unaligned when using whole genome mode; FASTQ is whole-genome only and cannot be combined with `-R/--region`. If the sample is split across several files, pass `-s` once per file — they are treated as one sample, not as separate subjects.
+2) At least one of: one or more control samples (`-c`, same formats as the subject), or an exclude hash (`-e`). Multiple distinct controls are supported, e.g. mother and father for a trio. Supplying only `-e` — typically pre-built 1000G/control hashes — is single-sample mode.
 3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same directory as the reference to save time creating them during the RUFUS run.*\
 \
 To create the BWA indexes, run the following commands:
@@ -67,7 +67,7 @@ To create the BWA indexes, run the following commands:
    samtools faidx {REFERENCE.fa}
    ```
 
-All input files are specified by their full paths. The necessary host directories are automatically bind-mounted into the singularity container.
+All input files are specified by their full paths. The necessary host directories are automatically bind-mounted into the Apptainer container.
 
 ### Output Data
 
@@ -86,17 +86,17 @@ RUFUS will, by default, output the following files *in the current working direc
 RUFUS has two execution stages:
 1) The calling stage, invoked by the following
 ```
-singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/runRufus.sh [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [-c|<controls-1>] ... [-c|<controls-n>] ...OPTIONS
+apptainer exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/runRufus.sh [-s|--subject <arg>] [-r|--ref <arg>] [-t|--threads <arg>] [-k|--kmersize <arg>] [-m|--min <arg>] [-h|--help] [-c|<controls-1>] ... [-c|<controls-n>] ...OPTIONS
 ```
 With the following usage:
 ```
 Required Arguments:
-    -s,--subject: single bam file (may be unaligned) containing the subject of interest
-    -c,--controls: bam file (may be unaligned) for the sequence data of the control sample (can be used multiple times, e.g. -c control1 -c control2)
+    -s,--subject: bam/cram/fastq/generator file(s) containing the subject of interest. Use multiple times only for split files of the SAME sample (e.g. -s subject.part1.bam -s subject.part2.bam); they are combined into one subject, not called separately
     -r,--ref: file path to the desired reference file
     -t,--threads: number of threads to use (min 3)
 
 Optional Arguments:
+    -c,--controls: bam/cram/fastq/generator file(s) for the sequence data of a control sample (can be used multiple times for distinct controls, e.g. -c mother.bam -c father.bam). NOTE: optional only if -e/--exclude is supplied instead — RUFUS requires at least one control or exclude source and will exit if given neither. Supplying only -e is single-sample mode
     -k,--kmersize: length of k-mer to use (defaults to 25)
     -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)
     -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)
@@ -107,7 +107,7 @@ Optional Arguments:
 
 2) The post-processing stage, invoked by the following
 ```
-singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh -s <subject> -w <window_size>
+apptainer exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/post_process.sh -s <subject> -w <window_size>
 ```
 With the following usage:
 ```
@@ -126,7 +126,7 @@ In windowed mode, the post-processing stage will print a region status summary s
 The SLURM helper script automatically creates the two SLURM batch scripts necessary to run RUFUS on a SLURM-managed HPC cluster, as well as a bash script to execute them. To use:
 1) Execute the helper script (see full usage options below):
 ``` 
-singularity exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
+apptainer exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh [-s subject] [-c control1,control2,control3...] [-b genome_build] [-a slurm_account] [-p slurm_partition] ...OPTIONS
 ```
 
 2) Then execute the generated bash script:
@@ -179,17 +179,17 @@ scontrol show config | grep "default_queue_depth"
 
 Basic windowed mode:
 ```
-singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam,/home/controls/control_b.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu"
+apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam,/home/controls/control_b.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -t "00:30:00" -m 5 -l 20 -z 36 -e "my_email@utah.edu"
 ```
 
 With local per-region hash directories:
 ```
-singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -K /data/kg1_hashes/v3.0/ -D /data/ctrl_hashes/v1.0/
+apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -K /data/kg1_hashes/v3.0/ -D /data/ctrl_hashes/v1.0/
 ```
 
 With S3-downloaded hashes (downloaded at setup time):
 ```
-singularity exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -G v3.0 -V v1.0
+apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -c /home/controls/control_a.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -w 1000 -l 1000 -G v3.0 -V v1.0
 ```
 
 *Note*: `-K`/`-G` (KG1 hashes) and `-D`/`-V` (control hashes) are mutually exclusive per type. You may mix local and S3 across types (e.g., `-K /local/kg1/ -V v1.0`). Hash files in local directories must be named with the region string (e.g., `*chr1_1_1000000*.Jhash` for region `chr1:1-1000000`, or `*wg*.Jhash` for whole-genome mode).

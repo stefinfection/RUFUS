@@ -11,6 +11,24 @@
 : "${RUFUS_ROOT:=/opt/RUFUS}"
 UTIL_PATH=${RUFUS_ROOT}/singularity/launch_utilities/
 
+# TODO: detect the container runtime instead of hard-coding `singularity`.
+#
+# The SLURM scripts generated below emit `singularity exec ...` (10 sites in this file, plus
+# get_region.sh invocations). That works on Apptainer hosts only because Apptainer installs a
+# `singularity` compatibility shim -- it is not a guarantee, and a site that ships Apptainer
+# without the shim cannot run a generated script. Flipping the literal to `apptainer` just moves
+# the breakage to sites still on Singularity CE, so neither hard-coded name is right. Detect once
+# here and substitute the result into the generated scripts:
+#
+#   CONTAINER_CMD="$(command -v apptainer || command -v singularity)" \
+#       || { echo "ERROR: neither apptainer nor singularity found on PATH" >&2; exit 1; }
+#
+# Deliberately deferred: this changes every generated SLURM script, which is exactly the machinery
+# the sharded whole-genome release gate exercises. Land it after that run, not into it. The docs
+# and the newer functional cases (tests/functional/cases/f*.sh) already say/use `apptainer`; this
+# file and singularity/tests/ are the remaining holdouts, and those tests are separately stale
+# (hard-coded /home/ubuntu paths, references to Child/Mother/Father.bam that do not exist).
+
 PARSER=${UTIL_PATH}arg_parser.sh
 . $PARSER "$@"
 
