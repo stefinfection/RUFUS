@@ -2,11 +2,11 @@ name: build-publish
 
 # Tag mapping:
 #   push to docker / dev   -> stefinfection/rufus:dev      (development)
-#   push to master         -> stefinfection/rufus:stage    (staging)
+#   push to main           -> stefinfection/rufus:stage    (staging)
 #   push git tag v*        -> stefinfection/rufus:<version> + :latest, then SIF -> Zenodo (prod)
 on:
   push:
-    branches: [docker, dev, master]
+    branches: [docker, dev, main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -24,7 +24,7 @@ jobs:
     # github context, not a step output). Arm the release gate by adding a required reviewer to the
     # `production` environment in the repo settings — a v* tag build then waits for approval here.
     environment:
-      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || github.ref == 'refs/heads/master' && 'staging' || 'development' }}
+      name: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || github.ref == 'refs/heads/main' && 'staging' || 'development' }}
       url: https://hub.docker.com/r/stefinfection/rufus/tags
     steps:
       - uses: actions/checkout@v5
@@ -51,7 +51,7 @@ jobs:
             echo "tags=${IMAGE}:${TAGNAME},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
             echo "primary_tag=${TAGNAME}" >> "$GITHUB_OUTPUT"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
-          elif [[ "${REF}" == refs/heads/master ]]; then
+          elif [[ "${REF}" == refs/heads/main ]]; then
             echo "tags=${IMAGE}:stage" >> "$GITHUB_OUTPUT"
             echo "primary_tag=stage" >> "$GITHUB_OUTPUT"
             echo "is_release=false" >> "$GITHUB_OUTPUT"
