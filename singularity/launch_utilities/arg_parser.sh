@@ -78,7 +78,7 @@ DEV_BIND_MOUNTS_ARG=()
 # STILL MISWIRED: -h carries a colon ("h:") so it demands an argument. Bare `-h` never reaches
 # the h) case; it falls to the missing-argument branch, printing "Option -h requires an argument"
 # before the usage text. Usage still prints, so this is cosmetic. Fix is to drop the colon.
-while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:C:K:G:D:V:d:P:" opt; do
+while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:M:C:K:G:D:V:d:P:h" opt; do
     case ${opt} in
         s)
             IFS=',' read -r -a SUBJECTS_RUFUS_ARG <<< "$OPTARG"
