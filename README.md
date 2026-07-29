@@ -91,18 +91,27 @@ apptainer exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/runRufus.sh [
 With the following usage:
 ```
 Required Arguments:
-    -s,--subject: bam/cram/fastq/generator file(s) containing the subject of interest. Use multiple times only for split files of the SAME sample (e.g. -s subject.part1.bam -s subject.part2.bam); they are combined into one subject, not called separately
-    -r,--ref: file path to the desired reference file
-    -t,--threads: number of threads to use (min 3)
+    -s,--subject:   bam/cram/fastq/generator file(s) containing the subject of interest. Use
+                    multiple times ONLY for split files of the same sample (e.g.
+                    -s subject.part1.bam -s subject.part2.bam); they are combined into one
+                    subject, not called separately
+    -r,--ref:       file path to the desired reference file
+    -t,--threads:   number of threads to use (min 3)
 
 Optional Arguments:
-    -c,--controls: bam/cram/fastq/generator file(s) for the sequence data of a control sample (can be used multiple times for distinct controls, e.g. -c mother.bam -c father.bam). NOTE: optional only if -e/--exclude is supplied instead — RUFUS requires at least one control or exclude source and will exit if given neither. Supplying only -e is single-sample mode
-    -k,--kmersize: length of k-mer to use (defaults to 25)
-    -m,--min: overwrites the minimum k-mer depth count to call variant (defaults to 5)
-    -e,--exclude: Jhash file of kmers to exclude from mutation list (can be used multiple times, e.g. -e Jhash1 -e Jhash2)
-    -f,--refhash: Jhash file containing reference hashList
-    -R,--region: genomic region to call variants on (e.g., chr1:1-1000000); used in windowed mode
-    -h,--help: Print help
+    -c,--controls:  bam/cram/fastq/generator file(s) for the sequence data of a control sample
+                    (can be used multiple times for distinct controls, e.g.
+                    -c mother.bam -c father.bam). Optional ONLY if -e/--exclude is supplied
+                    instead: RUFUS requires at least one control or exclude source and will exit
+                    if given neither. Supplying only -e is single-sample mode
+    -k,--kmersize:  length of k-mer to use (defaults to 25)
+    -m,--min:       overwrites the minimum k-mer depth count to call variant (defaults to 5)
+    -e,--exclude:   Jhash file of kmers to exclude from mutation list (can be used multiple
+                    times, e.g. -e Jhash1 -e Jhash2)
+    -f,--refhash:   Jhash file containing reference hashList
+    -R,--region:    genomic region to call variants on (e.g. chr1:1-1000000); used in windowed
+                    mode
+    -h,--help:      print help
 ```
 
 2) The post-processing stage, invoked by the following
@@ -112,10 +121,12 @@ apptainer exec {PATH_TO_RUFUS_CONTAINER}/rufus.sif bash /opt/RUFUS/post_process/
 With the following usage:
 ```
 Required Arguments:
-    -s subject_file  The name of the subject file: must be the same as that supplied to the RUFUS run
-    -w window_size   The size of the window used in the RUFUS run (0 for whole genome mode)
+    -s subject_file  the name of the subject file; must be the same as that supplied to the
+                     RUFUS run
+    -w window_size   the size of the window used in the RUFUS run (0 for whole genome mode)
+
 Optional Arguments:
-    -h help  Print help message
+    -h help          print help message
 ```
 
 In windowed mode, the post-processing stage will print a region status summary showing how many regions called variants, how many had no variants (with breakdown by reason), and how many encountered errors. The final VCF header will include a `##RUFUS_runMode` line indicating region mode was used.
@@ -137,35 +148,44 @@ bash launch_rufus.sh
 The full usage options for the helper script are as follows:
 ```
 Required Arguments:
-    -s subject    Full path to the subject sample BAM/CRAM
-    -b genome_build  The desired genome build; currently only supports GRCh38
-    -r reference  Full path to the reference file matching the genome build
-    -a slurm_account  The account for the slurm job
-    -p slurm_partition    The partition for the slurm job
-    -l slurm_job_array_limit    The maximum amount of jobs slurm allows in an array
-    
+    -s subject                  full path to the subject sample BAM/CRAM
+    -b genome_build             the desired genome build; currently only supports GRCh38
+    -r reference                full path to the reference file matching the genome build
+    -a slurm_account            the account for the slurm job
+    -p slurm_partition          the partition for the slurm job
+    -l slurm_job_array_limit    the maximum amount of jobs slurm allows in an array
+
 Optional Arguments:
-    -c control(s) A single control or comma-delimited array of multiple controls (full paths).
-                  Omit for single-sample mode, in which case you must supply a hash source
-                  instead -- see "Single-sample mode" below
-    -m kmer_depth_cutoff  The amount of kMers that must overlap the variant to be included in the final call set
-    -w window_size    The size of the windows to run RUFUS on, in units of kilabases (KB); allowed range between 500-5000; defaults to single run of entire genome if not provided
-    -f reference_hash   Jhash file containing reference kMer hash list
-    -x exclude_hash     Single or comma-delimited list of Jhash file(s) containing kMers to exclude (static, same for all regions)
-    -K kg1_hash_dir     Full path to directory of per-region KG1 Jhash files (files named *{region}*.Jhash)
-    -G kg1_version      KG1 hash version to download from S3 (e.g., v3.0)
-    -D ctrl_hash_dir    Full path to directory of per-region control Jhash files (files named *{region}*.Jhash)
-    -V ctrl_version     Control hash version to download from S3 (e.g., v1.0)
-    -M memory_per_call  How much memory to allot to the rufus calling stage job (e.g., 150G or 20G)
-    -C cpus_per_call    How many cpus to allot to each rufus calling stage job; defaults to 40 for
-                        whole genome, 12 for 1MB windows. Must be greater than the RUFUS thread
-                        count (-z), or setup will exit with an error
-    -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif
-    -z rufus_threads  Number of threads provided to RUFUS; defaults to 36 for entire genome; 10 for 1MB windows
-    -e email  The email address to notify with slurm updates
-    -q slurm_job_queue_limit    The maximum amount of jobs able to be ran at once; defaults to 20
-    -t slurm_time_limit   The maximum amount of time to let the slurm job run; defaults to 7 days for full run, or one hour per window (DD-HH:MM:SS)
-    -h help   Print usage
+    -c control(s)               a single control or comma-delimited array of multiple controls
+                                (full paths). Omit for single-sample mode, in which case you must
+                                supply a hash source instead -- see "Single-sample mode" below
+    -m kmer_depth_cutoff        the amount of kMers that must overlap the variant to be included
+                                in the final call set
+    -w window_size              the size of the windows to run RUFUS on, in units of kilobases
+                                (KB); allowed range between 500-5000; defaults to a single run of
+                                the entire genome if not provided
+    -f reference_hash           Jhash file containing reference kMer hash list
+    -x exclude_hash             single or comma-delimited list of Jhash file(s) containing kMers
+                                to exclude (static, same for all regions)
+    -K kg1_hash_dir             full path to directory of per-region KG1 Jhash files (files named
+                                *{region}*.Jhash)
+    -G kg1_version              KG1 hash version to download from S3 (e.g. v3.0)
+    -D ctrl_hash_dir            full path to directory of per-region control Jhash files (files
+                                named *{region}*.Jhash)
+    -V ctrl_version             control hash version to download from S3 (e.g. v1.0)
+    -M memory_per_call          how much memory to allot to the rufus calling stage job (e.g.
+                                150G or 20G)
+    -C cpus_per_call            how many cpus to allot to each rufus calling stage job; defaults
+                                to 40 for whole genome, 12 for 1MB windows. Must be greater than
+                                the RUFUS thread count (-z), or setup will exit with an error
+    -y path_to_rufus_container  if not provided, will look in the current directory for rufus.sif
+    -z rufus_threads            number of threads provided to RUFUS; defaults to 36 for the
+                                entire genome, 10 for 1MB windows
+    -e email                    the email address to notify with slurm updates
+    -q slurm_job_queue_limit    the maximum amount of jobs able to be run at once; defaults to 20
+    -t slurm_time_limit         the maximum amount of time to let the slurm job run; defaults to
+                                7 days for a full run, or one hour per window (DD-HH:MM:SS)
+    -h help                     print usage
 ```
 \
 *Notes on SLURM arguments*:\
