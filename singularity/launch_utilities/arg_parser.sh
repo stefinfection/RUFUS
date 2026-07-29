@@ -70,20 +70,15 @@ DEV_BIND_MOUNTS_ARG=()
 
 # Parse command line options using getopts
 #
-# TODO: two flags in this optstring are miswired. Both verified by running the string below
-# through getopts directly; neither is fixed here because both change behaviour and this file
-# feeds the SLURM-script generator the release gate depends on.
+# -C previously lacked its trailing colon ("M:CK:"), so it took no argument while its handler
+# still assigned CPUS_PER_JOB=$OPTARG. `-C 36` therefore left OPTARG unset, never set
+# CPUS_PER_JOB, and dropped "36" as an unread positional -- the documented cpus_per_call option
+# silently did nothing and every job got the default (40 whole-genome / 12 windowed). Now `C:`.
 #
-#   -C  declared WITHOUT a trailing colon ("M:CK:"), so it takes no argument -- but its handler
-#       assigns CPUS_PER_JOB=$OPTARG. Running `-C 36` leaves OPTARG unset, CPUS_PER_JOB empty,
-#       and drops "36" as an unread positional. The documented -C cpus_per_call option is
-#       therefore silently ignored. Fix is `C:`, but note that repairing it makes -C start
-#       taking effect, which changes SLURM CPU allocation on runs that currently ignore it.
-#
-#   -h  declared WITH a colon ("h:"), so it demands an argument. Bare `-h` never reaches the h)
-#       case; it falls to the missing-argument branch, which prints "Option -h requires an
-#       argument" before the usage text. Usage still appears, so this is cosmetic. Fix is `h`.
-while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:CK:G:D:V:d:P:" opt; do
+# STILL MISWIRED: -h carries a colon ("h:") so it demands an argument. Bare `-h` never reaches
+# the h) case; it falls to the missing-argument branch, printing "Option -h requires an argument"
+# before the usage text. Usage still prints, so this is cosmetic. Fix is to drop the colon.
+while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:h:M:C:K:G:D:V:d:P:" opt; do
     case ${opt} in
         s)
             IFS=',' read -r -a SUBJECTS_RUFUS_ARG <<< "$OPTARG"

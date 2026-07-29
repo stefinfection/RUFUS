@@ -157,7 +157,9 @@ Optional Arguments:
     -D ctrl_hash_dir    Full path to directory of per-region control Jhash files (files named *{region}*.Jhash)
     -V ctrl_version     Control hash version to download from S3 (e.g., v1.0)
     -M memory_per_call  How much memory to allot to the rufus calling stage job (e.g., 150G or 20G)
-    -C cpus_per_call    How many cpus to allot to each rufus calling stage job
+    -C cpus_per_call    How many cpus to allot to each rufus calling stage job; defaults to 40 for
+                        whole genome, 12 for 1MB windows. Must be greater than the RUFUS thread
+                        count (-z), or setup will exit with an error
     -y path_to_rufus_container   If not provided, will look in current directory for rufus.sif
     -z rufus_threads  Number of threads provided to RUFUS; defaults to 36 for entire genome; 10 for 1MB windows
     -e email  The email address to notify with slurm updates
@@ -213,9 +215,6 @@ The same run against hash directories you already hold locally:
 ```
 apptainer exec /home/my_container_path/rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh -s /home/subjects/subject.bam -r /refs/GRCh38_reference.fa -a my-slurm-account -p my-slurm-partition -b GRCh38 -w 1000 -l 1000 -K /data/kg1_hashes/v3.0/ -D /data/ctrl_hashes/v1.0/
 ```
-
-Expect lower specificity than a matched-control run: population hashes cannot subtract variation
-private to your subject the way a sequenced control can.
 
 *Note*: `-K`/`-G` (KG1 hashes) and `-D`/`-V` (control hashes) are mutually exclusive per type. You may mix local and S3 across types (e.g., `-K /local/kg1/ -V v1.0`). Hash files in local directories must be named with the region string (e.g., `*chr1_1_1000000*.Jhash` for region `chr1:1-1000000`, or `*wg*.Jhash` for whole-genome mode).
 
