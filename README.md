@@ -59,6 +59,12 @@ To browse releases instead, https://zenodo.org/records/13694210/latest opens the
 RUFUS requires the following data to run:
 1) A subject sample in FASTQ/BAM/CRAM/generator format. BAM/CRAM may be unaligned when using whole genome mode; FASTQ is whole-genome only and cannot be combined with `-R/--region`. If the sample is split across several files, pass `-s` once per file — they are treated as one sample, not as separate subjects.
 2) At least one of: one or more control samples (`-c`, same formats as the subject), or an exclude hash (`-e`). Multiple distinct controls are supported, e.g. mother and father for a trio. Supplying only `-e` — typically pre-built 1000G/control hashes — is single-sample mode.
+
+BAM, CRAM and generator inputs may be freely mixed across `-s` and `-c` — they all feed the same read stream internally. FASTQ must stand alone: if any input is a FASTQ, all of them must be. RUFUS filters reads from the FASTQ mate files directly in that case, so reads from any BAM/CRAM/generator alongside them would be counted but never filtered, quietly costing calls.
+
+A generator file is a shell script that writes SAM to stdout (e.g. a single line `samtools view -h -F 3328 /path/sample.bam`); RUFUS runs it to obtain reads. Generators are whole-genome only — `-R/--region` is not applied to them, so the SLURM launcher rejects them in windowed (`-w`) mode.
+
+The launcher scans generator files for the paths they reference and bind-mounts those directories automatically, reporting what it added. The scan is best-effort: it can only use paths that appear literally in the file and exist on the host, so a path built at runtime (`$DATA/sample.bam`) or supplied through the environment (samtools' `REF_PATH`/`REF_CACHE` for CRAM decode) will be missed — bind those yourself with `-d`. To keep such gaps from surfacing hours into a queued job, the launcher then runs each generator inside the container and refuses to submit unless it produces SAM, printing the generator's own error output. That check is skipped with a warning if no container runtime is on the submit host's PATH.
 3) A reference fasta file (this must be indexed by BWA) - for use in reporting the called variants. *It's recommended to provide the BWA indexes in the same directory as the reference to save time creating them during the RUFUS run.*\
 \
 To create the BWA indexes, run the following commands:
