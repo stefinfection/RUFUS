@@ -36,6 +36,7 @@ usage() {
   echo "-C cpus_per_call      How many cpus to allot to each rufus calling stage job; default 40 for entire genome; 12 for 1MB windows"
   echo "-d dev_binds     Comma-delimited list of host:container bind mounts for dev testing (e.g., /local/runRufus.sh:/opt/RUFUS/runRufus.sh)"
   echo "-P par_low_cov_threshold  Control k-mer count ceiling below which a variant is flagged as low-coverage-parent/inherited (default 7; set to 0 to disable, e.g. when using an assembly as the control)"
+  echo "-H hash_size  jellyfish hash size (-s) for the k-mer count step, e.g. 64G. MUST match the -s any pre-built control/DSA/exclude hash was built with, or the merge fails. Maps to runRufus -hs; RUFUS defaults to 16G whole-genome / 1G windowed if unset."
   echo "-h help	Print usage"
   echo ""
   echo "Output files are written to the current working directory."
@@ -68,6 +69,7 @@ MEM_PER_JOB=""
 CPUS_PER_JOB=""
 PAR_LOW_COV_THRESHOLD_RUFUS_ARG="7"
 DEV_BIND_MOUNTS_ARG=()
+HASH_SIZE_RUFUS_ARG=""
 
 # Parse command line options using getopts
 #
@@ -79,7 +81,7 @@ DEV_BIND_MOUNTS_ARG=()
 # STILL MISWIRED: -h carries a colon ("h:") so it demands an argument. Bare `-h` never reaches
 # the h) case; it falls to the missing-argument branch, printing "Option -h requires an argument"
 # before the usage text. Usage still prints, so this is cosmetic. Fix is to drop the colon.
-while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:M:C:K:G:D:V:d:P:h" opt; do
+while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:M:C:K:G:D:V:d:P:H:h" opt; do
     case ${opt} in
         s)
             IFS=',' read -r -a SUBJECTS_RUFUS_ARG <<< "$OPTARG"
@@ -156,6 +158,13 @@ while getopts ":s:c:b:a:p:r:m:w:e:l:q:t:f:x:y:z:M:C:K:G:D:V:d:P:h" opt; do
                 exit 1
             fi
             PAR_LOW_COV_THRESHOLD_RUFUS_ARG=$OPTARG
+            ;;
+        H)
+            if ! [[ "$OPTARG" =~ ^[0-9]+[GMKgmk]?$ ]]; then
+                echo "ERROR: -H hash_size must be a jellyfish hash size, e.g. 64G, 500M, or a plain integer." >&2
+                exit 1
+            fi
+            HASH_SIZE_RUFUS_ARG=$OPTARG
             ;;
         h)
             usage
@@ -526,3 +535,4 @@ export MEM_PER_JOB
 export CPUS_PER_JOB
 export PAR_LOW_COV_THRESHOLD_RUFUS_ARG
 export DEV_BIND_ARGS
+export HASH_SIZE_RUFUS_ARG

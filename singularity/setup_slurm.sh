@@ -240,6 +240,13 @@ function write_out_rest_of_rufus_args() {
     echo -en "$ref_flags -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> $RUFUS_SLURM_SCRIPT
     echo -en "$ref_flags -m $KMER_DEPTH_CUTOFF_RUFUS_ARG -k 25 -t $THREAD_LIMIT_RUFUS_ARG -L -vs " >> rufus.cmd
 
+    # Hash size (-hs) for the k-mer count step. Must match the -s of any pre-built control/DSA/exclude
+    # hash or runRufus.sh's merge aborts; left unset, RUFUS applies its own default (16G wg / 1G window).
+    if [ -n "$HASH_SIZE_RUFUS_ARG" ]; then
+      echo -en "-hs $HASH_SIZE_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
+      echo -en "-hs $HASH_SIZE_RUFUS_ARG " >> rufus.cmd
+    fi
+
     if [ "${PAR_LOW_COV_THRESHOLD_RUFUS_ARG}" != "7" ]; then
       echo -en "-plct $PAR_LOW_COV_THRESHOLD_RUFUS_ARG " >> $RUFUS_SLURM_SCRIPT
       echo -en "-plct $PAR_LOW_COV_THRESHOLD_RUFUS_ARG " >> rufus.cmd
