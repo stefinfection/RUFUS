@@ -491,6 +491,34 @@ make_jelly_hash ()
   fi
 }
 
+# Normalize a jellyfish -s size token (e.g. 64G, 500M, 1000000) to the power-of-two slot
+# count jellyfish actually allocates, so two sizes compare the way "jellyfish merge" compares
+# them. Echoes the normalized integer, or nothing if the token is unparseable.
+normalize_hash_size ()
+{
+  local tok="$1" num unit bytes p
+  [[ "$tok" =~ ^([0-9]+)([GgMmKk]?)$ ]] || { echo ""; return; }
+  num="${BASH_REMATCH[1]}"; unit="${BASH_REMATCH[2]}"
+  case "$unit" in
+    G|g) bytes=$(( num * 1024 * 1024 * 1024 ));;
+    M|m) bytes=$(( num * 1024 * 1024 ));;
+    K|k) bytes=$(( num * 1024 ));;
+    *)   bytes=$num;;
+  esac
+  p=1
+  while [ "$p" -lt "$bytes" ]; do p=$(( p * 2 )); done
+  echo "$p"
+}
+
+# Read the -s (hash size) a pre-built Jhash was created with, straight from its header via
+# "jellyfish info", normalized to the allocated power-of-two. Empty if it can't be determined.
+read_built_hash_size ()
+{
+  local hash="$1" tok
+  tok=$($modifiedJelly info "$hash" 2>/dev/null | sed -n 's/.* -s \([0-9]\+[GMKgmk]\?\) .*/\1/p' | head -1)
+  [ -n "$tok" ] && normalize_hash_size "$tok"
+}
+
 check_empty_hashes ()
 {
 	local region_arg="$1"
@@ -1089,6 +1117,47 @@ do
 done
 
 ##################################################
+
+
+############__PREFLIGHT: HASH SIZE MATCH__################
+# Jellyfish can only merge/diff hashes built at the same -s. The subject hash is built fresh here
+# (hours for a whole-genome sample), but pre-built control/DSA/exclude hashes carry a fixed size
+# from when they were made. If those disagree with the subject size, "$modifiedJelly merge" aborts
+# with "Can't merge hash with different size", leaving an empty HashList that only surfaces much
+# later as the misleading "No mutant hashes pulled from fastqs". Catch it here, in seconds, before
+# paying for the subject build.
+#
+# Only pre-built hashes that already exist on disk can mismatch; control generators counted in this
+# run are built at the subject size and match by construction, so those (not yet on disk) are skipped.
+
+# Intended subject hash size -- mirror make_jelly_hash: -hs override, else 16G whole-genome / 1G region.
+if [ -n "$_arg_hash_size" ]; then
+	_subject_hash_size="$_arg_hash_size"
+elif [ -z "$_arg_region" ]; then
+	_subject_hash_size="16G"
+else
+	_subject_hash_size="1G"
+fi
+_subject_slots=$(normalize_hash_size "$_subject_hash_size")
+
+_hash_size_mismatch=0
+for _control_hash in $(echo $parentsString) $(echo $parentsExcludeString); do
+	[ -f "$_control_hash" ] || continue          # not-yet-built generator control -> will match by construction
+	_control_slots=$(read_built_hash_size "$_control_hash")
+	[ -n "$_control_slots" ] || continue         # size unreadable -> don't block the run
+	if [ "$_control_slots" != "$_subject_slots" ]; then
+		echo "ERROR: hash size mismatch. The subject hash will be built at -s $_subject_hash_size, but a pre-built control/exclude hash was built at a different -s:" >&2
+		echo "         $_control_hash" >&2
+		_hash_size_mismatch=1
+	fi
+done
+if [ "$_hash_size_mismatch" -ne 0 ]; then
+	echo "Jellyfish cannot merge hashes of different sizes, so the k-mer subtraction would silently yield zero mutant k-mers." >&2
+	echo "Fix: re-run with -hs/--hash_size set to the control's size (e.g. -hs 64G), or rebuild the control(s) at -s $_subject_hash_size." >&2
+	_region_exit_reason="hash_size_mismatch"
+	exit 100
+fi
+########################################################
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
