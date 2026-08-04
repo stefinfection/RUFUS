@@ -320,6 +320,64 @@ else
     THREAD_LIMIT_RUFUS_ARG=${THREAD_LIMIT_RUFUS_ARG:-10}
 fi
 
+# Guard the per-job memory against the jellyfish hash floor. jellyfish pre-faults the ENTIRE hash
+# array at startup, so the -s size sets a hard RAM floor (not a peak that ramps): if -M is below it
+# the count is OOM-killed in the first minute -- a fast, confusing failure that otherwise only shows
+# up after submission. Catch it here instead.
+#
+# _hash_size_to_pow2_gb: parse a jellyfish -s token to the GiB of the power-of-two array jellyfish
+# actually rounds up to (so -H 48G is judged as the 64G it allocates, not 48).
+_hash_size_to_pow2_gb() {
+    local tok="$1" num unit bytes p
+    [[ "$tok" =~ ^([0-9]+)([GgMmKk]?)$ ]] || { echo 0; return; }
+    num="${BASH_REMATCH[1]}"; unit="${BASH_REMATCH[2]}"
+    case "$unit" in
+        G|g) bytes=$(( num * 1024 * 1024 * 1024 ));;
+        M|m) bytes=$(( num * 1024 * 1024 ));;
+        K|k) bytes=$(( num * 1024 ));;
+        *)   bytes=$num;;
+    esac
+    p=1
+    while [ "$p" -lt "$bytes" ]; do p=$(( p * 2 )); done
+    echo $(( p / (1024 * 1024 * 1024) ))
+}
+# Approx RAM (GiB) jellyfish -m 25 pre-faults for a hash of the given -s, from measured `jellyfish
+# mem` points (16G->64, 32G->123, 64G->237, 128G->~460); 4 GiB per GiB-of-hash elsewhere, which is
+# conservative (never lands under the true floor) for the large whole-genome sizes this guards.
+_hash_mem_floor_gb() {
+    local g; g=$(_hash_size_to_pow2_gb "$1")
+    case "$g" in
+        16) echo 64;;  32) echo 123;;  64) echo 237;;  128) echo 460;;
+        *)  echo $(( g * 4 ));;
+    esac
+}
+# Parse a SLURM memory string (e.g. 300G, 300000M, 1T) to GiB; 0 if it has no unit we recognize.
+_slurm_mem_to_gb() {
+    local tok="$1" num unit
+    [[ "$tok" =~ ^([0-9]+)([GgMmTt])$ ]] || { echo 0; return; }
+    num="${BASH_REMATCH[1]}"; unit="${BASH_REMATCH[2]}"
+    case "$unit" in T|t) echo $(( num * 1024 ));; G|g) echo "$num";; M|m) echo $(( num / 1024 ));; esac
+}
+
+# Effective count-step hash size: -H override, else RUFUS's own default (16G whole-genome, 1G window).
+if [ -n "$HASH_SIZE_RUFUS_ARG" ]; then
+    _effective_hash_size="$HASH_SIZE_RUFUS_ARG"
+elif [ "$WINDOW_SIZE_RUFUS_ARG" -eq 0 ]; then
+    _effective_hash_size="16G"
+else
+    _effective_hash_size="1G"
+fi
+_hash_floor_gb=$(_hash_mem_floor_gb "$_effective_hash_size")
+_mem_gb=$(_slurm_mem_to_gb "$MEM_PER_JOB")
+if [ "$_mem_gb" -gt 0 ] && [ "$_hash_floor_gb" -gt "$_mem_gb" ]; then
+    echo "ERROR: per-job memory (-M ${MEM_PER_JOB}) is below the jellyfish hash-size floor for -s ${_effective_hash_size}." >&2
+    echo "       jellyfish pre-faults the whole ${_effective_hash_size} array (~${_hash_floor_gb} GiB) at startup and would be" >&2
+    echo "       OOM-killed within the first minute of the count step." >&2
+    echo "       Raise -M to at least $(( _hash_floor_gb + 40 ))G (headroom for reads + spill), or lower -H." >&2
+    echo "       Whole-genome floors: -s 16G ~64, 32G ~123, 64G ~237 GiB." >&2
+    exit 1
+fi
+
 # Generator inputs are whole-genome only, for the same reason FASTQ is: runRufus.sh cannot scope one
 # to a region. A generator is an arbitrary shell command producing SAM, so `-R` is simply not applied
 # to it -- the contents are used verbatim. In windowed mode every array task would therefore count
