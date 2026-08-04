@@ -887,22 +887,31 @@ do
 		_arg_ref="$_arg_cramref"
     elif [[ "$parentExtension" = "generator" ]]
     then
-		# Copy the supplied generator into this run's working directory, mirroring the bam/cram
-		# branches above (each control gets its own generator file; only subjects concatenate into
-		# a shared one). This previously set parentGenerator="${parent}${region_postfix}" and wrote
-		# nothing, so it looked for a per-region sibling -- normal.generator.wg for a whole-genome
-		# run -- that nothing in this repo has ever created. Generator controls could not run at all.
+		# The historical name is <control><region_postfix> as a FULL path, and it is load-bearing:
+		# RunJellyForRUFUS.sh early-returns when $GEN.Jhash exists, so a pre-built control hash
+		# placed next to the input as <control><region_postfix>.Jhash (e.g. a DSA hash symlinked to
+		# DSA_SMHT004.1.generator.wg.Jhash) is picked up and jellyfish is skipped entirely. The
+		# generator body is never executed in that case, which is the point -- the hash already
+		# exists and the reads it came from may not even be on this filesystem.
+		#
+		# A caller may equally supply a pre-scoped generator at that path. Only when neither is
+		# present does the generator actually have to run, and only then is a runnable copy
+		# materialised -- in the working directory, not next to the user's input.
 		#
 		# The generator is used verbatim: -R/--region is NOT applied to it, exactly as for generator
 		# subjects above. Scoping a generator to a region is the caller's responsibility.
-		if [[ ! -e "$parent" ]]
+		parentGenerator="${parent}${region_postfix}"
+		if [ ! -e "$parentGenerator" ] && [ ! -e "${parentGenerator}.Jhash" ]
 		then
-			echo "The control generator file $parent does not exist; killing run with non-zero exit status"
-			kill -9 $$
+			if [[ ! -e "$parent" ]]
+			then
+				echo "The control generator file $parent does not exist; killing run with non-zero exit status"
+				kill -9 $$
+			fi
+			parentGenerator="${parentFileName}${region_postfix}.generator"
+			cat "$parent" > "$parentGenerator"
 		fi
-		parentGenerator="${parentFileName}${region_postfix}.generator"
 		ParentGenerators+=("$parentGenerator")
-		cat "$parent" > "$parentGenerator"
     fi
 done
 #################################################################

@@ -93,26 +93,52 @@ preflight_generators() {
     done
     [ ${#generators[@]} -eq 0 ] && return 0
 
-    local runtime
-    runtime="$(command -v apptainer || command -v singularity)" || runtime=""
-    if [ -z "$runtime" ]; then
-        echo "WARNING: neither apptainer nor singularity found on PATH; skipping the generator" >&2
-        echo "         preflight. Generator errors will not surface until the jobs run." >&2
-        return 0
+    # setup_slurm.sh is normally invoked from *inside* the container:
+    #   apptainer exec rufus.sif bash /opt/RUFUS/singularity/setup_slurm.sh ...
+    # as every README example shows. No container runtime exists inside the image, and none is
+    # needed -- this is already the environment the generator will run in, samtools included -- so
+    # run the generator directly. Only enter the container when setup is running on the host.
+    #
+    # Note the binds differ between the two cases: in-container we inherit whatever the caller's
+    # exec bound (at CHPC the singularity/apptainer module sets *_BINDPATH=/scratch,/uufs), whereas
+    # the generated job scripts use BIND_MOUNTS. A generator that reads from a path bound only in
+    # the job environment can therefore fail here; the error text below says so.
+    local -a run_prefix=()
+    if [ -n "${APPTAINER_CONTAINER:-}${SINGULARITY_CONTAINER:-}" ] || [ -d /.singularity.d ]; then
+        : # already inside the container -- run_prefix stays empty
+    else
+        local runtime sif
+        runtime="$(command -v apptainer || command -v singularity)" || runtime=""
+        if [ -z "$runtime" ]; then
+            echo "WARNING: setup is not running inside a container and neither apptainer nor" >&2
+            echo "         singularity is on PATH; skipping the generator preflight. Generator" >&2
+            echo "         errors will not surface until the jobs run." >&2
+            return 0
+        fi
+        sif="${CONTAINER_PATH_RUFUS_ARG:-rufus.sif}"
+        if [ ! -f "$sif" ]; then
+            echo "WARNING: container $sif not found; skipping the generator preflight." >&2
+            return 0
+        fi
+        run_prefix=("$runtime" exec --bind "${BIND_MOUNTS}${DEV_BIND_ARGS}" "$sif")
     fi
 
-    local sif="${CONTAINER_PATH_RUFUS_ARG:-rufus.sif}"
-    if [ ! -f "$sif" ]; then
-        echo "WARNING: container $sif not found; skipping the generator preflight." >&2
-        return 0
-    fi
-
-    local gen out rc
+    local gen out rc checked=0
     for gen in "${generators[@]}"; do
+        # A generator with a pre-built hash beside it is never executed: runRufus.sh keeps the
+        # <generator><region_postfix> naming and RunJellyForRUFUS.sh skips jellyfish when
+        # <generator><region_postfix>.Jhash exists. That is how pre-built DSA/control hashes are
+        # supplied, and such a generator is legitimately empty, so there is nothing to preflight.
+        # Generators are rejected in windowed mode, so .wg is the only postfix reachable here.
+        if [ -e "${gen}.wg.Jhash" ]; then
+            echo "Skipping preflight for $(basename "$gen"): pre-built hash ${gen}.wg.Jhash will be used instead."
+            continue
+        fi
+        checked=$((checked + 1))
+
         # head closes the pipe once it has enough to judge, so the generator is not run to
         # completion; its exit status is therefore not meaningful and the output is what we check.
-        out="$(timeout 120 "$runtime" exec --bind "${BIND_MOUNTS}${DEV_BIND_ARGS}" "$sif" \
-                bash -c "bash '$gen' 2>&1 | head -20" 2>&1)"
+        out="$(timeout 120 "${run_prefix[@]}" bash -c "bash '$gen' 2>&1 | head -20" 2>&1)"
         rc=$?
 
         if [ $rc -eq 124 ]; then
@@ -137,10 +163,14 @@ preflight_generators() {
         else
             echo "         (no output)" >&2
         fi
-        echo "       If this references paths the launcher could not detect, bind them with -d." >&2
+        echo "       An empty generator, or one whose data paths are not visible here, fails this" >&2
+        echo "       way. If the paths are only bound in the job environment, bind them for setup" >&2
+        echo "       too (SINGULARITY_BINDPATH/--bind) or add them with -d." >&2
         exit 1
     done
-    echo "Generator preflight passed (${#generators[@]} generator(s) produced SAM in the container)."
+    if [ "$checked" -gt 0 ]; then
+        echo "Generator preflight passed ($checked of ${#generators[@]} generator(s) produced SAM in the container)."
+    fi
 }
 preflight_generators
 
