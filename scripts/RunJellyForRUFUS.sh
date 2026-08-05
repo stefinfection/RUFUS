@@ -1,5 +1,8 @@
 #!/bin/bash
 set -e
+# pipefail so the feeder pipeline below reports a failure in `bash "$GEN"` and not just in the
+# samtools stage that terminates it.
+set -o pipefail
 GEN=$1
 K=$2
 T=$3
@@ -25,7 +28,9 @@ else
 	mkfifo "$FIFO_FQ"
 
 	# bash "$GEN" | "$RDIR/bin/PassThroughSamCheck" "$GEN.Jelly.chr" > "$FIFO_FQ" &
-	# samtools fastq validated bit-identical to PassThroughSamCheck for counting (job 16682513); generator now emits -h so the header is present.
+	# samtools fastq validated bit-identical to PassThroughSamCheck for counting (job 16682513); the
+	# generator's first command emits -h so the header is present -- and only its first, since
+	# samtools aborts on a second @HD mid-stream.
 	bash "$GEN" | samtools fastq -@ "$T" - > "$FIFO_FQ" &
 	FEEDER=$!
 
@@ -59,8 +64,21 @@ else
 		exit 2
 	fi
 
-	wait
+	# The feeder's status is not jellyfish's. If the feeder dies partway -- a truncated stream,
+	# an unreadable input, a malformed generator -- jellyfish sees a clean EOF on the FIFO and
+	# reports success over however many reads happened to arrive, so an under-counted hash
+	# looks identical to a complete one. Reap it explicitly and treat a failure as a tool
+	# failure (2), discarding the partial hash so a rerun cannot pick it up via the
+	# skip-if-exists check at the top.
+	wait "$FEEDER"
+	feeder_rc=$?
 	set -e
+
+	if [ "$feeder_rc" -ne 0 ]; then
+		rm -f "$GEN.Jhash"
+		echo "ERROR: read feeder failed (exit $feeder_rc) for $GEN; k-mer counts would be incomplete" >&2
+		exit 2
+	fi
 
 	# A zero exit with no output file means jellyfish died without reporting it.
 	if [ ! -s "$GEN.Jhash" ]; then

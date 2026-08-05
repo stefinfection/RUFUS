@@ -786,7 +786,13 @@ fi
 ProbandExtension="${ProbandFileName##*.}"
 ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
 
-# Build concatenated generator from all subject files
+# Build concatenated generator from all subject files.
+# Exactly one command in the generator may emit a SAM header: the body is run as a single
+# stream (`bash "$ProbandGenerator" | samtools ...`) and samtools aborts on a second @HD
+# mid-stream -- collate discards the whole stream, so Filter sees zero reads. _subj_hdr
+# carries the header flag for the first emitting command and is cleared thereafter; the
+# FASTQ block below continues the same flag so a bam+fastq mix stays single-headered.
+_subj_hdr="-h "
 > "$ProbandGenerator"
 for subject in "${_arg_subjects[@]}"
 do
@@ -805,7 +811,8 @@ do
             _region_exit_reason="missing_subject_bam_index"
             exit 1
         fi
-        echo "samtools view -h -@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view ${_subj_hdr}-@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        _subj_hdr=""
     elif [[ "$subjectExtension" == "cram" ]]
     then
         if [[ ! -e "$subject".crai ]]
@@ -819,11 +826,20 @@ do
             echo "ERROR cram reference not provided for cram input"
             kill -9 $$
         fi
-        echo "samtools view -h -@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view ${_subj_hdr}-@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        _subj_hdr=""
         _arg_ref="$_arg_cramref"
     elif [[ "$subjectExtension" == "generator" ]]
     then
-        cat "$subject" >> "$ProbandGenerator"
+        # A pre-built generator carries its own header-emitting command. Keep it only if it
+        # lands first; otherwise strip the header flags as it is appended.
+        if [ -n "$_subj_hdr" ]
+        then
+            cat "$subject" >> "$ProbandGenerator"
+        else
+            sed -e 's/^\(samtools view\) -h /\1 /' -e 's/ header$//' "$subject" >> "$ProbandGenerator"
+        fi
+        _subj_hdr=""
     else
         echo "unknown error during generator generation, killing run with non-zero exit status"
         kill -9 $$
@@ -831,7 +847,8 @@ do
 done
 
 # FASTQ subject(s): whole-genome only -- unaligned reads cannot be region-scoped. The loop above
-# skipped them; build the generator here as one @HD header (on the first file) + unmapped SAM records.
+# skipped them; build the generator here as unmapped SAM records, headed by a single @HD if no
+# bam/cram subject above has already claimed it (_subj_hdr).
 if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
 	if [ -n "$_arg_region" ]; then
 		echo "ERROR: FASTQ input is whole-genome only and cannot be region-scoped; remove -R/--region (or supply an aligned bam/cram)."
@@ -842,10 +859,9 @@ if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
 		echo "ERROR: FASTQ subject input requires a reference via -r/--ref."
 		exit 1
 	fi
-	_fq_first=1
 	for fq in "${_arg_subject_fastqs[@]}"; do
 		[ -e "$fq" ] || { echo "FASTQ subject file $fq does not exist; killing run"; kill -9 $$; }
-		_hdr=""; [ "$_fq_first" -eq 1 ] && _hdr=" header"; _fq_first=0
+		_hdr=""; [ -n "$_subj_hdr" ] && _hdr=" header"; _subj_hdr=""
 		if [[ "$fq" == *.gz ]]; then
 			echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $fq)$_hdr" >> "$ProbandGenerator"
 		else
