@@ -491,6 +491,34 @@ make_jelly_hash ()
   fi
 }
 
+# Normalize a jellyfish -s size token (e.g. 64G, 500M, 1000000) to the power-of-two slot
+# count jellyfish actually allocates, so two sizes compare the way "jellyfish merge" compares
+# them. Echoes the normalized integer, or nothing if the token is unparseable.
+normalize_hash_size ()
+{
+  local tok="$1" num unit bytes p
+  [[ "$tok" =~ ^([0-9]+)([GgMmKk]?)$ ]] || { echo ""; return; }
+  num="${BASH_REMATCH[1]}"; unit="${BASH_REMATCH[2]}"
+  case "$unit" in
+    G|g) bytes=$(( num * 1024 * 1024 * 1024 ));;
+    M|m) bytes=$(( num * 1024 * 1024 ));;
+    K|k) bytes=$(( num * 1024 ));;
+    *)   bytes=$num;;
+  esac
+  p=1
+  while [ "$p" -lt "$bytes" ]; do p=$(( p * 2 )); done
+  echo "$p"
+}
+
+# Read the -s (hash size) a pre-built Jhash was created with, straight from its header via
+# "jellyfish info", normalized to the allocated power-of-two. Empty if it can't be determined.
+read_built_hash_size ()
+{
+  local hash="$1" tok
+  tok=$($modifiedJelly info "$hash" 2>/dev/null | sed -n 's/.* -s \([0-9]\+[GMKgmk]\?\) .*/\1/p' | head -1)
+  [ -n "$tok" ] && normalize_hash_size "$tok"
+}
+
 check_empty_hashes ()
 {
 	local region_arg="$1"
@@ -758,7 +786,13 @@ fi
 ProbandExtension="${ProbandFileName##*.}"
 ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
 
-# Build concatenated generator from all subject files
+# Build concatenated generator from all subject files.
+# Exactly one command in the generator may emit a SAM header: the body is run as a single
+# stream (`bash "$ProbandGenerator" | samtools ...`) and samtools aborts on a second @HD
+# mid-stream -- collate discards the whole stream, so Filter sees zero reads. _subj_hdr
+# carries the header flag for the first emitting command and is cleared thereafter; the
+# FASTQ block below continues the same flag so a bam+fastq mix stays single-headered.
+_subj_hdr="-h "
 > "$ProbandGenerator"
 for subject in "${_arg_subjects[@]}"
 do
@@ -777,7 +811,8 @@ do
             _region_exit_reason="missing_subject_bam_index"
             exit 1
         fi
-        echo "samtools view -h -@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view ${_subj_hdr}-@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        _subj_hdr=""
     elif [[ "$subjectExtension" == "cram" ]]
     then
         if [[ ! -e "$subject".crai ]]
@@ -791,11 +826,20 @@ do
             echo "ERROR cram reference not provided for cram input"
             kill -9 $$
         fi
-        echo "samtools view -h -@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view ${_subj_hdr}-@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        _subj_hdr=""
         _arg_ref="$_arg_cramref"
     elif [[ "$subjectExtension" == "generator" ]]
     then
-        cat "$subject" >> "$ProbandGenerator"
+        # A pre-built generator carries its own header-emitting command. Keep it only if it
+        # lands first; otherwise strip the header flags as it is appended.
+        if [ -n "$_subj_hdr" ]
+        then
+            cat "$subject" >> "$ProbandGenerator"
+        else
+            sed -e 's/^\(samtools view\) -h /\1 /' -e 's/ header$//' "$subject" >> "$ProbandGenerator"
+        fi
+        _subj_hdr=""
     else
         echo "unknown error during generator generation, killing run with non-zero exit status"
         kill -9 $$
@@ -803,7 +847,8 @@ do
 done
 
 # FASTQ subject(s): whole-genome only -- unaligned reads cannot be region-scoped. The loop above
-# skipped them; build the generator here as one @HD header (on the first file) + unmapped SAM records.
+# skipped them; build the generator here as unmapped SAM records, headed by a single @HD if no
+# bam/cram subject above has already claimed it (_subj_hdr).
 if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
 	if [ -n "$_arg_region" ]; then
 		echo "ERROR: FASTQ input is whole-genome only and cannot be region-scoped; remove -R/--region (or supply an aligned bam/cram)."
@@ -814,10 +859,9 @@ if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
 		echo "ERROR: FASTQ subject input requires a reference via -r/--ref."
 		exit 1
 	fi
-	_fq_first=1
 	for fq in "${_arg_subject_fastqs[@]}"; do
 		[ -e "$fq" ] || { echo "FASTQ subject file $fq does not exist; killing run"; kill -9 $$; }
-		_hdr=""; [ "$_fq_first" -eq 1 ] && _hdr=" header"; _fq_first=0
+		_hdr=""; [ -n "$_subj_hdr" ] && _hdr=" header"; _subj_hdr=""
 		if [[ "$fq" == *.gz ]]; then
 			echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $fq)$_hdr" >> "$ProbandGenerator"
 		else
@@ -887,8 +931,31 @@ do
 		_arg_ref="$_arg_cramref"
     elif [[ "$parentExtension" = "generator" ]]
     then
+		# The historical name is <control><region_postfix> as a FULL path, and it is load-bearing:
+		# RunJellyForRUFUS.sh early-returns when $GEN.Jhash exists, so a pre-built control hash
+		# placed next to the input as <control><region_postfix>.Jhash (e.g. a DSA hash symlinked to
+		# DSA_SMHT004.1.generator.wg.Jhash) is picked up and jellyfish is skipped entirely. The
+		# generator body is never executed in that case, which is the point -- the hash already
+		# exists and the reads it came from may not even be on this filesystem.
+		#
+		# A caller may equally supply a pre-scoped generator at that path. Only when neither is
+		# present does the generator actually have to run, and only then is a runnable copy
+		# materialised -- in the working directory, not next to the user's input.
+		#
+		# The generator is used verbatim: -R/--region is NOT applied to it, exactly as for generator
+		# subjects above. Scoping a generator to a region is the caller's responsibility.
 		parentGenerator="${parent}${region_postfix}"
-        ParentGenerators+=("$parentGenerator")
+		if [ ! -e "$parentGenerator" ] && [ ! -e "${parentGenerator}.Jhash" ]
+		then
+			if [[ ! -e "$parent" ]]
+			then
+				echo "The control generator file $parent does not exist; killing run with non-zero exit status"
+				kill -9 $$
+			fi
+			parentGenerator="${parentFileName}${region_postfix}.generator"
+			cat "$parent" > "$parentGenerator"
+		fi
+		ParentGenerators+=("$parentGenerator")
     fi
 done
 #################################################################
@@ -1066,6 +1133,47 @@ do
 done
 
 ##################################################
+
+
+############__PREFLIGHT: HASH SIZE MATCH__################
+# Jellyfish can only merge/diff hashes built at the same -s. The subject hash is built fresh here
+# (hours for a whole-genome sample), but pre-built control/DSA/exclude hashes carry a fixed size
+# from when they were made. If those disagree with the subject size, "$modifiedJelly merge" aborts
+# with "Can't merge hash with different size", leaving an empty HashList that only surfaces much
+# later as the misleading "No mutant hashes pulled from fastqs". Catch it here, in seconds, before
+# paying for the subject build.
+#
+# Only pre-built hashes that already exist on disk can mismatch; control generators counted in this
+# run are built at the subject size and match by construction, so those (not yet on disk) are skipped.
+
+# Intended subject hash size -- mirror make_jelly_hash: -hs override, else 16G whole-genome / 1G region.
+if [ -n "$_arg_hash_size" ]; then
+	_subject_hash_size="$_arg_hash_size"
+elif [ -z "$_arg_region" ]; then
+	_subject_hash_size="16G"
+else
+	_subject_hash_size="1G"
+fi
+_subject_slots=$(normalize_hash_size "$_subject_hash_size")
+
+_hash_size_mismatch=0
+for _control_hash in $(echo $parentsString) $(echo $parentsExcludeString); do
+	[ -f "$_control_hash" ] || continue          # not-yet-built generator control -> will match by construction
+	_control_slots=$(read_built_hash_size "$_control_hash")
+	[ -n "$_control_slots" ] || continue         # size unreadable -> don't block the run
+	if [ "$_control_slots" != "$_subject_slots" ]; then
+		echo "ERROR: hash size mismatch. The subject hash will be built at -s $_subject_hash_size, but a pre-built control/exclude hash was built at a different -s:" >&2
+		echo "         $_control_hash" >&2
+		_hash_size_mismatch=1
+	fi
+done
+if [ "$_hash_size_mismatch" -ne 0 ]; then
+	echo "Jellyfish cannot merge hashes of different sizes, so the k-mer subtraction would silently yield zero mutant k-mers." >&2
+	echo "Fix: re-run with -hs/--hash_size set to the control's size (e.g. -hs 64G), or rebuild the control(s) at -s $_subject_hash_size." >&2
+	_region_exit_reason="hash_size_mismatch"
+	exit 100
+fi
+########################################################
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
