@@ -21,3 +21,8 @@ cleanup.sh
 rufus_figure.pdf
 rufus_figure.py
 rufus_figure.png
+tests/one_offs/*
+tests/genome_wide/*
+tests/accuracy/config.sh
+tests/accuracy/*.out
+tests/accuracy/*.err
