@@ -26,7 +26,7 @@ set -euo pipefail
 HERE="${FUNCTIONAL_CASES_DIR:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}}"
 FIX="$(cd "$HERE/../fixtures" 2>/dev/null && pwd)" || { echo "ERROR: cannot locate fixtures from HERE=$HERE"; exit 1; }
 DATA=/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/resources/reg_test_files
-SIF=${SIF:-$DATA/rufus_dev.sif}
+SIF=${SIF:-/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/zenodo_images/rufus_dev.sif}
 OUT=${OUT:-$DATA/runs/f5_fastq_paired}
 THREADS=${SLURM_CPUS_PER_TASK:-8}
 WINDOW=10
