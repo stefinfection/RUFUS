@@ -37,6 +37,9 @@ jobs:
           # RUFUS_VERSION lives in resources/globals.txt as RUFUS_VERSION="vX.Y.Z"
           VERSION=$(grep -E '^RUFUS_VERSION=' resources/globals.txt | cut -d'"' -f2)
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          # Provenance stamped into the image (see Dockerfile BUILD_INFO). github.sha is the
+          # built commit; build_time is captured here since build-args can't call date.
+          echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
           REF="${GITHUB_REF}"
           if [[ "${REF}" == refs/tags/v* ]]; then
@@ -77,6 +80,9 @@ jobs:
           tags: ${{ env.IMAGE }}:ci-${{ github.sha }}
           build-args: |
             RUFUS_VERSION=${{ steps.meta.outputs.version }}
+            GIT_SHA=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
+            BUILD_TIME=${{ steps.meta.outputs.build_time }}
 
       - name: Smoke test
         run: docker run --rm ${{ env.IMAGE }}:ci-${{ github.sha }} bash /opt/RUFUS/tests/smoke_test.sh

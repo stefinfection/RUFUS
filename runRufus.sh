@@ -15,6 +15,15 @@ set +a
 echo -n "You are running the $RUFUS_BRANCH"
 echo " version of RUFUS: $RUFUS_VERSION"
 echo " root dir is $WORK_ROOT"
+# Provenance: the exact commit this image was built from (see /opt/RUFUS/BUILD_INFO, written at
+# image build time). Absent on pre-provenance images, so guard for it. Read with sed rather than
+# sourcing so it can't clobber RUFUS_VERSION/RUFUS_BRANCH from globals above.
+if [ -f "$RUFUS_ROOT/BUILD_INFO" ]; then
+	_gsha=$(sed -n 's/^GIT_SHA=//p'    "$RUFUS_ROOT/BUILD_INFO")
+	_gbr=$(sed -n 's/^GIT_BRANCH=//p'  "$RUFUS_ROOT/BUILD_INFO")
+	_gbt=$(sed -n 's/^BUILD_TIME=//p'  "$RUFUS_ROOT/BUILD_INFO")
+	echo " image built from git ${_gsha:-unknown} (${_gbr:-unknown}) at ${_gbt:-unknown}"
+fi
 
 set -e 
 

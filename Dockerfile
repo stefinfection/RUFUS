@@ -78,6 +78,26 @@ RUN cd /opt && \
 COPY . /opt/RUFUS
 RUN cd /opt/RUFUS && mkdir -p bin && cd bin && cmake ../ && make
 
+# ---- Provenance stamp -------------------------------------------------------
+# Record the EXACT commit this image was built from, so any image self-identifies:
+#   apptainer exec rufus.sif cat /opt/RUFUS/BUILD_INFO
+# and runRufus.sh prints it on every run. This is what lets you tell two images apart
+# when both are branch=docker / version=dev — the filename no longer has to carry that
+# state. Values are passed IN (the build can't derive them: .dockerignore excludes .git):
+#   - CI passes github.sha           (.github/workflows/build-publish.yml)
+#   - scripts/build_image.sh passes  git rev-parse, with a -dirty suffix for uncommitted
+#     trees — the honest replacement for a "_ip" filename
+#   - "unknown" for a bare `docker build .` with no --build-arg
+# Declared HERE, after the toolchain/compile layers, so a changing SHA never invalidates
+# their build cache (same commit -> same stamp -> fully cached rebuild).
+ARG GIT_SHA=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILD_TIME=unknown
+LABEL org.opencontainers.image.revision="${GIT_SHA}"
+RUN printf 'RUFUS_VERSION=%s\nGIT_SHA=%s\nGIT_BRANCH=%s\nBUILD_TIME=%s\n' \
+      "${RUFUS_VERSION}" "${GIT_SHA}" "${GIT_BRANCH}" "${BUILD_TIME}" \
+      > /opt/RUFUS/BUILD_INFO && cat /opt/RUFUS/BUILD_INFO
+
 # Drop the largest build-only packages; keep the rest since runtime depends on them.
 RUN apt-get purge -y --auto-remove git wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

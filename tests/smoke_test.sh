@@ -72,6 +72,9 @@ check_file     "modified jellyfish" "$JELLYFISH"
 echo "== RUFUS layout / environment =="
 check_file "runRufus.sh"  "${RUFUS_ROOT}/runRufus.sh"
 check_file "globals.txt"  "${RUFUS_ROOT}/resources/globals.txt"
+# Provenance stamp must be present so every image self-identifies (its VALUE may be "unknown"
+# for a bare local build; here we only assert the file exists, i.e. the stamp step ran).
+check_file "BUILD_INFO"   "${RUFUS_ROOT}/BUILD_INFO"
 if [ -n "${RUFUS_ROOT:-}" ]; then
     echo "  ok: RUFUS_ROOT set (${RUFUS_ROOT})"
 else
