@@ -30,7 +30,7 @@ FIX="$(cd "$HERE/../fixtures" 2>/dev/null && pwd)" || {
   echo "       submit from tests/functional/cases/ or set FUNCTIONAL_CASES_DIR=<abs path to cases/>"
   exit 1; }
 DATA=/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/resources/reg_test_files
-SIF=${SIF:-$DATA/rufus_dev.sif}
+SIF=${SIF:-/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/zenodo_images/rufus_dev.sif}
 OUT=${OUT:-$DATA/runs/f4_specificity}
 THREADS=${SLURM_CPUS_PER_TASK:-8}
 

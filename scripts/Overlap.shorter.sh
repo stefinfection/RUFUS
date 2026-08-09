@@ -295,13 +295,13 @@ IFS=' ' read -r -a parents <<< "$ParentsJhash"
 CtrlStub="ctrlhash"
 for parent in "${parents[@]}"
         do
-			parent=$(basename "$parent")
+			parent_path="$parent"; parent=$(basename "$parent")   # keep full path for the hash query; basename is for on-disk filenames only
             if [ -s "$WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.$parent" ]
             then
                 echo "skiping $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.$parent already exists"
             else
 				echo "pulling  $WORK_DIR/Intermediates/$CtrlStub".overlap.asembly.hash.fastq."$parent"
-                bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub".overlap.asembly.hash.fastq."$parent &
+                bash $CheckHash "$parent_path" $WORK_DIR/Intermediates/$NameStub.overlap.hashcount.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub".overlap.asembly.hash.fastq."$parent &
 						pid=$!
 				wait "$pid" || { echo "ERROR: hash lookup failed"; exit 100; }
             fi
@@ -318,7 +318,7 @@ fi
 
 for parent in "${parents[@]}"
 do
-	parent=$(basename "$parent")
+	parent_path="$parent"; parent=$(basename "$parent")   # keep full path for the hash query; basename is for on-disk filenames only
     if [ -s "$WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent" ]
     then
         echo "skipping $CtrlStub.overlap.asembly.hash.fastq.Ref.$parent already exitst"
@@ -326,7 +326,7 @@ do
 	
         #echo "-$parent-"
         #echo "  bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent"
-        bash $CheckHash $parent $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent &
+        bash $CheckHash "$parent_path" $WORK_DIR/Intermediates/$NameStub.overlap.asembly.hash.fastq.ref.fastq.Jhash.tab 0 $MaxCov> $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent &
     	echo "uncomment this"
     fi
 done
@@ -340,7 +340,7 @@ space=" "
 ######################## BUILDING UP parent c and cR string ##############################
 for parent in "${parents[@]}";
 do
-	parent=$(basename "$parent")
+	parent_path="$parent"; parent=$(basename "$parent")   # keep full path for the hash query; basename is for on-disk filenames only
     parentCRString="$parentCRString -c $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.$parent -cR $WORK_DIR/Intermediates/$CtrlStub.overlap.asembly.hash.fastq.Ref.$parent "
 done
 

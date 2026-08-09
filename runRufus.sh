@@ -15,6 +15,15 @@ set +a
 echo -n "You are running the $RUFUS_BRANCH"
 echo " version of RUFUS: $RUFUS_VERSION"
 echo " root dir is $WORK_ROOT"
+# Provenance: the exact commit this image was built from (see /opt/RUFUS/BUILD_INFO, written at
+# image build time). Absent on pre-provenance images, so guard for it. Read with sed rather than
+# sourcing so it can't clobber RUFUS_VERSION/RUFUS_BRANCH from globals above.
+if [ -f "$RUFUS_ROOT/BUILD_INFO" ]; then
+	_gsha=$(sed -n 's/^GIT_SHA=//p'    "$RUFUS_ROOT/BUILD_INFO")
+	_gbr=$(sed -n 's/^GIT_BRANCH=//p'  "$RUFUS_ROOT/BUILD_INFO")
+	_gbt=$(sed -n 's/^BUILD_TIME=//p'  "$RUFUS_ROOT/BUILD_INFO")
+	echo " image built from git ${_gsha:-unknown} (${_gbr:-unknown}) at ${_gbt:-unknown}"
+fi
 
 set -e 
 
@@ -75,6 +84,10 @@ _arg_control_fastqs=()
 _arg_ref=
 _arg_threads=3
 _arg_kmersize=25
+# NOTE: this default is load-bearing beyond its face value. The model phase (see MODEL PHASE
+# below) only runs when _arg_min is EMPTY, so initialising it here means that branch is never
+# taken and ModelDist never runs. Clearing this default would silently enable the model and
+# change genotyping behaviour across the board -- do not "tidy" it without reading that block.
 _arg_min=5
 _arg_refhash=
 _arg_saliva="FALSE"
@@ -109,7 +122,7 @@ print_help ()
 	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
 	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
 	printf "\t%s\n" "-k,--kersize: size of k-mer to use (no default)"
-	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+	printf "\t%s\n" "-m,--min: minimum k-mer count to call a variant (default 5 -- see NOTE below)"
 	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
 	printf "\t%s\n" "-L, --Report_Low_Freq: Reprot Mosaic/Low Frequency/Somatic variants (default FALSE)"
@@ -117,6 +130,11 @@ print_help ()
 	printf "\t%s\n" "-o, --devOutput: Prints very verbose run information to stdout"
 	printf "\t%s\n" "-h,--help: Print help"
 	printf "\t%s\n" "-d: Print dev help"
+	printf "\n"
+	printf "\t%s\n" "NOTE on -m/--min and the coverage model: -m always carries a value (default 5), and the"
+	printf "\t%s\n" "coverage-model phase only runs when -m is unset, so in practice the model is never built."
+	printf "\t%s\n" "RUFUS uses -m directly as the minimum k-mer count. A consequence is that the GT and"
+	printf "\t%s\n" "FILTER columns of the VCF are not model-derived; see MODEL PHASE in runRufus.sh."
 }
 
 print_devhelp ()
@@ -132,7 +150,7 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-cr,--cramref: file path to the desired reference file to decompress input cram files (no default)"
 	printf "\t%s\n" "-t,--threads: number of threads to use (no default) (min 3)"
 	printf "\t%s\n" "-k,--kmersize: size of k-mer to use (no default)"
-	printf "\t%s\n" "-m,--min: overwrites the minimum k-mer count to call variant (no default)"
+	printf "\t%s\n" "-m,--min: minimum k-mer count to call a variant (default 5 -- see NOTE below)"
 	printf "\t%s\n" "-i, --saliva: flag to indicate that the subject sample is a buccal swab and likely contains a significant fraction of contaminant DNA"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
 	printf "\t%s\n" "-L, --Report_Low_Freq: Report Mosaic/Low Frequency/Somatic variants (default FALSE)"
@@ -145,7 +163,7 @@ s-n>] ...\n' "$0"
 
 	printf "\t%s\n" "-f,--refhash: Jhash file containing reference hashList (no default)"
 	printf "\t%s\n" "-mx, --MaxAllele: Max size for insert/deletion events to put the entire alt sequence in. (default 1000)"
-	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequencing.  Distribution model is not used, -m = 20, saliva fix is set, max kmer depth set to 1 million (EXPERIMENTAL values used here have not been exhaustivly tested)"
+	printf "\t%s\n" "-ex, --exome: flag to set if your input data is exome sequencing. Sets saliva fix and max kmer depth of 1 million (EXPERIMENTAL values used here have not been exhaustivly tested). The distribution model is not used -- though see the NOTE below, it is not used in any mode. The intended -m = 20 override is also inactive: -m already has a default, so an exome run uses -m 5 unless you pass -m explicitly."
 	printf "\t%s\n" "-q1,--fastq1: If starting from fastq files, a list of the mate1 fastq files to improve RUFUS.filter"
 	printf "\t%s\n" "-q2,--fastq2: If starting from fastq files, a list of the mate2 fastq files to improve RUFUS.filter"
 	printf "\t%s\n" "-vs, --Very_Short_Assembly: use very short assembly methods, recommended when you are expecting over 10,000 variants "
@@ -164,6 +182,19 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-d,--devhelp: HELP!!! for developers"
 	printf "\t%s\n" "-pa,--passArray: pass the slurm array index to the script for debugging purposes"
 	printf "\t%s\n" "-cn,--currAbsNum: pass the calculated absolute coordinate value to the script for debugging purposes"
+	printf "\n"
+	printf "\t%s\n" "################################################################################################"
+	printf "\t%s\n" "NOTE: the coverage-distribution model (ModelDist) is never built, in any run mode."
+	printf "\t%s\n" "################################################################################################"
+	printf "\t%s\n" "The model phase is gated on '[ -z \$_arg_min ] && [ \$_arg_exome == FALSE ]', but _arg_min is"
+	printf "\t%s\n" "initialised to 5 in the defaults block and never cleared, so the first test is never true and"
+	printf "\t%s\n" "the else branch always runs. That branch writes a 4-line placeholder .7.7.model and never"
+	printf "\t%s\n" "produces the .7.7.dist that RUFUS.interpret is passed via -mod, so ProcessDist fails to open"
+	printf "\t%s\n" "it (non-fatally) and the Bayesian genotyper is inert. Observable effects: GT is '.' and FILTER"
+	printf "\t%s\n" "is '.' on essentially every SNV/indel record, FILTER=PASS is unreachable on that path, and"
+	printf "\t%s\n" "Dist1XCutoff falls back to 100000 which disables the repeat filter in PickDepthSomatic."
+	printf "\t%s\n" "This is documented, not fixed: enabling the model activates several latent defects in"
+	printf "\t%s\n" "RUFUS.interpret at the same time. See docs/RUFUS.interpret.audit.md section 2.1."
 
 }
 re='^[0-9]+$'; 
@@ -469,12 +500,61 @@ make_jelly_hash ()
   fi
 }
 
+# Normalize a jellyfish -s size token (e.g. 64G, 500M, 1000000) to the power-of-two slot
+# count jellyfish actually allocates, so two sizes compare the way "jellyfish merge" compares
+# them. Echoes the normalized integer, or nothing if the token is unparseable.
+normalize_hash_size ()
+{
+  local tok="$1" num unit bytes p
+  [[ "$tok" =~ ^([0-9]+)([GgMmKk]?)$ ]] || { echo ""; return; }
+  num="${BASH_REMATCH[1]}"; unit="${BASH_REMATCH[2]}"
+  case "$unit" in
+    G|g) bytes=$(( num * 1024 * 1024 * 1024 ));;
+    M|m) bytes=$(( num * 1024 * 1024 ));;
+    K|k) bytes=$(( num * 1024 ));;
+    *)   bytes=$num;;
+  esac
+  p=1
+  while [ "$p" -lt "$bytes" ]; do p=$(( p * 2 )); done
+  echo "$p"
+}
+
+# Read the -s (hash size) a pre-built Jhash was created with, straight from its header via
+# "jellyfish info", normalized to the allocated power-of-two. Empty if it can't be determined.
+read_built_hash_size ()
+{
+  local hash="$1" tok
+  tok=$($modifiedJelly info "$hash" 2>/dev/null | sed -n 's/.* -s \([0-9]\+[GMKgmk]\?\) .*/\1/p' | head -1)
+  [ -n "$tok" ] && normalize_hash_size "$tok"
+}
+
 check_empty_hashes ()
 {
 	local region_arg="$1"
 	shift
 	local subject_file="${@: -1}"
 	local control_files=("${@:1:$#-1}")
+
+	# RunJellyForRUFUS.sh exit-code contract: 0 = counted OK, 1 = ran but the region
+	# genuinely has no k-mers, 2 = the counting tool itself failed (OOM, disk, crash).
+	# A tool failure must never be reported as an empty region -- in a sharded run that
+	# records a lost shard as legitimately variant-free, which is a silent wrong answer
+	# rather than a visible one. Treat anything that is not a clean 0 or 1 as failure,
+	# so an unexpected code (e.g. a signal-derived 137) also fails loudly.
+	local ef ef_rc
+	for ef in "${control_files[@]}" "$subject_file"; do
+		[ -f "$ef" ] || continue
+		ef_rc="$(cat "$ef" 2>/dev/null)"
+		case "$ef_rc" in
+			0|1) ;;
+			*)
+				echo "ERROR: k-mer counting failed (exit '${ef_rc:-<empty>}', from $ef) in region $region_arg;" \
+				     "this is a tool failure, NOT an absence of coverage" >&2
+				_region_exit_reason="jellyfish_failed"
+				exit 1
+				;;
+		esac
+	done
 
 	# Check that at least one control has hashes (i.e. has a zero exit code)
 	found_zero=false
@@ -676,10 +756,15 @@ if [ "$_arg_exome" == "TRUE" ]; then
 	MaxHashDepth=100000000
 	_arg_saliva="TRUE"
 
-	if [ -z $_arg_min ]; then 
-		echo "Minimum not provided, picking a min of 20 for the alt count" 
+	# NOTE: this block is dead for the same reason the model phase is (see MODEL PHASE below):
+	# _arg_min is initialised to 5 in the defaults block and never cleared, so it is never
+	# empty and the 20 is never applied. An exome run therefore uses -m 5 like everything
+	# else unless the user passes -m explicitly. Documented, not changed -- raising the
+	# effective exome minimum from 5 to 20 is a real behaviour change, not a cleanup.
+	if [ -z $_arg_min ]; then
+		echo "Minimum not provided, picking a min of 20 for the alt count"
 		_arg_min="20"
-	fi 
+	fi
 fi
 
 
@@ -710,7 +795,13 @@ fi
 ProbandExtension="${ProbandFileName##*.}"
 ProbandGenerator="${ProbandFileName}${region_postfix}.generator"
 
-# Build concatenated generator from all subject files
+# Build concatenated generator from all subject files.
+# Exactly one command in the generator may emit a SAM header: the body is run as a single
+# stream (`bash "$ProbandGenerator" | samtools ...`) and samtools aborts on a second @HD
+# mid-stream -- collate discards the whole stream, so Filter sees zero reads. _subj_hdr
+# carries the header flag for the first emitting command and is cleared thereafter; the
+# FASTQ block below continues the same flag so a bam+fastq mix stays single-headered.
+_subj_hdr="-h "
 > "$ProbandGenerator"
 for subject in "${_arg_subjects[@]}"
 do
@@ -729,7 +820,8 @@ do
             _region_exit_reason="missing_subject_bam_index"
             exit 1
         fi
-        echo "samtools view -h -@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view ${_subj_hdr}-@ 8 -F 3328 $subject $_arg_region" >> "$ProbandGenerator"
+        _subj_hdr=""
     elif [[ "$subjectExtension" == "cram" ]]
     then
         if [[ ! -e "$subject".crai ]]
@@ -743,11 +835,20 @@ do
             echo "ERROR cram reference not provided for cram input"
             kill -9 $$
         fi
-        echo "samtools view -h -@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        echo "samtools view ${_subj_hdr}-@ 8 -F 3328 -T $_arg_cramref $subject $_arg_region" >> "$ProbandGenerator"
+        _subj_hdr=""
         _arg_ref="$_arg_cramref"
     elif [[ "$subjectExtension" == "generator" ]]
     then
-        cat "$subject" >> "$ProbandGenerator"
+        # A pre-built generator carries its own header-emitting command. Keep it only if it
+        # lands first; otherwise strip the header flags as it is appended.
+        if [ -n "$_subj_hdr" ]
+        then
+            cat "$subject" >> "$ProbandGenerator"
+        else
+            sed -e 's/^\(samtools view\) -h /\1 /' -e 's/ header$//' "$subject" >> "$ProbandGenerator"
+        fi
+        _subj_hdr=""
     else
         echo "unknown error during generator generation, killing run with non-zero exit status"
         kill -9 $$
@@ -755,7 +856,8 @@ do
 done
 
 # FASTQ subject(s): whole-genome only -- unaligned reads cannot be region-scoped. The loop above
-# skipped them; build the generator here as one @HD header (on the first file) + unmapped SAM records.
+# skipped them; build the generator here as unmapped SAM records, headed by a single @HD if no
+# bam/cram subject above has already claimed it (_subj_hdr).
 if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
 	if [ -n "$_arg_region" ]; then
 		echo "ERROR: FASTQ input is whole-genome only and cannot be region-scoped; remove -R/--region (or supply an aligned bam/cram)."
@@ -766,10 +868,9 @@ if [ ${#_arg_subject_fastqs[@]} -gt 0 ]; then
 		echo "ERROR: FASTQ subject input requires a reference via -r/--ref."
 		exit 1
 	fi
-	_fq_first=1
 	for fq in "${_arg_subject_fastqs[@]}"; do
 		[ -e "$fq" ] || { echo "FASTQ subject file $fq does not exist; killing run"; kill -9 $$; }
-		_hdr=""; [ "$_fq_first" -eq 1 ] && _hdr=" header"; _fq_first=0
+		_hdr=""; [ -n "$_subj_hdr" ] && _hdr=" header"; _subj_hdr=""
 		if [[ "$fq" == *.gz ]]; then
 			echo "perl $RDIR/scripts/FastqToSam.pl <(zcat $fq)$_hdr" >> "$ProbandGenerator"
 		else
@@ -839,8 +940,31 @@ do
 		_arg_ref="$_arg_cramref"
     elif [[ "$parentExtension" = "generator" ]]
     then
+		# The historical name is <control><region_postfix> as a FULL path, and it is load-bearing:
+		# RunJellyForRUFUS.sh early-returns when $GEN.Jhash exists, so a pre-built control hash
+		# placed next to the input as <control><region_postfix>.Jhash (e.g. a DSA hash symlinked to
+		# DSA_SMHT004.1.generator.wg.Jhash) is picked up and jellyfish is skipped entirely. The
+		# generator body is never executed in that case, which is the point -- the hash already
+		# exists and the reads it came from may not even be on this filesystem.
+		#
+		# A caller may equally supply a pre-scoped generator at that path. Only when neither is
+		# present does the generator actually have to run, and only then is a runnable copy
+		# materialised -- in the working directory, not next to the user's input.
+		#
+		# The generator is used verbatim: -R/--region is NOT applied to it, exactly as for generator
+		# subjects above. Scoping a generator to a region is the caller's responsibility.
 		parentGenerator="${parent}${region_postfix}"
-        ParentGenerators+=("$parentGenerator")
+		if [ ! -e "$parentGenerator" ] && [ ! -e "${parentGenerator}.Jhash" ]
+		then
+			if [[ ! -e "$parent" ]]
+			then
+				echo "The control generator file $parent does not exist; killing run with non-zero exit status"
+				kill -9 $$
+			fi
+			parentGenerator="${parentFileName}${region_postfix}.generator"
+			cat "$parent" > "$parentGenerator"
+		fi
+		ParentGenerators+=("$parentGenerator")
     fi
 done
 #################################################################
@@ -866,7 +990,7 @@ if [ ${#_arg_control_fastqs[@]} -gt 0 ]; then
 	done
 fi
 
-# Note: BWA index checks done in launch script
+# Note: BWA index presence is validated below, once _arg_ref_bwa is resolved.
 
 ###### when we add PB need to check its reference stuff here 
 ###########################################################################
@@ -893,10 +1017,41 @@ then
     kill -9 $$
 fi
 if [[ -e "$_arg_ref_cat".sa ]]
-then 
+then
     _arg_ref_bwa=$_arg_ref_cat
 else
     _arg_ref_bwa=$_arg_ref
+fi
+
+# Validate BWA/samtools indexes before any expensive stage. The launch scripts
+# check this too, but runRufus.sh can be invoked directly, and without this the
+# missing index only surfaces at the bwa mem step -- far into the run, after the
+# jellyfish, model, hashlist and filter stages. _arg_ref_bwa above resolved the
+# exact prefix bwa will load; the .fai hangs off the reference samtools reads.
+missing_bwa_indexes=()
+for bwa_suffix in amb ann bwt pac sa
+do
+    if [[ ! -e "$_arg_ref_bwa".$bwa_suffix ]]
+    then
+        missing_bwa_indexes+=("$_arg_ref_bwa.$bwa_suffix")
+    fi
+done
+if [[ ! -e "$_arg_ref".fai ]]
+then
+    missing_bwa_indexes+=("$_arg_ref.fai")
+fi
+if [[ ${#missing_bwa_indexes[@]} -ne 0 ]]
+then
+    echo "ERROR: reference $_arg_ref is missing required index files:"
+    for missing in "${missing_bwa_indexes[@]}"
+    do
+        echo "       $missing"
+    done
+    echo "RUFUS aligns candidate reads with BWA and cannot run without these."
+    echo "Build them with:"
+    echo "       bash $RDIR/resource_helpers/build_bwa_indexes.sh $_arg_ref"
+    _region_exit_reason="missing_bwa_indexes"
+    exit 1
 fi
 
 
@@ -987,6 +1142,47 @@ do
 done
 
 ##################################################
+
+
+############__PREFLIGHT: HASH SIZE MATCH__################
+# Jellyfish can only merge/diff hashes built at the same -s. The subject hash is built fresh here
+# (hours for a whole-genome sample), but pre-built control/DSA/exclude hashes carry a fixed size
+# from when they were made. If those disagree with the subject size, "$modifiedJelly merge" aborts
+# with "Can't merge hash with different size", leaving an empty HashList that only surfaces much
+# later as the misleading "No mutant hashes pulled from fastqs". Catch it here, in seconds, before
+# paying for the subject build.
+#
+# Only pre-built hashes that already exist on disk can mismatch; control generators counted in this
+# run are built at the subject size and match by construction, so those (not yet on disk) are skipped.
+
+# Intended subject hash size -- mirror make_jelly_hash: -hs override, else 16G whole-genome / 1G region.
+if [ -n "$_arg_hash_size" ]; then
+	_subject_hash_size="$_arg_hash_size"
+elif [ -z "$_arg_region" ]; then
+	_subject_hash_size="16G"
+else
+	_subject_hash_size="1G"
+fi
+_subject_slots=$(normalize_hash_size "$_subject_hash_size")
+
+_hash_size_mismatch=0
+for _control_hash in $(echo $parentsString) $(echo $parentsExcludeString); do
+	[ -f "$_control_hash" ] || continue          # not-yet-built generator control -> will match by construction
+	_control_slots=$(read_built_hash_size "$_control_hash")
+	[ -n "$_control_slots" ] || continue         # size unreadable -> don't block the run
+	if [ "$_control_slots" != "$_subject_slots" ]; then
+		echo "ERROR: hash size mismatch. The subject hash will be built at -s $_subject_hash_size, but a pre-built control/exclude hash was built at a different -s:" >&2
+		echo "         $_control_hash" >&2
+		_hash_size_mismatch=1
+	fi
+done
+if [ "$_hash_size_mismatch" -ne 0 ]; then
+	echo "Jellyfish cannot merge hashes of different sizes, so the k-mer subtraction would silently yield zero mutant k-mers." >&2
+	echo "Fix: re-run with -hs/--hash_size set to the control's size (e.g. -hs 64G), or rebuild the control(s) at -s $_subject_hash_size." >&2
+	_region_exit_reason="hash_size_mismatch"
+	exit 100
+fi
+########################################################
 
 
 ####################__GENERATE_JHASH_FILES_FROM_JELLYFISH__#####################
@@ -1084,6 +1280,31 @@ done
 
 _region_exit_reason="model_stage"
 #######################__RUFUS_Model__############################################
+# MODEL PHASE -- READ THIS BEFORE CHANGING THE CONDITION BELOW.
+#
+# As written, the `then` branch is UNREACHABLE and ModelDist never runs, in any mode.
+# `_arg_min` is initialised to 5 in the defaults block near the top of this file and is
+# never cleared, so `[ -z "$_arg_min" ]` is never true and the `else` branch always runs.
+# The commented-out line directly below is the previous condition: originally every
+# non-exome run built the model, and adding the `-z "$_arg_min"` conjunct silently
+# disabled it for everyone, because of that default.
+#
+# Confirmed empirically across every run in resources/reg_test_files/runs/: zero
+# *.7.7.dist files, fifteen *.7.7.model placeholders (written by the else branch), zero
+# logs containing "Starting model phase", six containing "min was provided".
+#
+# Downstream effect: the else branch writes a 4-line placeholder .7.7.model and never
+# produces the .7.7.dist that Overlap.shorter.sh passes to RUFUS.interpret via -mod.
+# ProcessDist treats the failed open as non-fatal, so DistGlobal stays empty and the
+# Bayesian genotyper is inert -- GT and FILTER come out '.' on essentially every
+# SNV/indel record, FILTER=PASS is unreachable on that path, and Dist1XCutoff falls back
+# to 100000, which disables the repeat filter in PickDepthSomatic.
+#
+# This is DOCUMENTED, NOT FIXED, and deliberately so: restoring the condition would
+# enable the model for the first time and simultaneously activate several latent defects
+# in RUFUS.interpret (uninitialised read in BayseanGenotyper, out-of-bounds depth-clamp
+# reads, unconstrained GT ploidy in ParseGenotype). Those have to be fixed in the same
+# change or output gets worse, not better. See docs/RUFUS.interpret.audit.md section 2.1.
 #if [ $_arg_exome == "FALSE" ] #[	-z "$_arg_min" ]
 if [ -z "$_arg_min" ]  && [ $_arg_exome == "FALSE" ]
 then
@@ -1513,7 +1734,7 @@ else
 	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 fi
 
-bgzip "$DEDUPED_VCF"
+bgzip -f "$DEDUPED_VCF"
 # Index with tabix, iteratively removing records that cause indexing failures
 # This catches any malformed records that slip past the awk sanitizer
 tabix_max_retries=50
@@ -1561,8 +1782,8 @@ bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
 # Check for empty gt field
 GX_VCF="$WORK_DIR/gx.${formatted_region}.vcf"
 bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
-bgzip "$GX_VCF"
-bcftools index "$GX_VCF.gz"
+bgzip -f "$GX_VCF"
+bcftools index -f "$GX_VCF.gz"
 
 # Trim calls to region. In whole-genome mode _arg_region is empty; `bcftools view -r ""` segfaults,
 # and there is nothing to trim to, so pass the calls through unchanged.
@@ -1575,9 +1796,21 @@ fi
 bcftools index "$TRIMMED_VCF"
 
 NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
-if [ ${#_arg_controls[@]} -ne "0" ]; then
-	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c "$(IFS=','; echo "${Parents[*]}")"
+# remove_coinheriteds pileups each control at the variant sites, so it needs an alignable BAM/CRAM.
+# A control given as a pre-built hash (a .generator stub) or fastq has no BAM to pile up (bwa would
+# align an empty file -> mpileup fails on the empty bam). Collect only the BAM/CRAM controls and run
+# the filter over those; skip entirely if none -- the HashList subtraction has already removed those
+# controls' k-mers, so the co-inherited pileup is a secondary check with nothing to pile up.
+_bamcram_controls=()
+for _ctrl in "${Parents[@]}"; do
+	case "$_ctrl" in
+		*.bam|*.cram) _bamcram_controls+=("$_ctrl") ;;
+	esac
+done
+if [ ${#_bamcram_controls[@]} -ne "0" ]; then
+	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c "$(IFS=','; echo "${_bamcram_controls[*]}")"
 else
+	[ ${#_arg_controls[@]} -ne "0" ] && echo "Skipping remove_coinheriteds: no BAM/CRAM control to pile up (controls are hash/generator/fastq); HashList subtraction already handled them." >&2
 	mv "$TRIMMED_VCF" "$NO_CO_VCF"
 fi
 

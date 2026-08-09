@@ -66,9 +66,10 @@ TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.combined.vcf.gz"
 TEMP_PREFILTERED_VCF="temp.RUFUS.Prefiltered.${SUBJECT_STRING}.combined.vcf.gz"
 FINAL_VCF="RUFUS.Final.${SUBJECT_STRING}.vcf"
 
-# Slight name change if not doing a windowed run
+# Slight name change if not doing a windowed run. The calling stage writes the whole-genome file with
+# a .wg region postfix (temp.RUFUS.Final.<subject>.wg.vcf.gz), so match that here.
 if [ "$WINDOW_SIZE" -eq 0 ]; then
-	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.vcf.gz"
+	TEMP_FINAL_VCF="temp.RUFUS.Final.${SUBJECT_STRING}.wg.vcf.gz"
 fi
 
 # Check to see if temp vcf(s) exists, if not report empty results and exit
