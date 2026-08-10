@@ -57,10 +57,19 @@ echo "Uploading ${SIF_PATH}..."
 FNAME=$(basename "$SIF_PATH")
 api -X PUT "${BUCKET}/${FNAME}" --upload-file "$SIF_PATH" >/dev/null
 
+# Carry the previous version's metadata forward (title, creators, description, upload_type,
+# access_right, license, ...) and only override version + publication_date. NOTE: do NOT use
+# `jq -n` here — --null-input makes jq ignore the piped-in metadata and emit ONLY the two fields
+# we set, which strips every inherited required field and makes the publish below fail with a
+# pile of "missing field" errors.
+# del(.dates): Zenodo returns the `dates` array in a read shape that is NOT valid to write back
+# (an entry with an empty/partial date), so carrying it forward fails publish with
+# "metadata.dates: Invalid date provided." We set publication_date explicitly, so the supplemental
+# `dates` array is unneeded — drop it rather than propagate the invalid value.
 echo "Setting version metadata..."
 api -X PUT "${API}/deposit/depositions/${DRAFT_ID}" \
     -H "Content-Type: application/json" \
-    -d "{\"metadata\": $(jq -n --arg v "$VERSION" '.version=$v | .publication_date=(now|strftime("%Y-%m-%d"))' \
+    -d "{\"metadata\": $(jq --arg v "$VERSION" '.version=$v | .publication_date=(now|strftime("%Y-%m-%d")) | del(.dates)' \
             <<<"$(jq '.metadata' <<<"$DRAFT")")}" >/dev/null
 
 echo "Publishing..."
