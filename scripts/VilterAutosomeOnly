@@ -1,3 +1,40 @@
-egrep '^#' $1
-egrep '^1|^2|^3|^4|^5|^6|^7|^8|^9|^X|^Y|^chr1|^chr2|^chr3|^chr4|^chr5|^chr6|^chr7|^chr8|^chr9|^chrX|^chrY' $1 | awk '$7 ~/PASS/ || $3~/Mosaic/' 
+#!/bin/bash
+# Keep primary-assembly calls, then apply the PASS/Mosaic gate.
+#
+#   $1 = VCF to filter
+#   $2 = reference FASTA (its .fai lists the assembly's contigs)  [optional but expected]
+#
+# This used to hardcode a GRCh38 chromosome whitelist (^1..^9 / ^chr1..^chrY). That silently
+# dropped EVERY call whenever RUFUS was run against a non-GRCh38 assembly -- e.g. a donor-specific
+# assembly whose contigs are named haplotype1-*/haplotype2-* match none of those patterns, so the
+# final VCF came out empty on an otherwise successful run.
+#
+# The valid-contig set is now read from the reference index (${2}.fai), so any assembly works. A
+# small blocklist still drops the usual non-primary noise contigs (mitochondria, unplaced/
+# unlocalized _random, chrUn*, decoy, alt, EBV, HLA) to preserve the original "primary chromosomes
+# only" intent; donor-assembly haplotype contigs match none of these and are kept. If the .fai is
+# missing, fall back to keeping all contigs rather than dropping everything.
 
+VCF="$1"
+REF="$2"
+FAI="${REF}.fai"
+
+# Header through untouched.
+grep '^#' "$VCF"
+
+if [ -n "$REF" ] && [ -s "$FAI" ]; then
+    awk -v faifile="$FAI" '
+        BEGIN {
+            while ((getline line < faifile) > 0) {
+                n = split(line, a, "\t"); c = a[1]
+                if (c ~ /(^chrM$|^chrMT$|^MT$|^M$|_random$|^chrUn|_alt$|decoy|hs38d1|EBV|^HLA-|_fix$)/) continue
+                keep[c] = 1
+            }
+        }
+        /^#/ { next }
+        ($1 in keep) && ($7 ~ /PASS/ || $3 ~ /Mosaic/)
+    ' "$VCF"
+else
+    echo "WARNING: VilterAutosomeOnly: no reference .fai ($FAI); keeping all contigs." >&2
+    grep -v '^#' "$VCF" | awk '$7 ~ /PASS/ || $3 ~ /Mosaic/'
+fi

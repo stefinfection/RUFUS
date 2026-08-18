@@ -1728,10 +1728,10 @@ echo "arg_mosaic = $_arg_mosaic"
 if [ "$_arg_mosaic" == "TRUE" ]
 then
 	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf "$_arg_ref" | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 else
 	echo "excluding mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
+	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf "$_arg_ref" | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
 fi
 
 bgzip -f "$DEDUPED_VCF"
