@@ -54,7 +54,7 @@ declare -A HDR=(
  [SP]='##FORMAT=<ID=SP,Number=1,Type=Integer,Description="Phred-scaled strand bias p-value">'
  [SCR]='##FORMAT=<ID=SCR,Number=1,Type=Integer,Description="Number of soft-clipped reads at this site">'
  [NMBZ]='##FORMAT=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z of mismatch count in supporting reads">'
- [PU_UNACC]='##FORMAT=<ID=PU_UNACC,Number=1,Type=Integer,Description="Reads at this site supporting NEITHER listed allele (DP - AD[ref] - AD[alt]). A large value means the reads carry something the engine could not attribute to REF or ALT -- for a composite allele that is the variant itself">'
+ [AD_OTHER]='##FORMAT=<ID=AD_OTHER,Number=1,Type=Integer,Description="Reads attributable to NEITHER listed allele: DP - AD[ref] - AD[alt]. Deliberately named for the measurement, not a cause -- a composite allele the engine cannot score is the known case (its variant-carrying reads land here), but an indel where a substitution was asked about, or an allele the record does not name, would look the same. AD_OTHER large alongside AD[alt]=0 is the fingerprint of the engine being blind rather than the variant being absent">'
 )
 # Allele-level, so INFO rather than FORMAT. Records are biallelic here (norm -m- ran upstream).
 PU_UNSCORED_HDR='##INFO=<ID=PU_UNSCORED,Number=1,Type=Integer,Description="1 when the pileup engine cannot score this allele class, so AD/AF are meaningless for it rather than merely zero. Currently set for composite (equal-length multi-base) alleles, which mpileup has no model for. NOTE: deletions longer than a read are also unscorable but are NOT flagged here, because that needs a read-length threshold -- see CONTRACT.md">'
@@ -97,7 +97,7 @@ for T in "${TABLES[@]}"; do
 	present+=(AF); spec="$spec,FORMAT/AF"; exprs+=("af")
 	# Two additions that cost nothing and remove a trap: AF=0 for an unscorable allele is
 	# indistinguishable from AF=0 for a variant that genuinely is not there.
-	present+=(PU_UNACC); spec="$spec,FORMAT/PU_UNACC"
+	present+=(AD_OTHER); spec="$spec,FORMAT/AD_OTHER"
 	spec="$spec,INFO/PU_UNSCORED"
 
 	{ echo -n 'BEGIN{FS=OFS="\t"} /^#/||$1=="CHROM"{next} {'
