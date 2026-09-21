@@ -5,10 +5,9 @@
 ##FILTER=<ID=PLC,Description="Parents are at low coverage in this region, cannt be sure of genotype">
 ##FILTER=<ID=SB,Description="Contig fails string bias filter">
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-##FORMAT=<ID=AK,Number=1,Type=Integer,Description="Alternte Kmer Count">
-##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total Kmer depth across the variant">
-##FORMAT=<ID=RO,Number=1,Type=Integer,Description="Mode of reference kmer counts">
-##FORMAT=<ID=AO,Number=1,Type=Integer,Description="Mode of alt kmer counts">
+##FORMAT=<ID=KDP,Number=1,Type=Integer,Description="Sum of KRO and KAO. A sum of two k-mer statistics, NOT a read depth.">
+##FORMAT=<ID=KRO,Number=1,Type=Integer,Description="Reference k-mer count for this sample. A k-mer statistic, not a read count; the estimator differs by code path (see docs/RUFUS.interpret.audit.md).">
+##FORMAT=<ID=KAO,Number=1,Type=Integer,Description="Alternate k-mer count for this sample. A k-mer statistic, not a read count; the estimator differs by code path (see docs/RUFUS.interpret.audit.md).">
 ##INFO=<ID=PH,Number=1,Type=String,Description="If read backed phasing is possible, the name of the sample that the variant was inherited from">
 ##INFO=<ID=CP,Number=1,Type=String,Description="position of the call within the assembled contig">
 ##INFO=<ID=EN,Number=1,Type=String,Description="in development, something to do with entropy">
@@ -17,7 +16,7 @@
 ##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of SV detected">
 ##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of SV detected">
 ##INFO=<ID=END,Number=1,Type=Integer,Description="END of SV detected">
-##INFO=<ID=AO,Number=1,Type=Integer,Description="Alternate allele observations, with partial observations recorded fractionally">
+##INFO=<ID=KAO,Number=1,Type=Integer,Description="Alternate k-mer count for the subject. Carries the same value as the subject sample's FORMAT/KAO.">
 ##INFO=<ID=HD,Number=.,Type=String,Description="Hash counts for each k-mer overlapping the vareint, -1 indicates no info">
 ##INFO=<ID=RN,Number=1,Type=String,Description="Name of contig that produced the call">
 ##INFO=<ID=FS,Number=1,Type=String,Description="Full score, supporting kmers possible varient kmers based on sequence">
