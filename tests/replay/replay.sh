@@ -5,7 +5,8 @@
 # earlier stages leave behind in the work directory, so it can be re-run on its own
 # in minutes instead of re-running the multi-hour assembly pipeline. This script
 # reconstructs the invocation from a preserved run dir, runs it in an isolated
-# shadow work dir (the source run dir is never written to), and normalizes the
+# shadow work dir (the source run dir is never written to -- enforced, see
+# unlink_interpret_outputs and fingerprint_run_dir), and normalizes the
 # output so two runs can be diffed.
 #
 #   ./replay.sh run    <run_dir> [out_dir]        replay once, print where output landed
@@ -65,6 +66,42 @@ build_shadow() {
 }
 
 # ---------------------------------------------------------------------------
+# Drop the shadow symlinks for every path interpret WRITES.
+#
+# build_shadow symlinks the whole run dir. That is right for inputs and wrong for
+# outputs: interpret opens its output paths for writing, the open follows the
+# symlink, and the preserved run's own files are overwritten in place -- silently
+# destroying the oracle this harness exists to compare against (#100).
+#
+# The list mirrors RUFUS.interpret.cpp:5288-5296 exactly: two files under
+# WORK_DIR and six auxiliary streams under Intermediates/. All eight are present
+# in a real run dir, so all eight were being clobbered on every replay.
+#
+# Removing the symlink is enough -- interpret then creates a real file in the
+# shadow, which is what the rest of the harness already assumes.
+# ---------------------------------------------------------------------------
+INTERPRET_AUX_OUTPUTS=(Big.bed NotHandled.bed invertions.bed Translocations Translocations.bed Unaligned)
+
+unlink_interpret_outputs() {
+    local work="$1" stub="$2" f x
+    for f in "$work/$stub.vcf" "$work/$stub.vcf.bed"; do
+        if [ -L "$f" ]; then rm -f "$f"; fi
+    done
+    for x in "${INTERPRET_AUX_OUTPUTS[@]}"; do
+        f="$work/Intermediates/$stub.vcf.$x"
+        if [ -L "$f" ]; then rm -f "$f"; fi
+    done
+}
+
+# Fingerprint every file in the run dir, so the promise in this script's header
+# ("the source run dir is never written to") is enforced rather than asserted.
+# Catches any future interpret output that unlink_interpret_outputs does not know
+# about, instead of letting it quietly eat the fixture again.
+fingerprint_run_dir() {
+    find "$1" -type f -printf '%P\t%s\t%T@\n' 2>/dev/null | sort
+}
+
+# ---------------------------------------------------------------------------
 # Reconstruct the argument list. Mirrors scripts/Overlap.shorter.sh:373.
 # ---------------------------------------------------------------------------
 run_interpret() {
@@ -114,6 +151,10 @@ run_interpret() {
 
     local stub; stub="$(basename "$bam")"
 
+    # Must happen after $stub is known and before interpret runs.
+    unlink_interpret_outputs "$work" "$stub"
+    local fp_before; fp_before="$(fingerprint_run_dir "$run_dir")"
+
     note "run dir : $run_dir"
     note "work    : $work"
     note "controls: $(( ${#ctrl_args[@]} / 4 ))"
@@ -145,6 +186,14 @@ run_interpret() {
 
     echo "$rc" > "$out_dir/exit_code"
     note "exit code: $rc"
+
+    # The run dir is the oracle. If replaying changed it, every later comparison is
+    # against a moved target, so fail loudly here rather than report a clean result.
+    if [ "$(fingerprint_run_dir "$run_dir")" != "$fp_before" ]; then
+        note "ERROR: the replay modified the source run dir -- this must never happen (#100)."
+        diff <(printf '%s\n' "$fp_before") <(fingerprint_run_dir "$run_dir") | head -20 >&2 || true
+        die "source run dir was modified by the replay: $run_dir"
+    fi
 
     local vcf="$work/$stub.vcf"
     [ -f "$vcf" ] || die "interpret produced no VCF at $vcf (see $out_dir/interpret.stdout.log)"
