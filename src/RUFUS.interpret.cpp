@@ -55,6 +55,14 @@ int MaxVarentSize = 1000;
 int ParLowCovThreshold = 7;
 int SegThreshold = 10;
 int SegThresholdCigar = 10;
+// The FORMAT field emitted on every record. All four values are k-mer statistics, NOT read counts:
+// KDP is KRO+KAO (a sum of two k-mer estimates, not a depth), KRO/KAO are per-path k-mer estimates
+// whose estimator differs by code path (see docs/RUFUS.interpret.audit.md "Genotyping and AO/RO").
+// The K prefix keeps the unprefixed DP/AD/AF names free for read-based values from the pileup stage.
+// Defined once because this string was previously duplicated at 16 call sites, each one building the
+// sample column right beside it -- changing one and missing another would silently mislabel values.
+static const char* const KMER_FORMAT_FIELD = "GT:KDP:KRO:KAO";
+
 ofstream VCFOutFile;
 ofstream BEDOutFile;
 ofstream BEDBigStuff;
@@ -2743,11 +2751,11 @@ void SamRead::parseMutations(char *argv[], vector <SamRead> &reads) {
                     //	cout       << HashCounts[j] << "_";
                     VCFOutFile << HashCounts[j] << "_";
                 }
-                VCFOutFile << ";AO=" << MutAltMode;
+                VCFOutFile << ";KAO=" << MutAltMode;
                 //cout       << ";VT=" <<  varType << "\t" ;
                 VCFOutFile << ";VT=" << varType << "\t";
-                //cout       << "GT:DP:RO:AO" << "\t" << Genotype << ":" << MutRefMode + MutAltMode << ":" << MutRefMode << ":" << MutAltMode ;
-                VCFOutFile << "GT:DP:RO:AO" << "\t" << Genotype << ":" << MutRefMode + MutAltMode << ":" << MutRefMode
+                //cout       << KMER_FORMAT_FIELD << "\t" << Genotype << ":" << MutRefMode + MutAltMode << ":" << MutRefMode << ":" << MutAltMode ;
+                VCFOutFile << KMER_FORMAT_FIELD << "\t" << Genotype << ":" << MutRefMode + MutAltMode << ":" << MutRefMode
                            << ":" << MutAltMode;
                 int ParentMode;
                 int lowC = CheckParentCov(ParentMode);
@@ -4741,7 +4749,7 @@ void LastDitch(vector <SamRead> &reads, int i, int A, int B, int &CurrentSVevent
     cout << "in this one" << endl;
     call << reads[reads[i].alignments[A]].chr << "\t" << reads[reads[i].alignments[A]].pos + bp - 1 << "\t"
          << Format.str() << "\t" << ref << "\t" << alt.str() << "\t" << qual << "\t" << Filter << "\t" << info.str()
-         << "\t" << "GT:DP:RO:AO\t" << GenotypeField;
+         << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField;
     cout << call.str() << endl;
     VCFOutFile << call.str();
     VCFOutFile << endl;
@@ -5642,7 +5650,7 @@ int main(int argc, char *argv[]) {
                                         stringstream call;
                                         call << reads[i].chr << "\t" << reads[i].pos + bp - 1 << "\t" << Format.str()
                                              << "\t" << ref << "\t" << alt.str() << "\t" << qual << "\t" << Filter
-                                             << "\t" << info.str() << "\t" << "GT:DP:RO:AO\t" << GenotypeField << endl;
+                                             << "\t" << info.str() << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField << endl;
                                         VCFOutFile << call.str();
                                         //	break;
                                     }
@@ -5779,7 +5787,7 @@ int main(int argc, char *argv[]) {
                                 stringstream call;
                                 call << reads[i].chr << "\t" << reads[i].pos + reads[i].BreakPoint() - 1 << "\t"
                                      << Format.str() << "\t" << ref << "\t" << alt.str() << "\t" << qual << "\t"
-                                     << Filter << "\t" << info.str() << "\t" << "GT:DP:RO:AO\t" << GenotypeField
+                                     << Filter << "\t" << info.str() << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField
                                      << endl;
                                 //	cout << call.str();
                                 VCFOutFile << call.str();
@@ -5892,7 +5900,7 @@ int main(int argc, char *argv[]) {
                                 stringstream call;
                                 call << reads[i].chr << "\t" << reads[i].pos + reads[i].BreakPoint() - 1 << "\t"
                                      << Format.str() << "\t" << ref << "\t" << alt.str() << "\t" << qual << "\t"
-                                     << Filter << "\t" << info.str() << "\t" << "GT:DP:RO:AO\t" << GenotypeField
+                                     << Filter << "\t" << info.str() << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField
                                      << endl;
                                 //						cout << call.str();
                                 VCFOutFile << call.str();
@@ -6232,7 +6240,7 @@ int main(int argc, char *argv[]) {
                                                         call << reads[i].chr << "\t" << reads[i].pos + offset << "\t"
                                                              << Format.str() << "\t" << ref << "\t" << alt.str() << "\t"
                                                              << qual << "\t" << Filter << "\t" << info.str() << "\t"
-                                                             << "GT:DP:RO:AO\t" << GenotypeFieldA << endl;
+                                                             << KMER_FORMAT_FIELD << "\t" << GenotypeFieldA << endl;
                                                         //												cout << call.str();
                                                         VCFOutFile << call.str();
 
@@ -6361,7 +6369,7 @@ int main(int argc, char *argv[]) {
                                                         call << reads[i + j].chr << "\t" << reads[i + j].pos + offset
                                                              << "\t" << Format.str() << "\t" << ref << "\t"
                                                              << altj.str() << "\t" << qual << "\t" << Filter << "\t"
-                                                             << info.str() << "\t" << "GT:DP:RO:AO\t" << GenotypeFieldB
+                                                             << info.str() << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeFieldB
                                                              << endl;
                                                         //												cout << call.str();
                                                         VCFOutFile << call.str();
@@ -6575,7 +6583,7 @@ int main(int argc, char *argv[]) {
                                                                          << Format.str() << "\t" << RefSeq << "\t"
                                                                          << AltSeq << "\t" << qual << "\t" << Filter
                                                                          << "\t" << info.str() << "\t"
-                                                                         << "GT:DP:RO:AO\t" << GenotypeField << endl;
+                                                                         << KMER_FORMAT_FIELD << "\t" << GenotypeField << endl;
                                                                     //															cout << call.str();
                                                                     VCFOutFile << call.str();
                                                                     if (j >= 0)
@@ -6811,7 +6819,7 @@ int main(int argc, char *argv[]) {
 
                                             call << reads[i].chr << "\t" << pos - 1 << "\t" << Format.str() << "\t"
                                                  << ref.str() << "\t" << alt.str() << "\t" << qual << "\t" << Filter
-                                                 << "\t" << info.str() << "\t" << "GT:DP:RO:AO\t" << GenotypeField
+                                                 << "\t" << info.str() << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField
                                                  << endl;
                                             VCFOutFile << call.str();
                                             //									cout << call.str();
@@ -7004,12 +7012,12 @@ int main(int argc, char *argv[]) {
                                  << "-" << reads[exit].AlignmentSegmentsCigar;
 
 
-                            //cout << reads[start].chr << "\t" << reads[start].pos+reads[start].sigBreakPoint() -1 << "\t" << Format << "\t" << ref <<  "\t" << alt.str() <<  "\t" << qual  << "\t" << Filter << "\t" << info.str() <<  "\t" << "GT:DP:RO:AO\t" << GenotypeField <<  endl;
-                            //VCFOutFile << reads[start].chr << "\t" << pos << "\t" << Format << "\t" << ref <<  "\t" << alt.str() <<  "\t" << qual  << "\t" << Filter << "\t" << info.str() <<  "\t" << "GT:DP:RO:AO\t" << GenotypeField <<  endl;
+                            //cout << reads[start].chr << "\t" << reads[start].pos+reads[start].sigBreakPoint() -1 << "\t" << Format << "\t" << ref <<  "\t" << alt.str() <<  "\t" << qual  << "\t" << Filter << "\t" << info.str() <<  "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField <<  endl;
+                            //VCFOutFile << reads[start].chr << "\t" << pos << "\t" << Format << "\t" << ref <<  "\t" << alt.str() <<  "\t" << qual  << "\t" << Filter << "\t" << info.str() <<  "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField <<  endl;
                             stringstream call;
                             call << reads[start].chr << "\t" << pos << "\t" << Format << "\t" << ref << "\t"
                                  << alt.str() << "\t" << qual << "\t" << Filter << "\t" << info.str() << "\t"
-                                 << "GT:DP:RO:AO\t" << GenotypeField << endl;
+                                 << KMER_FORMAT_FIELD << "\t" << GenotypeField << endl;
                             VCFOutFile << call.str();
                             //					cout << "here 8 " << endl;
                             //break;
@@ -7179,7 +7187,7 @@ int main(int argc, char *argv[]) {
 
                             call << reads[i].chr << "\t" << pos - 1 << "\t" << Format.str() << "\t" << ref.str() << "\t"
                                  << alt.str() << "\t" << qual << "\t" << Filter << "\t" << info.str() << "\t"
-                                 << "GT:DP:RO:AO\t" << GenotypeField << endl;
+                                 << KMER_FORMAT_FIELD << "\t" << GenotypeField << endl;
                             VCFOutFile << call.str();
                             //						cout << call.str();
                         }
@@ -7329,10 +7337,10 @@ int main(int argc, char *argv[]) {
 
                                     //									cout << "in that one " << endl;
 
-                                    //									cout << reads[i].chr << "\t" << reads[i].pos+bp -1 << "\t" << Format.str() << "\t" << ref <<  "\t" << alt.str() <<  "\t" << qual  << "\t" << Filter << "\t" << info.str() <<  "\t" << "GT:DP:RO:AO\t" << GenotypeField <<  endl;
+                                    //									cout << reads[i].chr << "\t" << reads[i].pos+bp -1 << "\t" << Format.str() << "\t" << ref <<  "\t" << alt.str() <<  "\t" << qual  << "\t" << Filter << "\t" << info.str() <<  "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField <<  endl;
                                     VCFOutFile << reads[i].chr << "\t" << reads[i].pos + bp - 1 << "\t" << Format.str()
                                                << "\t" << ref << "\t" << alt.str() << "\t" << qual << "\t" << Filter
-                                               << "\t" << info.str() << "\t" << "GT:DP:RO:AO\t" << GenotypeField
+                                               << "\t" << info.str() << "\t" << KMER_FORMAT_FIELD << "\t" << GenotypeField
                                                << endl;
                                     //break;
 

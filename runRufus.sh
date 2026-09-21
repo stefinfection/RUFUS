@@ -1662,181 +1662,45 @@ fi
 ########################################################################
 
 _region_exit_reason="vcf_processing_stage"
-intermed_vcf="${WORK_DIR}/${ProbandGenerator}.V2.overlap.hashcount.fastq.bam.vcf"
 
-if [[ -s "$intermed_vcf" ]]; then
-	count=$(bcftools view -H "$intermed_vcf" | wc -l)
-	if [ "$count" -eq 0 ]; then
-	  	echo "Intermediate vcf contains no variants, indicating no variants found for this region." >&2
-		_region_exit_reason="no_interpret_passing_vars_e"
-		exit 0
-	fi
-  	# safe to proceed (file exists, non-empty, has variants)
-else
-	echo "Intermediate vcf not present, indicating no variants found for this region." >&2
-	_region_exit_reason="no_interpret_passing_vars_dne"
-	exit 0
+# VCF finalization now lives in post_process/finalize_vcf.sh -- sanitize, dedupe, PASS gate,
+# reference fix-up, region trim, co-inherited removal, normalization, HD_AF, sort. Extracting it put
+# every representation-changing step in one callable place (issue #98) and made the stage testable
+# without a full RUFUS run. The body is unchanged; only the exit handling is plumbed differently.
+#
+# set +e around the call is required, not cosmetic: the stage signals two kinds of early stop that
+# `set -e` alone would mishandle -- a deliberate `exit 0` ("nothing left to call"), which would
+# otherwise fall through to the success epilogue below and be logged as VARIANTS_CALLED, and an
+# `exit 100` (tabix gave up), which would otherwise lose its reason and be logged as the generic
+# stage marker. The reason file distinguishes a deliberate stop from an unexpected failure.
+set +e
+bash "$RDIR/post_process/finalize_vcf.sh" \
+	--work-dir "$WORK_DIR" \
+	--work-root "$WORK_ROOT" \
+	--generator "$ProbandGenerator" \
+	--subject-name "$ProbandFileName" \
+	--formatted-region "$formatted_region" \
+	--region-postfix "$region_postfix" \
+	--ref "$_arg_ref" \
+	--rufus-root "$RDIR" \
+	--region "$_arg_region" \
+	--mosaic "$_arg_mosaic" \
+	--threads "$_arg_threads" \
+	--controls "$(IFS=','; echo "${Parents[*]}")"
+_finalize_rc=$?
+set -e
+
+_finalize_reason_file="$WORK_DIR/.finalize_reason"
+if [ -s "$_finalize_reason_file" ]; then
+	# Deliberate early stop: adopt the stage's reason so region_status.log matches the inline version.
+	_region_exit_reason="$(cat "$_finalize_reason_file")"
+	rm -f "$_finalize_reason_file"
+	exit "$_finalize_rc"
 fi
-
-# Sanitize intermediate VCF: remove malformed records from RUFUS.Interpret output
-# Keeps header lines as-is. For data lines, requires:
-#   - at least 8 tab-delimited fields (CHROM POS ID REF ALT QUAL FILTER INFO)
-#   - POS (col 2) is a positive integer
-#   - REF (col 4) is non-empty and contains only valid bases (ACGTN)
-#   - ALT (col 5) is non-empty, not just ".", and contains only valid VCF ALT characters
-#   - If INFO (col 8) contains END=<n>, then END >= POS (prevents tabix "end < begin" error)
-sanitized_vcf="${intermed_vcf}.sanitized.vcf"
-awk -F'\t' '
-/^#/ { print; next }
-{
-	if (NF < 8) next
-	if ($2 !~ /^[0-9]+$/ || $2+0 < 1) next
-	if ($4 == "" || $4 == "." || $4 !~ /^[ACGTNacgtn]+$/) next
-	if ($5 == "" || $5 == ".") next
-	if ($5 !~ /^[ACGTNacgtn.,*<>\[\]0-9:]+$/) next
-	# Check END >= POS if END tag is present in INFO field
-	info = $8
-	if (match(info, /END=[0-9]+/)) {
-		end_val = substr(info, RSTART+4, RLENGTH-4) + 0
-		if (end_val < $2+0) next
-	}
-	print
-}
-' "$intermed_vcf" > "$sanitized_vcf"
-
-sanitized_count=$(grep -vc "^#" "$sanitized_vcf" || true)
-original_count=$(grep -vc "^#" "$intermed_vcf" || true)
-removed_count=$((original_count - sanitized_count))
-if [ "$removed_count" -gt 0 ]; then
-	echo "WARNING: Removed $removed_count malformed VCF record(s) from RUFUS.Interpret output ($sanitized_count of $original_count records kept)." >&2
+if [ "$_finalize_rc" -ne 0 ]; then
+	# Unexpected failure: leave the stage marker as the reason, exactly as `set -e` did inline.
+	exit "$_finalize_rc"
 fi
-if [ "$sanitized_count" -eq 0 ]; then
-	echo "No valid VCF records remain after sanitization for this region." >&2
-	_region_exit_reason="no_records_after_sanitization"
-	exit 0
-fi
-mv "$sanitized_vcf" "$intermed_vcf"
-
-# Trim off generator postfix
-DEDUPED_VCF="$WORK_DIR/deduped.${formatted_region}.vcf"
-
-# TODO: do I really need this? can I just sort?
-grep "^#" "$intermed_vcf" > $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-grep -v "^#" "$intermed_vcf" | sort -k1,1V -k2,2n >> $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf
-
-echo "arg_mosaic = $_arg_mosaic"
-if [ "$_arg_mosaic" == "TRUE" ]
-then
-	echo "including mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf "$_arg_ref" | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
-else
-	echo "excluding mosaic"
-	bash $RDIR/scripts/VilterAutosomeOnly.withoutMosaic $WORK_DIR/Intermediates/$ProbandGenerator.V2.overlap.hashcount.fastq.bam.sorted.vcf "$_arg_ref" | perl $RDIR/scripts/ColapsDuplicateCalls.stream.pl > $DEDUPED_VCF
-fi
-
-bgzip -f "$DEDUPED_VCF"
-# Index with tabix, iteratively removing records that cause indexing failures
-# This catches any malformed records that slip past the awk sanitizer
-tabix_max_retries=50
-tabix_attempt=0
-while true; do
-	tabix_stderr=$(tabix -C "$DEDUPED_VCF.gz" 2>&1) && break
-
-	tabix_attempt=$((tabix_attempt + 1))
-	if [ "$tabix_attempt" -ge "$tabix_max_retries" ]; then
-		echo "ERROR: tabix failed after removing $tabix_attempt malformed record(s). Giving up." >&2
-		echo "Last tabix error: $tabix_stderr" >&2
-		_region_exit_reason="tabix_max_retries"
-		exit 100
-	fi
-
-	# Parse the 1-based sequence number from: "Invalid record on sequence #N"
-	bad_seq=$(echo "$tabix_stderr" | grep -oP 'sequence #\K[0-9]+' | head -1)
-	if [ -z "$bad_seq" ]; then
-		echo "ERROR: tabix failed with unexpected error: $tabix_stderr" >&2
-		_region_exit_reason="tabix_unexpected_error"
-		exit 100
-	fi
-
-	echo "WARNING: tabix indexing failed on data record #${bad_seq}, removing it and retrying (attempt $tabix_attempt)." >&2
-	echo "  tabix error: $tabix_stderr" >&2
-
-	# Decompress, remove the offending data line, recompress
-	tmp_fix_vcf="${DEDUPED_VCF}.tabixfix.vcf"
-	zcat "$DEDUPED_VCF.gz" | awk -v bad="$bad_seq" '
-		/^#/ { print; next }
-		{ data_line++; if (data_line != bad) print }
-	' > "$tmp_fix_vcf"
-	bgzip -f "$tmp_fix_vcf"
-	mv "$tmp_fix_vcf.gz" "$DEDUPED_VCF.gz"
-done
-
-# Update reference alleles
-REF_VCF="$WORK_DIR/ref.${formatted_region}.vcf"
-bcftools +fill-from-fasta "$DEDUPED_VCF.gz" -- -c REF -f "$_arg_ref" > "$REF_VCF"
-
-# Get rid of break-ends
-TYPE_VCF="$WORK_DIR/snv_indel.${formatted_region}.vcf"
-bcftools view -e "TYPE='bnd'" "$REF_VCF" > "$TYPE_VCF"
-
-# Check for empty gt field
-GX_VCF="$WORK_DIR/gx.${formatted_region}.vcf"
-bash $RDIR/post_process/remove_no_genotype.sh "$TYPE_VCF" > "$GX_VCF"
-bgzip -f "$GX_VCF"
-bcftools index -f "$GX_VCF.gz"
-
-# Trim calls to region. In whole-genome mode _arg_region is empty; `bcftools view -r ""` segfaults,
-# and there is nothing to trim to, so pass the calls through unchanged.
-TRIMMED_VCF="$WORK_DIR/trimed.${formatted_region}.vcf.gz"
-if [ -n "$_arg_region" ]; then
-	bcftools view -r "$_arg_region" "$GX_VCF.gz" -Oz -o "$TRIMMED_VCF"
-else
-	cp "$GX_VCF.gz" "$TRIMMED_VCF"
-fi
-bcftools index "$TRIMMED_VCF"
-
-NO_CO_VCF="$WORK_DIR/no_coinheriteds.vcf.gz"
-# remove_coinheriteds pileups each control at the variant sites, so it needs an alignable BAM/CRAM.
-# A control given as a pre-built hash (a .generator stub) or fastq has no BAM to pile up (bwa would
-# align an empty file -> mpileup fails on the empty bam). Collect only the BAM/CRAM controls and run
-# the filter over those; skip entirely if none -- the HashList subtraction has already removed those
-# controls' k-mers, so the co-inherited pileup is a secondary check with nothing to pile up.
-_bamcram_controls=()
-for _ctrl in "${Parents[@]}"; do
-	case "$_ctrl" in
-		*.bam|*.cram) _bamcram_controls+=("$_ctrl") ;;
-	esac
-done
-if [ ${#_bamcram_controls[@]} -ne "0" ]; then
-	bash ${RDIR}/post_process/remove_coinheriteds.sh -t $_arg_threads -r "$formatted_region" -f "$_arg_ref" -i "$TRIMMED_VCF" -o "$NO_CO_VCF" -w "1000" -c "$(IFS=','; echo "${_bamcram_controls[*]}")"
-else
-	[ ${#_arg_controls[@]} -ne "0" ] && echo "Skipping remove_coinheriteds: no BAM/CRAM control to pile up (controls are hash/generator/fastq); HashList subtraction already handled them." >&2
-	mv "$TRIMMED_VCF" "$NO_CO_VCF"
-fi
-
-# Left align & atomize
-ATOM_VCF="$WORK_DIR/atomed.${formatted_region}.vcf"
-bcftools norm -m- -f "$_arg_ref" "$NO_CO_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
-
-# Add HD_AF field
-ATOM_VCF_BASENAME=$(basename "$ATOM_VCF")
-HDAF_VCF="$WORK_DIR/hd_af.$ATOM_VCF_BASENAME"
-SUBJECT_SAMPLE_NAME=$(bcftools view -h "$ATOM_VCF" | tail -n 1 | awk -F'\t' '{ print $10 }')
-bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME" "$formatted_region"
-
-# Sort
-SORTED_VCF="$WORK_DIR/sorted.${formatted_region}.vcf.gz"
-bcftools sort "$HDAF_VCF" -Oz -o "$SORTED_VCF"
-
-# Rename final vcf and zip/index
-PREFINAL_VCF="$WORK_DIR/temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf.gz"
-mv "$SORTED_VCF" "$PREFINAL_VCF"
-bcftools index "$PREFINAL_VCF"
-
-FINAL_BASENAME="$(basename "$PREFINAL_VCF")"
-
-cp "$PREFINAL_VCF" "$WORK_ROOT/$FINAL_BASENAME"
-cp "$PREFINAL_VCF.csi" "$WORK_ROOT/$FINAL_BASENAME.csi"
 
 end_time=$(date +"%s")
 time_delta=$(( $end_time - $start_time ))
