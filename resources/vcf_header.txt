@@ -30,8 +30,6 @@
 ##INFO=<ID=SOURCE,Number=1,Type=String,Description="Location in the genome where the inserted sequence came from">
 ##INFO=<ID=SVDES,Number=1,Type=String,Description="If available RUFUS will interpret the SV type for you">
 ##INFO=<ID=MATEID,Number=1,Type=String,Description="If available, the id of the call that is the mate of this one">
-##INFO=<ID=CO_ATOMS,Number=1,Type=String,Description="Atoms of this record found in the control / total atoms. A record is dropped only when all of its atoms are found, so a partially-inherited haplotype is kept whole.">
-##INFO=<ID=OLD_REC,Number=1,Type=String,Description="Original variant before atomization. Format: CHR|POS|REF|ALT|USED_ALT_IDX (atomized sidecar only)">
 ##FILTER=<ID=PA,Description="PoorAlignment">
 ##FILTER=<ID=PLC,Description="Parents are at low coverage in this region, can't be sure of genotype">
 ##FILTER=<ID=LCH,Description="Parents have hashes showing variant at low coverage, likely inherited">
