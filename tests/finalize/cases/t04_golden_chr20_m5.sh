@@ -40,12 +40,18 @@ code=$?
 NEW="$root/temp.RUFUS.Final.$SUBJ.chr20.vcf.gz"
 [ -s "$NEW" ] || { fail "no final VCF (exit $code); see $root/log"; exit 1; }
 
-# ##bcftools_* header lines embed the command line and temp paths, so they differ every run by design.
+# Volatile header lines, stripped exactly as tests/replay/replay.sh:165 does:
+#   ##bcftools_*        embed the command line and temp paths
+#   ##fileDate          a timestamp from whenever RUFUS.interpret last produced the input
+#   ##RUFUSCommandLine  likewise
+# ##fileDate matters more than it looks: the input for this test is a preserved interpret output, and
+# anything that regenerates it moves that line. The golden must not be sensitive to it.
+volatile() { grep -v '^##bcftools' | grep -v '^##fileDate=' | grep -v '^##RUFUSCommandLine='; }
 if ! diff <(bcftools view -H "$GOLD" 2>/dev/null) <(bcftools view -H "$NEW" 2>/dev/null) > "$TMP/d"; then
 	fail "records differ from golden ($(wc -l < "$TMP/d") diff lines)"; head -6 "$TMP/d" >&2; exit 1
 fi
-if ! diff <(bcftools view -h "$GOLD" 2>/dev/null | grep -v '^##bcftools') \
-          <(bcftools view -h "$NEW"  2>/dev/null | grep -v '^##bcftools') > "$TMP/dh"; then
+if ! diff <(bcftools view -h "$GOLD" 2>/dev/null | volatile) \
+          <(bcftools view -h "$NEW"  2>/dev/null | volatile) > "$TMP/dh"; then
 	fail "headers differ beyond ##bcftools_* provenance"; head -6 "$TMP/dh" >&2; exit 1
 fi
 ok "canonical matches golden ($(bcftools view -H "$GOLD" 2>/dev/null | wc -l) records)"

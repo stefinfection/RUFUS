@@ -23,12 +23,6 @@ bash tests/finalize/run_all.sh t02      # one case, by name substring
 | `t04_golden_chr20_m5` | canonical **and** atomized sidecar both match the in-repo goldens under `golden/`. Local tier — skips without `resources/reg_test_files` and the control CRAM. |
 | `t05_partial_match_all_atoms` | a composite whose atoms are *partially* in the control is emitted whole, not as surviving atoms, and annotated `CO_ATOMS`. |
 
-## XFAIL
-
-A case whose header carries `# XFAIL:` is expected to fail until the named change lands. When one
-starts passing the runner reports **XPASS** — the signal to delete the marker. t03 and t05 were both
-XFAIL until #98 landed; there are no XFAILs at present.
-
 ## What t02 is really guarding
 
 `bcftools norm -a` also decomposes MNVs, so before #98 it *masked* the divergence between the two

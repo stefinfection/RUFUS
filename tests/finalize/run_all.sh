@@ -1,8 +1,10 @@
 #!/bin/bash
 # Run the finalize_vcf.sh suite.  Usage: run_all.sh [case-name-substring]
 #
-# A case marked "# XFAIL:" in its header is expected to fail until the named change lands. When one
-# starts passing the runner reports XPASS -- that is the signal to delete the marker, not to ignore it.
+# Optional, and unused at present: a case marked "# XFAIL:" in its header is expected to fail until
+# the named change lands, and the runner reports XPASS once it starts passing -- the signal to delete
+# the marker. Used while building #98 to make the target behaviour executable before implementing it;
+# kept for the next change that wants the same.
 cd "$(dirname "${BASH_SOURCE[0]}")"
 filter="${1:-}"
 pass=0 fail=0 xfail=0 xpass=0
@@ -20,5 +22,8 @@ for c in cases/t*.sh; do
 	fi
 done
 echo
-echo "pass=$pass fail=$fail xfail=$xfail xpass=$xpass"
+summary="pass=$pass fail=$fail"
+[ "$xfail" -gt 0 ] && summary="$summary xfail=$xfail"
+[ "$xpass" -gt 0 ] && summary="$summary xpass=$xpass"
+echo "$summary"
 [ "$fail" -eq 0 ]
