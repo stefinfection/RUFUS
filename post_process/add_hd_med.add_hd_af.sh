@@ -84,20 +84,22 @@ echo -e '##INFO=<ID=HD_MED,Number=1,Type=Integer,Description="Median of HD array
 bcftools annotate -s "$SUBJECT_SAMPLE_NAME" -a "${TEMP_HD_FILE}.gz" -h "$TEMP_HDR_FILE" -Oz -c CHROM,POS,REF,ALT,-,HD_MED "$IN_VCF" > "$HD_MED_VCF"
 
 # Pull out fields to text file
-# Tag compatibility. The k-mer depth field was renamed DP -> KDP so the unprefixed DP/AD/AF names
-# are free for read-based values from the pileup stage. VCFs produced by an earlier RUFUS still carry
-# FORMAT/DP, and archived run directories get re-processed often enough that dying on them would be a
-# trap rather than a clean break -- bcftools fails the whole stage with
-# "no such tag defined in the VCF header: FORMAT/KDP".
-KDEPTH_TAG=KDP
+# The k-mer depth field is FORMAT/KDP. It was DP until the rename that freed the unprefixed
+# DP/AD/AF names for read-based values from the pileup stage, and that rename is a clean version
+# boundary: a VCF from an earlier RUFUS is not supported here. Say so plainly, because bcftools'
+# own failure ("no such tag defined in the VCF header: FORMAT/KDP") does not tell anyone why.
 if ! bcftools view -h "$HD_MED_VCF" | grep -q '##FORMAT=<ID=KDP,'; then
     if bcftools view -h "$HD_MED_VCF" | grep -q '##FORMAT=<ID=DP,'; then
-        KDEPTH_TAG=DP
-        echo "NOTE: this VCF predates the KDP rename; reading k-mer depth from FORMAT/DP." >&2
+        echo "ERROR: $HD_MED_VCF carries the legacy FORMAT/DP k-mer depth field, not KDP." >&2
+        echo "       It was produced by a RUFUS predating the KDP/KRO/KAO rename, and this version" >&2
+        echo "       cannot post-process it. Re-run the calling stage, or use the matching older RUFUS." >&2
+    else
+        echo "ERROR: $HD_MED_VCF has no FORMAT/KDP field; cannot compute HD_AF." >&2
     fi
+    exit 1
 fi
 
-bcftools query -s "$SUBJECT_SAMPLE_NAME" -f "%CHROM\t%POS\t%REF\t%ALT\t%HD_MED\t[%${KDEPTH_TAG}]\n" "$HD_MED_VCF" > "$TEMP_FILE"
+bcftools query -s "$SUBJECT_SAMPLE_NAME" -f '%CHROM\t%POS\t%REF\t%ALT\t%HD_MED\t[%KDP]\n' "$HD_MED_VCF" > "$TEMP_FILE"
 
 # Calculate AF to 4-digit precision, add as column 7
 awk '{ if($6 == 0) printf "%s\t%s\t%s\t%s\t%s\t%s\t%.4f\n", $1, $2, $3, $4, $5, $6, 0; else if($6 < $5) printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $5, $6, "1.00"; else printf "%s\t%s\t%s\t%s\t%s\t%s\t%.4f\n", $1, $2, $3, $4, $5, $6, $5/$6; }' $TEMP_FILE > $TEMP_AF_FILE
@@ -107,6 +109,6 @@ bgzip "$TEMP_AF_FILE"
 tabix -f -s1 -b2 -e2 "${TEMP_AF_FILE}.gz"
 
 # Make a header line to insert
-echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="kMer-based allele frequency for subject sample only (HD_MED divided by the k-mer depth field, KDP or legacy DP)">' > "$TEMP_HDR_FILE"
+echo -e '##FORMAT=<ID=HD_AF,Number=1,Type=Float,Description="kMer-based allele frequency for subject sample only (HD_MED/KDP)">' > "$TEMP_HDR_FILE"
 
 bcftools annotate -s "$SUBJECT_SAMPLE_NAME" -a "${TEMP_AF_FILE}.gz" -h "$TEMP_HDR_FILE" -Oz -c CHROM,POS,REF,ALT,-,-,FORMAT/HD_AF "$HD_MED_VCF" > "$HD_AF_VCF"
