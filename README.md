@@ -73,13 +73,36 @@ All input files are specified by their full paths. The necessary host directorie
 ### Output Data
 
 RUFUS will, by default, output the following files *in the current working directory*:
-1) A VCF file containing the called variants named `RUFUS.Final...vcf.gz`
-2) A supplemental directory with:
+1) A VCF file containing the called variants named `RUFUS.Final...vcf.gz` — **this is the canonical output**
+2) An atomized copy of that VCF, named `RUFUS.Final....atomized.vcf.gz` (see *VCF normalization* below)
+3) A supplemental directory with:
     * A pre-filtered VCF file
     * A BAM file containing the raw reads containing the mutant kmers
     * A BAM file containing the assembled contigs from the raw reads containing the mutant kmers
     * A hash table containing the unique subject kmers and their counts
-3) In windowed (region) mode, a `region_status.log` file summarizing the outcome of each region (variants called, no variants found with reason, or error with exit code)
+4) In windowed (region) mode, a `region_status.log` file summarizing the outcome of each region (variants called, no variants found with reason, or error with exit code)
+
+
+#### VCF normalization
+
+The canonical VCF is **left-aligned, trimmed, REF-checked and multiallelic-split, but not atomized**.
+Composite alleles are kept as RUFUS called them: a block substitution such as `TA>GG` stays one
+record, not two SNVs.
+
+This is deliberate. RUFUS is assembly-based, so a composite allele is the caller reporting the
+haplotype it actually assembled. Decomposing it discards that linkage, inflates variant counts, and
+can produce records no read supports.
+
+If your downstream comparison matches variants by position and allele string, use the
+`.atomized.vcf.gz` sidecar, where composites are decomposed and each atom carries an `OLD_REC` tag
+pointing back at the record it came from. If your comparison is haplotype-aware — GA4GH `hap.py`,
+RTG `vcfeval`, or `truvari` for SVs — you do not need the sidecar: a composite allele and its
+decomposed equivalent compare equal there, so prefer the canonical file.
+
+Records surviving the co-inherited-variant filter carry `CO_ATOMS=matched/total`, the number of their
+atoms found in a control. A record is dropped only when **all** of its atoms are found, so a variant
+that is only partially inherited — a somatic change adjacent to a germline one — is kept whole rather
+than emitted as its surviving pieces.
 
  
 ### The Two Stages of RUFUS

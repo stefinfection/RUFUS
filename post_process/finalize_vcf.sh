@@ -226,15 +226,19 @@ else
 	mv "$TRIMMED_VCF" "$NO_CO_VCF"
 fi
 
-# Left align & atomize
-ATOM_VCF="$WORK_DIR/atomed.${formatted_region}.vcf"
-bcftools norm -m- -f "$_arg_ref" "$NO_CO_VCF" -Ou | bcftools norm -a -Oz -o "$ATOM_VCF"
+# Left-align and split multiallelics. Deliberately NOT atomized (issue #98): atomization destroys the
+# linkage a single contig asserted, inflates variant counts, and manufactures records no read
+# supports. RUFUS is assembly-based, so a composite allele is the caller being faithful to the
+# haplotype it actually assembled. An atomized copy is still emitted as a sidecar below, for
+# consumers whose comparison is position/allele-string based rather than haplotype-aware.
+CANON_VCF="$WORK_DIR/normalized.${formatted_region}.vcf"
+bcftools norm -m- -f "$_arg_ref" "$NO_CO_VCF" -Oz -o "$CANON_VCF"
 
 # Add HD_AF field
-ATOM_VCF_BASENAME=$(basename "$ATOM_VCF")
-HDAF_VCF="$WORK_DIR/hd_af.$ATOM_VCF_BASENAME"
-SUBJECT_SAMPLE_NAME=$(bcftools view -h "$ATOM_VCF" | tail -n 1 | awk -F'\t' '{ print $10 }')
-bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$ATOM_VCF" "$SUBJECT_SAMPLE_NAME" "$formatted_region"
+CANON_VCF_BASENAME=$(basename "$CANON_VCF")
+HDAF_VCF="$WORK_DIR/hd_af.$CANON_VCF_BASENAME"
+SUBJECT_SAMPLE_NAME=$(bcftools view -h "$CANON_VCF" | tail -n 1 | awk -F'\t' '{ print $10 }')
+bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$CANON_VCF" "$SUBJECT_SAMPLE_NAME" "$formatted_region"
 
 # Sort
 SORTED_VCF="$WORK_DIR/sorted.${formatted_region}.vcf.gz"
@@ -249,3 +253,15 @@ FINAL_BASENAME="$(basename "$PREFINAL_VCF")"
 
 cp "$PREFINAL_VCF" "$WORK_ROOT/$FINAL_BASENAME"
 cp "$PREFINAL_VCF.csi" "$WORK_ROOT/$FINAL_BASENAME.csi"
+
+# Atomized sidecar (issue #98). The canonical VCF above keeps composite alleles; this copy decomposes
+# them for downstream consumers whose comparison is position/allele-string based. Haplotype-aware
+# comparison (GA4GH hap.py / RTG vcfeval) does not need it -- a composite allele and its decomposed
+# equivalent compare EQUAL there -- so prefer the canonical file where the tooling allows.
+# --old-rec-tag stamps each atom with a pointer back to the composite record it came from, so the
+# sidecar is not a dead end.
+ATOMIZED_BASENAME="temp.RUFUS.Final.${ProbandFileName}${region_postfix}.atomized.vcf.gz"
+bcftools norm -a --old-rec-tag OLD_REC -f "$_arg_ref" "$PREFINAL_VCF" -Oz -o "$WORK_DIR/$ATOMIZED_BASENAME"
+bcftools index -f "$WORK_DIR/$ATOMIZED_BASENAME"
+cp "$WORK_DIR/$ATOMIZED_BASENAME" "$WORK_ROOT/$ATOMIZED_BASENAME"
+cp "$WORK_DIR/$ATOMIZED_BASENAME.csi" "$WORK_ROOT/$ATOMIZED_BASENAME.csi"

@@ -70,9 +70,33 @@ PILEUP_SCRIPT="$RUFUS_ROOT/post_process/single_pileup.sh"
 ISEC_OUT_DIR="$WORK_DIR/temp_${FMTD_REGION}_isecs"
 mkdir -p $ISEC_OUT_DIR
 
-#format final rufus vcf for intersections
-vt normalize -n "$RUFUS_VCF" -r "$REFERENCE_FILE" | vt decompose_blocksub - | bgzip > "$NORMED_VCF"
+# Two representations of the subject calls, deliberately (issue #98):
+#   NORMED_VCF  left-aligned and trimmed, composite alleles INTACT -- this is what we EMIT.
+#   ATOMS_VCF   the same records decomposed, each atom carrying INFO/OLD_REC pointing back at its
+#               parent -- this is what we MATCH on, and it is never emitted.
+#
+# The decomposition is load-bearing and cannot simply be dropped. CONTROL_VCF is produced by
+# `bcftools call`, which has no MNP model and only ever emits per-position SNVs and indels, so a
+# composite subject record can never string-match a control record. Without atoms, every inherited
+# block substitution would be retained as a false somatic call. Only the OUTPUT representation has to
+# stay composite -- emitting the surviving atoms of a partially-matched record instead would assert a
+# haplotype the subject does not carry.
+vt normalize -n "$RUFUS_VCF" -r "$REFERENCE_FILE" | bgzip > "$NORMED_VCF"
 bcftools index -t "$NORMED_VCF"
+
+ATOMS_VCF="$WORK_DIR/atoms.$(basename "$RUFUS_VCF")"
+bcftools norm -a --old-rec-tag OLD_REC -f "$REFERENCE_FILE" "$NORMED_VCF" -Oz -o "$ATOMS_VCF"
+bcftools index -t "$ATOMS_VCF"
+
+# Parent key for a record: its OLD_REC minus the trailing USED_ALT_IDX, or its own coordinates when
+# `norm -a` left it untouched and emitted OLD_REC="." . For a multiallelic parent OLD_REC carries the
+# FULL alt list (e.g. chr20|30000|TGG|TTT,GGG|2), so this key matches the parent record's own
+# CHROM/POS/REF/ALT exactly, and atoms from different ALTs group under the one parent.
+parent_keys() {
+	bcftools query -f '%INFO/OLD_REC\t%CHROM|%POS|%REF|%ALT\n' "$1" | awk -F'\t' '
+		{ if ($1 == "." || $1 == "") { print $2 }
+		  else { n = split($1, a, "|"); printf "%s|%s|%s|%s\n", a[1], a[2], a[3], a[4] } }'
+}
 
 #for loop for each control file provided by user
 MERGED_PILEUP="$WORK_DIR/merged_pileup.${FMTD_REGION}.vcf.gz"
@@ -110,13 +134,15 @@ for CONTROL in "${CONTROL_BAM_LIST[@]}"; do
 	# Running in WG mode, split pileup by chr
 	if [ "$WINDOW_SIZE" -ne 0 ]; then
 		# Likely dealing with a small number of variants, send in a single list of sites
-		regions=$(bcftools view -H "$NORMED_VCF" | awk '!/^#/ {printf "%s%s:%d-%d", sep, $1, $2, $2; sep=","} END{print ""}')
+		# Regions come from ATOMS_VCF, not NORMED_VCF: a composite record reports only its start
+		# position, so piling up the parent alone would miss its later atom positions entirely.
+		regions=$(bcftools view -H "$ATOMS_VCF" | awk '!/^#/ {printf "%s%s:%d-%d", sep, $1, $2, $2; sep=","} END{print ""}')
 		bash $PILEUP_SCRIPT "$regions" "${CONTROL_BAM}" "${REFERENCE_FILE}" > "$CURR_MERGED_PILEUP"
 	else
 		# Better to do chromosome by chromosome for speed for entire genome
 		TEMP_ARGS_FILE="$WORK_DIR/$FMTD_REGION.arguments.txt"
 		mkdir -p "$CURR_PILEUP_DIR"
-		bcftools query -f '%CHROM\n' "$NORMED_VCF" | sort | uniq | \
+		bcftools query -f '%CHROM\n' "$ATOMS_VCF" | sort | uniq | \
 		awk -v bam="$CONTROL_BAM" -v ref="$REFERENCE_FILE" '{print $1 "\t" bam "\t" ref}' > "$TEMP_ARGS_FILE"
 		cat "$TEMP_ARGS_FILE" | parallel -j +0 --colsep '\t' "bash \"$PILEUP_SCRIPT\" {1} {2} {3} > $CURR_PILEUP_DIR/{1}.vcf.gz"
 		for vcf in "$CURR_PILEUP_DIR"/*vcf.gz; do
@@ -158,23 +184,69 @@ bcftools view -e 'ALT="<*>" && N_ALT=1' "$SORTED_MERGED_PILEUP" | bcftools call 
 bcftools index "$CONTROL_VCF"
 rm "$SORTED_MERGED_PILEUP"*
 
-# Intersect the control vcf with formatted rufus vcf
+# ---------------------------------------------------------------------------------------------
+# All-atoms rule (issue #98).
+#
+# A parent record is dropped only when EVERY one of its atoms was found in the control. Partial
+# inheritance of a haplotype does not make the haplotype inherited: a somatic change adjacent to a
+# germline variant is a real and common situation, and the previous behaviour -- emitting whichever
+# atoms survived `isec -n=1 -w1` -- turned it into a fabricated variant. Worked example:
+#
+#   subject call        chr20:20000  AAC>CTG      one MNP, one haplotype
+#   control germline    chr20:20000  A>C
+#   old behaviour       emits 20001 A>T and 20002 C>G, asserting reference A at 20000 -- a haplotype
+#                       the subject does not carry
+#   all-atoms rule      keeps chr20:20000 AAC>CTG whole, annotated CO_ATOMS=1/3
+# ---------------------------------------------------------------------------------------------
 CONTROL_RECORD_COUNT=$(bcftools view -H "$CONTROL_VCF" | wc -l)
+MATCHED_COUNTS="$WORK_DIR/matched_atoms.$FMTD_REGION.txt"
+ATOM_TOTALS="$WORK_DIR/atom_totals.$FMTD_REGION.txt"
+KEEP_TSV="$WORK_DIR/keep_parents.$FMTD_REGION.tsv"
+
 if [ "$CONTROL_RECORD_COUNT" -eq 0 ]; then
-	echo "Control VCF has zero variant records — skipping intersection, copying subject VCF directly."
-	cp "$NORMED_VCF" "${OUT_VCF}"
-	bcftools index -t "$OUT_VCF"
+	echo "Control VCF has zero variant records — nothing can be co-inherited."
+	: > "$MATCHED_COUNTS"
 else
 	echo "Starting intersection..."
-	bcftools isec -Oz -w1 -n=1 -p "$ISEC_OUT_DIR" "$NORMED_VCF" "$CONTROL_VCF"
-
-	# save the new vcf as rufus final vcf
-	OUTFILE="$ISEC_OUT_DIR/0000.vcf.gz"
-	OUT_INDEX="$ISEC_OUT_DIR/0000.vcf.gz.tbi"
-
-	cp "$OUTFILE" "${OUT_VCF}"
-	cp "$OUT_INDEX" "${OUT_VCF}.tbi"
+	# -n=2 -w1: atoms present in BOTH files, written from file 1 (the subject's atoms). The previous
+	# code used -n=1 to take the survivors directly; we need the MATCHES so they can be counted per
+	# parent instead of emitted.
+	bcftools isec -Oz -w1 -n=2 -p "$ISEC_OUT_DIR" "$ATOMS_VCF" "$CONTROL_VCF"
+	parent_keys "$ISEC_OUT_DIR/0000.vcf.gz" | sort | uniq -c | awk '{print $2"\t"$1}' > "$MATCHED_COUNTS"
 fi
+
+parent_keys "$ATOMS_VCF" | sort | uniq -c | awk '{print $2"\t"$1}' > "$ATOM_TOTALS"
+
+awk -F'\t' '
+	NR==FNR { matched[$1] = $2; next }
+	{
+		total = $2 + 0
+		m = ($1 in matched) ? matched[$1] + 0 : 0
+		if (m >= total) next            # every atom inherited -> drop this parent
+		print $1 "\t" m "/" total
+	}' "$MATCHED_COUNTS" "$ATOM_TOTALS" > "$KEEP_TSV"
+
+echo "Co-inheritance: keeping $(wc -l < "$KEEP_TSV") of $(wc -l < "$ATOM_TOTALS") record(s)."
+
+# Emit the surviving PARENT records, composite alleles intact, annotated with CO_ATOMS. Done in awk
+# rather than `bcftools view -T` because the selection is per REF/ALT, not per position: two records
+# can share a position and only one of them be fully inherited.
+zcat "$NORMED_VCF" | awk -F'\t' -v OFS='\t' '
+	NR==FNR { co[$1] = $2; next }
+	/^#CHROM/ {
+		print "##INFO=<ID=CO_ATOMS,Number=1,Type=String,Description=\"Atoms of this record found in the control / total atoms. A record is dropped only when all of its atoms are found, so a partially-inherited haplotype is kept whole.\">"
+		print; next
+	}
+	/^#/ { print; next }
+	{
+		key = $1 "|" $2 "|" $4 "|" $5
+		if (!(key in co)) next
+		$8 = ($8 == "." || $8 == "") ? "CO_ATOMS=" co[key] : $8 ";CO_ATOMS=" co[key]
+		print
+	}' "$KEEP_TSV" - | bgzip > "$OUT_VCF"
+bcftools index -t -f "$OUT_VCF"
+
+rm -f "$MATCHED_COUNTS" "$ATOM_TOTALS" "$KEEP_TSV" "$ATOMS_VCF" "$ATOMS_VCF".tbi
 rm "$CONTROL_VCF"*
 
 # Clean up aligned control file, if it exists

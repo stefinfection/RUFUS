@@ -19,24 +19,29 @@ bash tests/finalize/run_all.sh t02      # one case, by name substring
 |---|---|
 | `t01_early_exits` | each "nothing to call" condition stops with the right reason string. These are *successful* exits, so a wrong reason mislabels a region in `region_status.log` with nothing failing. |
 | `t02_control_path_consistency` | **the #98 guard.** The representation RUFUS emits must not depend on whether controls arrived as BAM/CRAM or as hashes. |
-| `t03_canonical_not_atomized` | XFAIL. The canonical VCF should keep composite alleles and carry no `*` placeholders. |
-| `t04_golden_chr20_m5` | the stage reproduces a preserved real run byte for byte. Local tier — skips without `resources/reg_test_files` and the control CRAM. |
-| `t05_partial_match_all_atoms` | XFAIL. A composite whose atoms are *partially* in the control must be emitted whole, not as surviving atoms. |
+| `t03_canonical_not_atomized` | the canonical VCF keeps composite alleles and carries no `*` placeholders. |
+| `t04_golden_chr20_m5` | canonical **and** atomized sidecar both match the in-repo goldens under `golden/`. Local tier — skips without `resources/reg_test_files` and the control CRAM. |
+| `t05_partial_match_all_atoms` | a composite whose atoms are *partially* in the control is emitted whole, not as surviving atoms, and annotated `CO_ATOMS`. |
 
 ## XFAIL
 
 A case whose header carries `# XFAIL:` is expected to fail until the named change lands. When one
-starts passing the runner reports **XPASS** — that is the signal to delete the marker. Both current
-XFAILs encode #98's target behaviour, so they are the definition of done for that issue.
+starts passing the runner reports **XPASS** — the signal to delete the marker. t03 and t05 were both
+XFAIL until #98 landed; there are no XFAILs at present.
 
-## Why t02 passes today
+## What t02 is really guarding
 
-`bcftools norm -a` decomposes MNVs, so it currently *masks* the divergence between the two control
-paths: `vt decompose_blocksub` runs only on the BAM/CRAM path
-(`remove_coinheriteds.sh`, reached from `runRufus.sh:1810`), but atomize splits everything afterwards
-and the two arms converge. Removing atomize without also handling `decompose_blocksub` un-masks it —
-block substitutions stay split on the BAM path and intact on the other — and t02 goes red. That is
-the entire point of the test.
+`bcftools norm -a` also decomposes MNVs, so before #98 it *masked* the divergence between the two
+control paths and t02 passed for the wrong reason. `vt decompose_blocksub` runs only on the BAM/CRAM
+path (`remove_coinheriteds.sh`, reached from `runRufus.sh:1810`), and atomize used to split everything
+afterwards, so the arms converged regardless. With atomize gone the masking is gone too, and t02 now
+genuinely tests that the BAM/CRAM path emits composites rather than atoms.
+
+## Goldens
+
+`golden/chr20_m5.canonical.vcf.gz` and `golden/chr20_m5.atomized.vcf.gz` are versioned in the repo,
+not read from the run directory. Re-freezing a baseline is then a reviewable diff, and the preserved
+run output stays untouched as the record of what the pre-#98 pipeline produced.
 
 ## Fixtures
 

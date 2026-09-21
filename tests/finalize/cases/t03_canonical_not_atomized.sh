@@ -1,6 +1,5 @@
 #!/bin/bash
-# XFAIL: until #98 stops atomizing the canonical output
-# XFAIL until #98: the canonical VCF must keep composite alleles, not decompose them into atoms.
+# The canonical VCF must keep composite alleles, not decompose them into atoms.
 #
 # Atomization is lossy -- it destroys the linkage a single contig asserted, inflates variant counts,
 # and manufactures records no read supports (see #98 for the chr20:62459362 case, where an atom came

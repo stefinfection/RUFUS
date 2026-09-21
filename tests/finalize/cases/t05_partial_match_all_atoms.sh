@@ -1,5 +1,4 @@
 #!/bin/bash
-# XFAIL: until #98 adopts the all-atoms rule in remove_coinheriteds
 # The all-atoms rule (#98): drop a composite record only if EVERY atom matched a control variant.
 # Partial inheritance of a haplotype does not make the haplotype inherited.
 #
