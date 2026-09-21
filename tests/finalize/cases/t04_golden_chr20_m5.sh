@@ -30,20 +30,7 @@ done
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 root="$TMP/r"; mkdir -p "$root/rufus_chr20/Intermediates"
-# The preserved fixture predates the DP/RO/AO -> KDP/KRO/KAO rename, and that rename is a clean
-# version boundary: the pipeline deliberately refuses a legacy VCF rather than guessing. So migrate
-# the staged COPY to the current tag vocabulary -- the test then exercises the supported path, and
-# reg_test_files stays pristine (it is the oracle; see #100 for what happens when it is not).
-# This transformation is value-preserving: only tag names change, never numbers.
-sed -e 's/GT:DP:RO:AO/GT:KDP:KRO:KAO/g' \
-    -e 's/;AO=/;KAO=/g' \
-    -e '/^##FORMAT=<ID=AK,/d' \
-    -e 's/^##FORMAT=<ID=DP,\(.*\)$/##FORMAT=<ID=KDP,\1/' \
-    -e 's/^##FORMAT=<ID=RO,\(.*\)$/##FORMAT=<ID=KRO,\1/' \
-    -e 's/^##FORMAT=<ID=AO,\(.*\)$/##FORMAT=<ID=KAO,\1/' \
-    -e 's/^##INFO=<ID=AO,\(.*\)$/##INFO=<ID=KAO,\1/' \
-    "$RUN/rufus_chr20/$GEN.V2.overlap.hashcount.fastq.bam.vcf" \
-    > "$root/rufus_chr20/$GEN.V2.overlap.hashcount.fastq.bam.vcf"
+cp "$RUN/rufus_chr20/$GEN.V2.overlap.hashcount.fastq.bam.vcf" "$root/rufus_chr20/"
 
 GEN="$GEN" SUBJ="$SUBJ" REF="$R/ref/GCA_000001405.15_GRCh38_no_alt_analysis_set.fa" \
 EXTRA_BIND="$(cd "$R" && pwd)" \
