@@ -60,7 +60,17 @@ declare -A HDR=(
 NO_PILEUP_MODEL_HDR='##INFO=<ID=NO_PILEUP_MODEL,Number=1,Type=Integer,Description="1 when the pileup engine has no model for this allele class, so its read counts are not evidence about this allele. Derived from the SHAPE of REF/ALT, not from any pileup output: currently set for composite (equal-length multi-base) alleles, which are counted per-position and therefore never attributed to the composite. AF is reported missing rather than 0 for these records. NOTE: deletions longer than a read are equally unmodelled but are NOT flagged, as detecting them needs a read-length threshold -- see CONTRACT.md">'
 
 
-rows() { grep -v '^#' "$1" | awk -F'\t' 'NR>1 || $1!="CHROM"' | awk -F'\t' '$1!="CHROM"'; }
+# Does column $2 of table $1 hold a real value at any site?
+#
+# Deliberately ONE awk reading the file directly, with no pipeline and no early exit. The obvious
+# formulation -- pipe the rows into `awk '$c != "." {exit}'` -- is wrong under `set -o pipefail` and
+# wrong ONLY AT SCALE: awk quits on the first match, the upstream writer gets SIGPIPE, pipefail turns
+# that into a failed test, and every tag is judged absent. A 9-row fixture passes because upstream
+# finishes before awk exits; a 1108-site run reports DP=138 as "never present" and silently drops
+# every provider tag.
+has_value() {
+	awk -F'\t' -v c="$2" '!/^#/ && $1 != "CHROM" && $c != "." { found = 1 } END { exit !found }' "$1"
+}
 
 CUR="$VCF"
 for T in "${TABLES[@]}"; do
@@ -87,7 +97,7 @@ for T in "${TABLES[@]}"; do
 	present=(); exprs=(); spec="CHROM,POS,REF,ALT"
 	for tag in "${ORDER[@]}"; do
 		c=${COL[$tag]}
-		if rows "$T" | awk -F'\t' -v c="$c" '$c != "." {found=1; exit} END{exit !found}'; then
+		if has_value "$T" "$c"; then
 			present+=("$tag"); spec="$spec,FORMAT/$tag"
 			case "$PAIRED" in *" $tag "*) exprs+=("\$$c\",\"\$$((c+1))");; *) exprs+=("\$$c");; esac
 		fi

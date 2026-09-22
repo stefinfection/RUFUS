@@ -103,6 +103,10 @@ _arg_filterK=1
 _arg_ParLowK=2
 _arg_ParLowCovThreshold=7
 _arg_hash_size=
+_arg_pileup=auto
+_arg_pileup_provider=bcftools
+_arg_pileup_depth=10000
+_arg_pileup_filter=off
 _filterMinQ=15
 _arg_stop="nope"
 _arg_dev_reporting="FALSE"
@@ -173,6 +177,10 @@ s-n>] ...\n' "$0"
 	printf "\t%s\n" "-fq, --filterMinQ: Minimum base quality for filter step, any kmer with any bases lower than this quality will be ignored (default = 15)"
 	printf "\t%s\n" "-pl, --ParLowK: Lowest kmer count to be kept when counting parent jellyfish tables (default = 2, using 1 will SIGNIFICANTLY increase run time and is not advised)"
 	printf "\t%s\n" "-plct, --ParLowCovThreshold: k-mer count ceiling in controls below which a variant is flagged as low-coverage-parent/inherited (default = 7, set to 0 to disable, e.g. when using an assembly as the control)"
+	printf "\t%s\n" "-pu, --pileup: run the read-pileup annotation stage, 'auto' or 'off' (default: auto). Adds read counts (DP/AD/AF and bias statistics) alongside the k-mer statistics. Informational only -- nothing filters on them."
+	printf "\t%s\n" "--pileup-provider: pileup engine to use (default: bcftools)"
+	printf "\t%s\n" "--pileup-depth: max reads per site for the pileup (default: 10000). The old hard-coded 100 truncated every site in a 200x run."
+	printf "\t%s\n" "--pileup-filter: 'off' only. Reserved; phase 1 annotates and does not filter."
 	printf "\t%s\n" "-hs, --hash_size: jellyfish initial hash size (-s) for the subject/control count step, e.g. 32G (default: 1G in region mode, 8G in whole-genome mode). Must match the -s used to build any pre-made control/DSA hash being merged against."
 	printf "\t%s\n" "-StJ: Stop run after jellyfish steps" #TODO: dont require reference and other non needed options if this is set
 	printf "\t%s\n" "-StH: Stop run after hash compare steps" #TODO: dont require reference and other non needed options if this is set
@@ -320,6 +328,34 @@ parse_commandline ()
 			echo "arg -plct or --ParLowCovThreshold must be a number "
 			exit 100
 		fi
+		shift
+		;;
+	-pu|--pileup)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_pileup="$2"
+		case "$_arg_pileup" in auto|off) ;; *) die "-pu/--pileup must be 'auto' or 'off'" 1;; esac
+		shift
+		;;
+	--pileup-provider)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_pileup_provider="$2"; shift
+		;;
+	--pileup-depth)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_pileup_depth="$2"
+		[[ $_arg_pileup_depth =~ ^[0-9]+$ ]] || die "--pileup-depth must be an integer" 1
+		shift
+		;;
+	--pileup-filter)
+		test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+		_arg_pileup_filter="$2"
+		# The interface is fixed now so nobody has to guess what it will be called, but phase 1
+		# annotates only. Refusing 'on' loudly beats accepting it and silently not filtering.
+		case "$_arg_pileup_filter" in
+			off) ;;
+			on)  die "--pileup-filter on is not implemented yet: the pileup stage currently annotates only (issue #97 phase 1). The tags are written either way; nothing filters on them." 1;;
+			*)   die "--pileup-filter must be 'off' (phase 1 annotates only)" 1;;
+		esac
 		shift
 		;;
 	-hs|--hash_size)
@@ -1661,6 +1697,15 @@ fi
 #$RufAlu $_arg_subject $_arg_subject.generator.V2.overlap.hashcount.fastq  $aluList $_arg_ref $fastaHackPath $jellyfishPath  $(echo $ParentFileNames)
 ########################################################################
 
+# Which alignment the pileup should read. Only a real bam/cram gives reference reads; a generator
+# subject may have no underlying alignment at all (it is an arbitrary command), and a fastq subject
+# has none by definition. finalize_vcf.sh falls back to the mutant-read BAM in those cases, which
+# yields ALT counts only.
+_pileup_subject_align=""
+for _subj in "${_arg_subjects[@]}"; do
+	case "$_subj" in *.bam|*.cram) _pileup_subject_align="$_subj"; break;; esac
+done
+
 _region_exit_reason="vcf_processing_stage"
 
 # VCF finalization now lives in post_process/finalize_vcf.sh -- sanitize, dedupe, PASS gate,
@@ -1686,7 +1731,11 @@ bash "$RDIR/post_process/finalize_vcf.sh" \
 	--region "$_arg_region" \
 	--mosaic "$_arg_mosaic" \
 	--threads "$_arg_threads" \
-	--controls "$(IFS=','; echo "${Parents[*]}")"
+	--controls "$(IFS=','; echo "${Parents[*]}")" \
+	--pileup "$_arg_pileup" \
+	--pileup-provider "$_arg_pileup_provider" \
+	--pileup-depth "$_arg_pileup_depth" \
+	--subject-align "$_pileup_subject_align"
 _finalize_rc=$?
 set -e
 

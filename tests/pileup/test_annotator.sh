@@ -68,4 +68,34 @@ else echo "  FAIL: AF at 150000 should be '.', got '$afm'"; rc=1; fi
 afz=$(bcftools query -f '%POS\t[%AF]\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' '$1==55000{print $2}')
 if [ "$afz" = "0" ]; then echo "  ok: AF still 0 where the engine looked and found no support"
 else echo "  FAIL: AF at 55000 should be 0, got '$afz'"; rc=1; fi
+
+# 8. SCALE. The tag-presence probe was once a pipeline whose consumer exited on the first match; at
+#    9 rows the upstream writer finished first and it worked, at 1108 rows it took SIGPIPE, pipefail
+#    failed the test, and EVERY provider tag was silently dropped. The fixture is far too small to
+#    catch that, so inflate it here: a table big enough that the writer is still going when a
+#    short-circuiting reader would quit.
+big="$TMP/big.tsv"
+grep '^#' "$FIX/golden.subject.tsv" > "$big"
+grep -v '^#' "$FIX/golden.subject.tsv" | head -1 >> "$big"          # column header
+for i in $(seq 1 400); do
+	awk -F'\t' -v OFS='\t' -v off="$i" '!/^#/ && $1 != "CHROM" { $2 = $2 + off * 1000; print }' \
+		"$FIX/golden.subject.tsv"
+done | sort -k1,1 -k2,2n >> "$big"
+nrows=$(grep -vc '^#\|^CHROM' "$big")
+
+# Annotate a VCF built from that same inflated site list, so the keys line up.
+{ bcftools view -h "$TMP/in.vcf.gz" 2>/dev/null
+  grep -v '^#' "$big" | awk -F'\t' -v OFS='\t' '$1!="CHROM"{print $1,$2,".",$3,$4,".",".",".","GT","0/1"}'
+} | bgzip > "$TMP/big.vcf.gz"
+bcftools index -f "$TMP/big.vcf.gz"
+
+ntags=$(bash "$ROOT/post_process/pileup/annotate_from_pileup.sh" --vcf "$TMP/big.vcf.gz" \
+	--out "$TMP/bigout.vcf.gz" --table "$big" 2>&1 | grep -o '[0-9]* tags:' | grep -o '^[0-9]*')
+if [ "${ntags:-0}" -ge 16 ]; then
+	echo "  ok: all $ntags tags still detected at $nrows sites (scale-independent)"
+else
+	echo "  FAIL: only ${ntags:-0} tags detected at $nrows sites; the presence probe is scale-dependent again"
+	rc=1
+fi
+
 exit $rc
