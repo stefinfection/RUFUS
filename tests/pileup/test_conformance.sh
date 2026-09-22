@@ -16,8 +16,17 @@ bash "$ROOT/post_process/pileup/run_pileup.sh" --provider "$PROVIDER" \
 	--role SUBJECT --sample-name tumor --out "$TMP/out.tsv" 2>"$TMP/err" || {
 		echo "  FAIL: run_pileup.sh exited non-zero"; sed 's/^/    /' "$TMP/err"; exit 1; }
 
-# The #provider and #params preamble lines legitimately differ between engines and settings.
-strip() { grep -v '^#provider=\|^#params=' "$1"; }
+# Preamble lines that legitimately vary between runs:
+#   #provider/#params  differ between engines and settings
+#   the #<ROLE> line   carries the ABSOLUTE path of the input, so it differs per checkout. Reduce it
+#                      to a basename rather than dropping it -- role, kind and sample name are worth
+#                      comparing, and only the path is machine-specific. (Caught by merging into a
+#                      different worktree: the golden was frozen under feat_pileup-phase1 and failed
+#                      the moment it ran from container_latest.)
+strip() {
+	grep -v '^#provider=\|^#params=' "$1" \
+	  | awk -F'\t' -v OFS='\t' '/^#(SUBJECT|CONTROL_)/ { n=split($2,a,"/"); $2=a[n] } { print }'
+}
 if diff <(strip "$GOLD") <(strip "$TMP/out.tsv") > "$TMP/d"; then
 	echo "  ok: reproduces the golden table ($(grep -vc '^#\|^CHROM' "$GOLD") sites)"
 else
