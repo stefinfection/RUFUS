@@ -30,6 +30,12 @@ DATA=/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/resources/re
 SIF=${SIF:-/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/zenodo_images/rufus_dev.sif}
 OUTROOT=${OUTROOT:-$DATA/runs/f3_formats}
 THREADS=${SLURM_CPUS_PER_TASK:-8}
+
+# Dev-loop overlay: bind local file(s) over the container to validate a fix before a CI rebuild.
+# The other cases already accept this; without it a fix under test is silently ignored here and the
+# case reports the unfixed container's behaviour, which is worse than not running at all.
+#   EXTRA_BIND=/path/to/repo/post_process/foo.sh:/opt/RUFUS/post_process/foo.sh bash f3_input_formats.sh
+EXTRA_BIND=${EXTRA_BIND:-}
 WINDOW=10
 
 REF=$FIX/ref/tiny.fa
@@ -50,7 +56,7 @@ run_format() {
   local out="$OUTROOT/$label"
   rm -rf "$out"; mkdir -p "$out"
   ( cd "$out"
-    apptainer exec --bind "$FIX,$out,$DATA" "$SIF" \
+    apptainer exec --bind "$FIX,$out,$DATA${EXTRA_BIND:+,$EXTRA_BIND}" "$SIF" \
       bash /opt/RUFUS/runRufus.sh "$@" -k 25 -L -m 5 -R chr20 -t "$THREADS" -z >"$out/run.log" 2>&1
   )
   local vcf; vcf=$(ls "$out"/temp.RUFUS.Final.*.vcf.gz 2>/dev/null | head -1 || true)

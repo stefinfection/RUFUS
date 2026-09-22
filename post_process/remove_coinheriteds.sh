@@ -217,22 +217,31 @@ fi
 
 parent_keys "$ATOMS_VCF" | sort | uniq -c | awk '{print $2"\t"$1}' > "$ATOM_TOTALS"
 
-awk -F'\t' '
-	NR==FNR { matched[$1] = $2; next }
+# The matched-atom counts are loaded in BEGIN, NOT with the usual `NR==FNR` two-file idiom.
+# NR==FNR silently does the wrong thing when the FIRST file is EMPTY -- and empty is the normal case
+# here, because a control with no variants at these sites matches nothing. With no lines read from
+# file 1, FNR restarts at 1 for file 2 while NR is also 1, so file 2's rows are swallowed as if they
+# were file 1: every parent looks fully matched and EVERY CALL IS DROPPED.
+awk -F'\t' -v mfile="$MATCHED_COUNTS" '
+	BEGIN { while ((getline line < mfile) > 0) { split(line, f, "\t"); matched[f[1]] = f[2] } }
 	{
 		total = $2 + 0
 		m = ($1 in matched) ? matched[$1] + 0 : 0
 		if (m >= total) next            # every atom inherited -> drop this parent
 		print $1 "\t" m "/" total
-	}' "$MATCHED_COUNTS" "$ATOM_TOTALS" > "$KEEP_TSV"
+	}' "$ATOM_TOTALS" > "$KEEP_TSV"
 
 echo "Co-inheritance: keeping $(wc -l < "$KEEP_TSV") of $(wc -l < "$ATOM_TOTALS") record(s)."
 
 # Emit the surviving PARENT records, composite alleles intact, annotated with CO_ATOMS. Done in awk
 # rather than `bcftools view -T` because the selection is per REF/ALT, not per position: two records
 # can share a position and only one of them be fully inherited.
-zcat "$NORMED_VCF" | awk -F'\t' -v OFS='\t' '
-	NR==FNR { co[$1] = $2; next }
+# Same reason as above: loaded in BEGIN, not with NR==FNR. An empty keep-list is legitimate (every
+# record co-inherited), and with the two-file idiom it swallowed the ENTIRE VCF -- headers included --
+# producing a zero-byte file that bcftools then refused to index ("is in a format that cannot be
+# usefully indexed"), failing the whole run with exit 255 instead of emitting an empty-but-valid VCF.
+zcat "$NORMED_VCF" | awk -F'\t' -v OFS='\t' -v kfile="$KEEP_TSV" '
+	BEGIN { while ((getline line < kfile) > 0) { split(line, f, "\t"); co[f[1]] = f[2] } }
 	/^#CHROM/ {
 		print "##INFO=<ID=CO_ATOMS,Number=1,Type=String,Description=\"Atoms of this record found in the control / total atoms. A record is dropped only when all of its atoms are found, so a partially-inherited haplotype is kept whole.\">"
 		print; next
@@ -243,7 +252,7 @@ zcat "$NORMED_VCF" | awk -F'\t' -v OFS='\t' '
 		if (!(key in co)) next
 		$8 = ($8 == "." || $8 == "") ? "CO_ATOMS=" co[key] : $8 ";CO_ATOMS=" co[key]
 		print
-	}' "$KEEP_TSV" - | bgzip > "$OUT_VCF"
+	}' | bgzip > "$OUT_VCF"
 bcftools index -t -f "$OUT_VCF"
 
 rm -f "$MATCHED_COUNTS" "$ATOM_TOTALS" "$KEEP_TSV" "$ATOMS_VCF" "$ATOMS_VCF".tbi
