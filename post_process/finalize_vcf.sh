@@ -31,6 +31,7 @@ EOF
 WORK_DIR=""; WORK_ROOT=""; ProbandGenerator=""; ProbandFileName=""
 formatted_region=""; region_postfix=""; _arg_ref=""; RDIR=""
 _arg_region=""; _arg_mosaic="FALSE"; _arg_threads=10; CONTROLS=()
+PILEUP=auto; PILEUP_PROVIDER=bcftools; PILEUP_DEPTH=10000; SUBJECT_ALIGN=""
 
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -46,6 +47,10 @@ while [ $# -gt 0 ]; do
 		--mosaic)           _arg_mosaic="$2"; shift 2;;
 		--threads)          _arg_threads="$2"; shift 2;;
 		--controls)         if [ -n "$2" ]; then IFS=',' read -r -a CONTROLS <<< "$2"; fi; shift 2;;
+		--pileup)           PILEUP="$2"; shift 2;;
+		--pileup-provider)  PILEUP_PROVIDER="$2"; shift 2;;
+		--pileup-depth)     PILEUP_DEPTH="$2"; shift 2;;
+		--subject-align)    SUBJECT_ALIGN="$2"; shift 2;;
 		-h|--help)          usage;;
 		*) echo "finalize_vcf.sh: unknown argument '$1'" >&2; usage;;
 	esac
@@ -240,9 +245,57 @@ HDAF_VCF="$WORK_DIR/hd_af.$CANON_VCF_BASENAME"
 SUBJECT_SAMPLE_NAME=$(bcftools view -h "$CANON_VCF" | tail -n 1 | awk -F'\t' '{ print $10 }')
 bash ${RDIR}/post_process/add_hd_med.add_hd_af.sh "$CANON_VCF" "$SUBJECT_SAMPLE_NAME" "$formatted_region"
 
+# ---------------------------------------------------------------------------------------------
+# Pileup annotation (phase 1 of the pileup work, #97). INFORMANT, NOT ADJUDICATOR: this adds read
+# counts alongside the k-mer statistics and changes no FILTER, no genotype, and no existing value.
+# Nothing downstream acts on these numbers yet -- that is deliberate, so the two channels can be
+# compared on real data before either is trusted to decide anything.
+#
+# Subject only. Control pileups belong to phase 3, and leaving them out here also avoids having to
+# map control roles onto VCF sample columns, which is reconstructed by filename surgery upstream and
+# is a known source of WG-versus-region divergence.
+# ---------------------------------------------------------------------------------------------
+PILEUP_IN="$HDAF_VCF"
+if [ "$PILEUP" != "off" ]; then
+	# Resolve what to pile up. A bam/cram subject gives real reference reads; a generator or fastq
+	# subject has none, so fall back to the aligned mutant reads, which carry ALT support only.
+	_pu_align=""; _pu_kind=""
+	if [ -n "$SUBJECT_ALIGN" ] && [ -e "$SUBJECT_ALIGN" ]; then
+		_pu_align="$SUBJECT_ALIGN"
+		case "$SUBJECT_ALIGN" in *.cram) _pu_kind=cram;; *) _pu_kind=bam;; esac
+	elif [ -e "$WORK_DIR/$ProbandGenerator.Mutations.fastq.bam" ]; then
+		_pu_align="$WORK_DIR/$ProbandGenerator.Mutations.fastq.bam"
+		_pu_kind=altonly
+		echo "Pileup: no aligned subject supplied; using the mutant-read BAM. ALT counts only -- it" >&2
+		echo "        contains no reference reads, so AD[ref] and AF are not meaningful." >&2
+	fi
+
+	if [ -z "$_pu_align" ]; then
+		echo "Pileup: skipped, no alignable subject input found." >&2
+	else
+		_pu_tsv="$WORK_DIR/pileup.SUBJECT.${formatted_region}.tsv"
+		_pu_out="$WORK_DIR/pileup.${formatted_region}.vcf.gz"
+		# A pileup failure must not lose the run: the k-mer VCF is complete without it, and phase 1
+		# adds no value anything depends on. Warn and carry the un-annotated VCF forward.
+		if bash "$RDIR/post_process/pileup/run_pileup.sh" \
+				--provider "$PILEUP_PROVIDER" --sites-vcf "$PILEUP_IN" \
+				--bam "$_pu_align" --ref "$_arg_ref" --role SUBJECT --kind "$_pu_kind" \
+				--sample-name "$SUBJECT_SAMPLE_NAME" --depth "$PILEUP_DEPTH" \
+				--out "$_pu_tsv" \
+		   && bash "$RDIR/post_process/pileup/annotate_from_pileup.sh" \
+				--vcf "$PILEUP_IN" --out "$_pu_out" --table "$_pu_tsv"; then
+			PILEUP_IN="$_pu_out"
+			echo "Pileup: annotated $(bcftools view -H "$_pu_out" 2>/dev/null | wc -l) record(s) from $_pu_kind input." >&2
+		else
+			echo "WARNING: pileup annotation failed; continuing without it. The k-mer calls are" >&2
+			echo "         unaffected -- nothing downstream reads these tags yet." >&2
+		fi
+	fi
+fi
+
 # Sort
 SORTED_VCF="$WORK_DIR/sorted.${formatted_region}.vcf.gz"
-bcftools sort "$HDAF_VCF" -Oz -o "$SORTED_VCF"
+bcftools sort "$PILEUP_IN" -Oz -o "$SORTED_VCF"
 
 # Rename final vcf and zip/index
 PREFINAL_VCF="$WORK_DIR/temp.RUFUS.Final.${ProbandFileName}${region_postfix}.vcf.gz"
