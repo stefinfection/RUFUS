@@ -22,8 +22,8 @@ bash "$ROOT/post_process/pileup/annotate_from_pileup.sh" --vcf "$TMP/in.vcf.gz" 
 # 1. ANNOTATE ONLY: every pre-existing column must be byte-identical. Compare columns 1-8, which is
 #    everything except FORMAT and the sample -- the only places new tags may appear.
 if diff <(bcftools view -H "$TMP/in.vcf.gz" 2>/dev/null | cut -f1-8) \
-        <(bcftools view -H "$TMP/out.vcf.gz" 2>/dev/null | cut -f1-8 | sed 's/;PU_UNSCORED=[01]//; s/^\([^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t\)PU_UNSCORED=[01]$/\1./') >/dev/null; then
-	echo "  ok: CHROM..INFO unchanged apart from the added PU_UNSCORED"
+        <(bcftools view -H "$TMP/out.vcf.gz" 2>/dev/null | cut -f1-8 | sed 's/;NO_PILEUP_MODEL=[01]//; s/^\([^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t\)NO_PILEUP_MODEL=[01]$/\1./') >/dev/null; then
+	echo "  ok: CHROM..INFO unchanged apart from the added NO_PILEUP_MODEL"
 else
 	echo "  FAIL: the annotator altered a pre-existing column"; rc=1
 fi
@@ -48,12 +48,24 @@ else echo "  FAIL: $n header line(s) declare a tag the provider never produced";
 
 # 4. The unscorable-allele marker. AF=0 on a composite allele means "the engine cannot answer", and
 #    without this flag it is indistinguishable from "no reads support it".
-u=$(bcftools query -f '%POS\t%INFO/PU_UNSCORED\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' '$2==1 {print $1}' | tr '\n' ' ')
-if [ "$u" = "150000 " ]; then echo "  ok: PU_UNSCORED set on the composite allele only"
-else echo "  FAIL: PU_UNSCORED expected on 150000 only, got: ${u:-none}"; rc=1; fi
+u=$(bcftools query -f '%POS\t%INFO/NO_PILEUP_MODEL\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' '$2==1 {print $1}' | tr '\n' ' ')
+if [ "$u" = "150000 " ]; then echo "  ok: NO_PILEUP_MODEL set on the composite allele only"
+else echo "  FAIL: NO_PILEUP_MODEL expected on 150000 only, got: ${u:-none}"; rc=1; fi
 
 # 5. AF is a ratio of the reported counts, not an independent estimate.
 af=$(bcftools query -f '%POS\t[%AF]\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' '$1==120000{print $2}')
 if [ "$af" = "0.4722" ]; then echo "  ok: AF derived from AD (17/36 = 0.4722)"
 else echo "  FAIL: AF at 120000 expected 0.4722, got '$af'"; rc=1; fi
+
+# 6. Where the engine has no model, AF must be MISSING rather than 0. A 0 there is a number we
+#    invented from a numerator the engine could not fill, and it is indistinguishable from a variant
+#    that genuinely has no support.
+afm=$(bcftools query -f '%POS\t[%AF]\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' '$1==150000{print $2}')
+if [ "$afm" = "." ]; then echo "  ok: AF missing (not 0) on the unmodelled composite allele"
+else echo "  FAIL: AF at 150000 should be '.', got '$afm'"; rc=1; fi
+
+# ...and still a real number where the engine CAN count, including a true zero.
+afz=$(bcftools query -f '%POS\t[%AF]\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' '$1==55000{print $2}')
+if [ "$afz" = "0" ]; then echo "  ok: AF still 0 where the engine looked and found no support"
+else echo "  FAIL: AF at 55000 should be 0, got '$afz'"; rc=1; fi
 exit $rc

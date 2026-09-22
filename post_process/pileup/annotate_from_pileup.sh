@@ -57,7 +57,7 @@ declare -A HDR=(
  [AD_OTHER]='##FORMAT=<ID=AD_OTHER,Number=1,Type=Integer,Description="Reads attributable to NEITHER listed allele: DP - AD[ref] - AD[alt]. Deliberately named for the measurement, not a cause -- a composite allele the engine cannot score is the known case (its variant-carrying reads land here), but an indel where a substitution was asked about, or an allele the record does not name, would look the same. AD_OTHER large alongside AD[alt]=0 is the fingerprint of the engine being blind rather than the variant being absent">'
 )
 # Allele-level, so INFO rather than FORMAT. Records are biallelic here (norm -m- ran upstream).
-PU_UNSCORED_HDR='##INFO=<ID=PU_UNSCORED,Number=1,Type=Integer,Description="1 when the pileup engine cannot score this allele class, so AD/AF are meaningless for it rather than merely zero. Currently set for composite (equal-length multi-base) alleles, which mpileup has no model for. NOTE: deletions longer than a read are also unscorable but are NOT flagged here, because that needs a read-length threshold -- see CONTRACT.md">'
+NO_PILEUP_MODEL_HDR='##INFO=<ID=NO_PILEUP_MODEL,Number=1,Type=Integer,Description="1 when the pileup engine has no model for this allele class, so its read counts are not evidence about this allele. Derived from the SHAPE of REF/ALT, not from any pileup output: currently set for composite (equal-length multi-base) alleles, which are counted per-position and therefore never attributed to the composite. AF is reported missing rather than 0 for these records. NOTE: deletions longer than a read are equally unmodelled but are NOT flagged, as detecting them needs a read-length threshold -- see CONTRACT.md">'
 
 
 rows() { grep -v '^#' "$1" | awk -F'\t' 'NR>1 || $1!="CHROM"' | awk -F'\t' '$1!="CHROM"'; }
@@ -98,24 +98,28 @@ for T in "${TABLES[@]}"; do
 	# Two additions that cost nothing and remove a trap: AF=0 for an unscorable allele is
 	# indistinguishable from AF=0 for a variant that genuinely is not there.
 	present+=(AD_OTHER); spec="$spec,FORMAT/AD_OTHER"
-	spec="$spec,INFO/PU_UNSCORED"
+	spec="$spec,INFO/NO_PILEUP_MODEL"
 
 	{ echo -n 'BEGIN{FS=OFS="\t"} /^#/||$1=="CHROM"{next} {'
-	  echo -n 'r=($7=="."?0:$7); a=($8=="."?0:$8); t=r+a; af=(t>0)?sprintf("%.4f",a/t):".";'
+	  echo -n 'r=($7=="."?0:$7); a=($8=="."?0:$8); t=r+a;'
 	  echo -n 'd=($6=="."?0:$6); unacc=d-t; if(unacc<0) unacc=0;'
-	  # composite allele: REF and ALT the same length and longer than one base. Structural, so no
+	  # Composite allele: REF and ALT the same length and longer than one base. Structural, so no
 	  # threshold and no guessing -- either it is a multi-base substitution or it is not.
-	  echo -n 'unscored=(length($3)==length($4) && length($3)>1) ? 1 : 0;'
+	  echo -n 'nomodel=(length($3)==length($4) && length($3)>1) ? 1 : 0;'
+	  # AF is OUR derived number. Computing 0 from a numerator we know the engine could not fill is
+	  # manufacturing a misleading value -- "." is the VCF-native way to say no information, and every
+	  # consumer already skips missing without having to know about the flag.
+	  echo -n 'af = nomodel ? "." : ((t>0) ? sprintf("%.4f",a/t) : ".");'
 	  echo -n 'print $1,$2,$3,$4'
 	  for e in "${exprs[@]}"; do echo -n ",$e"; done
-	  echo ',unacc,unscored}'
+	  echo ',unacc,nomodel}'
 	} > "$TMP/build.awk"
 
 	awk -f "$TMP/build.awk" "$T" | sort -k1,1 -k2,2n | bgzip > "$TMP/annot.$ROLE.tsv.gz"
 	tabix -s1 -b2 -e2 -f "$TMP/annot.$ROLE.tsv.gz"
 	: > "$TMP/hdr.$ROLE.txt"
 	for tag in "${present[@]}"; do printf '%s\n' "${HDR[$tag]}" >> "$TMP/hdr.$ROLE.txt"; done
-	printf '%s\n' "$PU_UNSCORED_HDR" >> "$TMP/hdr.$ROLE.txt"
+	printf '%s\n' "$NO_PILEUP_MODEL_HDR" >> "$TMP/hdr.$ROLE.txt"
 
 	NEXT="$TMP/annotated.$ROLE.vcf.gz"
 	bcftools annotate -s "$SNAME" -a "$TMP/annot.$ROLE.tsv.gz" -h "$TMP/hdr.$ROLE.txt" \

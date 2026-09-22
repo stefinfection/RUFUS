@@ -116,7 +116,7 @@ variants an assembly-based caller exists to find. Consumers must gate on variant
 `AD_ALT` alone. SNVs and short indels are scored correctly and carry no such caveat.
 
 The annotator marks the detectable half. A **composite allele is structural** — REF and ALT the same
-length and longer than one base — so `INFO/PU_UNSCORED=1` is set on those with no threshold and no
+length and longer than one base — so `INFO/NO_PILEUP_MODEL=1` is set on those with no threshold and no
 guessing, and `FORMAT/AD_OTHER` reports reads supporting neither listed allele (14 of 33 at the
 fixture's MNV: the variant-carrying reads themselves).
 
@@ -124,7 +124,7 @@ fixture's MNV: the variant-carrying reads themselves).
 needs a deletion-length-versus-read-length threshold, which is a judgement call rather than a
 structural fact — and unlike the MNV they give no secondary signal either: at the fixture's 1000bp
 deletion `AD_OTHER` is 0, because the spanning reads align cleanly as reference. So a long deletion
-still reads as `AF=0, PU_UNSCORED=0`, indistinguishable from a variant that is genuinely absent.
+still reads as `AF=0, NO_PILEUP_MODEL=0`, indistinguishable from a variant that is genuinely absent.
 Until that threshold is chosen, gate on variant class.
 
 The conformance fixture deliberately contains one of each, asserted as blind. If a future provider
