@@ -34,6 +34,12 @@ SIF=${SIF:-/uufs/chpc.utah.edu/common/HIPAA/u0746015/marth_software/RUFUS/zenodo
 OUT=${OUT:-$DATA/runs/f4_specificity}
 THREADS=${SLURM_CPUS_PER_TASK:-8}
 
+# Dev-loop overlay: bind local file(s) over the container to validate a fix before a CI rebuild.
+# The other cases already accept this; without it a fix under test is silently ignored here and the
+# case reports the unfixed container's behaviour, which is worse than not running at all.
+#   EXTRA_BIND=/path/to/repo/post_process/foo.sh:/opt/RUFUS/post_process/foo.sh bash f4_specificity.sh
+EXTRA_BIND=${EXTRA_BIND:-}
+
 REF=$FIX/ref/tiny.fa
 SUBJ=$FIX/specificity/subjectA.bam
 CTRL=$FIX/specificity/subjectB.bam
@@ -57,7 +63,7 @@ echo
 # whole-genome mode and its much larger hash default — needless for a 200kb fixture. No -hs:
 # the shipped default is what we want to test. See run 17378733 for why overriding it is fatal.
 set +e
-apptainer exec --bind "$FIX,$OUT,$DATA" "$SIF" \
+apptainer exec --bind "$FIX,$OUT,$DATA${EXTRA_BIND:+,$EXTRA_BIND}" "$SIF" \
   bash /opt/RUFUS/runRufus.sh \
     -s "$SUBJ" -c "$CTRL" -r "$REF" \
     -k 25 -m 5 -R chr20 -t "$THREADS" -z
