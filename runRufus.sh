@@ -1419,7 +1419,9 @@ else
 	# It intersects all of the provided Jhash files, and keeps only complements, or unique kmers
 	# These unique kmers are then queried from the subject Jhash and kept only if they are from the subject (and pass min/max thresholds)
 	# This was done because any attempt to simply filter the subject Jhash was prohibitively slow
-    $modifiedJelly merge -o "${ProbandGenerator}.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "${FIFO_MAIN}" & 
+    # --lower-count ties the merge's unique-kmer count floor to -m (MutantMinCov) instead of the
+    # hard-coded 5 in merge_files.cc, so lowering -m below 5 actually reaches the subtraction step.
+    $modifiedJelly merge --lower-count "$MutantMinCov" -o "${ProbandGenerator}.mer_counts_merged.jf" "$ProbandGenerator".Jhash $(echo $parentsString) $(echo $parentsExcludeString)  > "${FIFO_MAIN}" & 
     bash $PullSampleHashes $ProbandGenerator.Jhash "${FIFO_MAIN}" $MutantMinCov $MaxHashDepth > "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList &
 	exec 5>&-
     wait
@@ -1645,8 +1647,12 @@ else
 		_arg_refhash="empty"
 	fi
 
-    echo " bash  $RUFUSOverlap $_arg_ref ${ProbandGenerator}.Mutations.fastq 5 $ProbandGenerator ${ProbandGenerator}.k${K}_c${MutantMinCov}.HashList $K $Threads $_MaxAlleleSize $_assemblySpeed $_arg_ref_bwa $rufus_invoc_file $_arg_refhash ${ProbandGenerator}.Jhash $parentsString $_arg_ParLowCovThreshold"
-    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 5 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ParLowCovThreshold"
+    # Assembly min-coverage (Overlap.shorter.sh FinalCoverage -> OverlapSam/OverlapHash MinCoverage)
+    # now tracks the k-mer min count -m (MutantMinCov) instead of a hard-coded 5. With the default -m 5
+    # this is unchanged; lowering -m (e.g. -m 3) no longer leaves variants with 3-4 read support
+    # stranded in the assembler after they have already cleared the k-mer filter.
+    echo " bash  $RUFUSOverlap $_arg_ref ${ProbandGenerator}.Mutations.fastq $MutantMinCov $ProbandGenerator ${ProbandGenerator}.k${K}_c${MutantMinCov}.HashList $K $Threads $_MaxAlleleSize $_assemblySpeed $_arg_ref_bwa $rufus_invoc_file $_arg_refhash ${ProbandGenerator}.Jhash $parentsString $_arg_ParLowCovThreshold"
+    bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq "$MutantMinCov" $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$_arg_ref_bwa" "$rufus_invoc_file" "$_arg_refhash" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ParLowCovThreshold"
     #bash  $RUFUSOverlap "$_arg_ref" "$ProbandGenerator".Mutations.fastq 3 $ProbandGenerator "$ProbandGenerator".k"$K"_c"$MutantMinCov".HashList "$K" "$Threads" "$_MaxAlleleSize" "$_assemblySpeed" "$ProbandGenerator".Jhash "$parentsString" "$_arg_ref_bwa" "$_arg_refhash"
     echo "Done with RUFUS overlap"
 fi

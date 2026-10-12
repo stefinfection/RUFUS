@@ -1,7 +1,7 @@
 RUFUS
 =====
 
-K-mer based variant detection. v1.2.0.
+K-mer based variant detection. v1.2.1.
 
 Developed by Stephanie Georges, MS\
 Based on the thesis project of Andrew Farrell, PhD\
@@ -31,7 +31,7 @@ the same image.
 manual `.def`:
 ```bash
 apptainer pull rufus.sif docker://stefinfection/rufus:latest
-apptainer pull rufus.sif docker://stefinfection/rufus:v1.2.0
+apptainer pull rufus.sif docker://stefinfection/rufus:v1.2.1
 ```
 `:latest` always points at the most recent release; pin a specific version instead for a
 reproducible analysis. Published versions are listed at
