@@ -10,8 +10,8 @@
 #
 # Run directly:  bash f4_specificity.sh
 # Or submit:     sbatch f4_specificity.sh
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_f4_specificity
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8

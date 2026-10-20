@@ -12,8 +12,8 @@
 # is rebuilt; it is a harmless no-op once the FASTQ support is in the image.
 #
 # Run directly:  bash f5_fastq_paired.sh   |   Submit:  sbatch f5_fastq_paired.sh
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_f5_fastq_paired
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8

@@ -15,8 +15,8 @@
 # EXTRA_BIND overlays uncommitted code before the image is rebuilt (harmless no-op afterward).
 #
 # Run directly:  bash f6_fastq_single_end.sh   |   Submit:  sbatch f6_fastq_single_end.sh
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_f6_fastq_se
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8

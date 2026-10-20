@@ -26,8 +26,8 @@
 # Run directly:  bash f7_multi_subject.sh
 # Or submit:     sbatch f7_multi_subject.sh
 # EXTRA_BIND=host:container[,...] overlays uncommitted code (dev loop) before the image is rebuilt.
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_f7_multi_subject
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8

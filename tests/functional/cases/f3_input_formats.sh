@@ -12,8 +12,8 @@
 #
 # Run directly:  bash f3_input_formats.sh
 # Or submit:     sbatch f3_input_formats.sh
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_f3_formats
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8

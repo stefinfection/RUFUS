@@ -8,8 +8,8 @@
 #     cd tests/accuracy && sbatch run_chr20.slurm        # then, when it finishes:  bash compare.sh
 #
 # EDIT --account / --partition below for your cluster — SBATCH headers cannot read config.sh.
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_chr20_accuracy
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=32

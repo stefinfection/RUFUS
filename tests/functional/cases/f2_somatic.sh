@@ -14,8 +14,8 @@
 #
 # Run directly:  bash f2_somatic.sh
 # Or submit:     sbatch f2_somatic.sh
-#SBATCH --account=marth-rw
-#SBATCH --partition=marth-rw
+#SBATCH --account=ucgd-rw
+#SBATCH --partition=ucgd-rw
 #SBATCH --job-name=rufus_f2_somatic
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
