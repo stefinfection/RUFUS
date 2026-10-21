@@ -5,8 +5,10 @@
 # no engine assumptions. It reads the table and the role mapping in the table's own preamble. That is
 # the point of the split: replacing the engine must not touch this file.
 #
-# PHASE 1 IS ANNOTATE ONLY. Nothing here filters, genotypes, or alters an existing value. Every tag is
-# additive, so records are unchanged apart from new FORMAT fields.
+# ANNOTATE ONLY. Nothing here filters, genotypes, or alters an existing value. Every tag is additive,
+# so records are unchanged apart from new FORMAT fields. Phase 2 adds FORMAT/SOR (the strand-bias
+# metric, derived from ADF/ADR like AF); the verdict->FILTER step that consumes SOR is separate and
+# gated by --pileup-filter, so adding SOR here can never change a FILTER.
 set -euo pipefail
 
 VCF=""; OUT=""; TABLES=()
@@ -55,6 +57,7 @@ declare -A HDR=(
  [SCR]='##FORMAT=<ID=SCR,Number=1,Type=Integer,Description="Number of soft-clipped reads at this site">'
  [NMBZ]='##FORMAT=<ID=NMBZ,Number=1,Type=Float,Description="Mann-Whitney U-z of mismatch count in supporting reads">'
  [AD_OTHER]='##FORMAT=<ID=AD_OTHER,Number=1,Type=Integer,Description="Reads attributable to NEITHER listed allele: DP - AD[ref] - AD[alt]. Deliberately named for the measurement, not a cause -- a composite allele the engine cannot score is the known case (its variant-carrying reads land here), but an indel where a substitution was asked about, or an allele the record does not name, would look the same. AD_OTHER large alongside AD[alt]=0 is the fingerprint of the engine being blind rather than the variant being absent">'
+ [SOR]='##FORMAT=<ID=SOR,Number=1,Type=Float,Description="Symmetric odds ratio of the 2x2 strand table (forward/reverse x ref/alt, from ADF/ADR), GATK formula with +1 pseudocounts; higher = stronger strand bias. Computed only when the ALT allele has >= 10 strand-assigned reads (ADF[alt]+ADR[alt]); missing (.) below that, since a strand split from fewer reads is too noisy to trust, and therefore missing for the pileup blind classes where AD[alt]=0. The thresholds that turn this into a FILTER live in the strand-bias filter step, not here">'
 )
 # Allele-level, so INFO rather than FORMAT. Records are biallelic here (norm -m- ran upstream).
 NO_PILEUP_MODEL_HDR='##INFO=<ID=NO_PILEUP_MODEL,Number=1,Type=Integer,Description="1 when the pileup engine has no model for this allele class, so its read counts are not evidence about this allele. Derived from the SHAPE of REF/ALT, not from any pileup output: currently set for composite (equal-length multi-base) alleles, which are counted per-position and therefore never attributed to the composite. AF is reported missing rather than 0 for these records. NOTE: deletions longer than a read are equally unmodelled but are NOT flagged, as detecting them needs a read-length threshold -- see CONTRACT.md">'
@@ -105,6 +108,10 @@ for T in "${TABLES[@]}"; do
 	# AF is derived here rather than by the provider: it is a ratio of two numbers the provider already
 	# reported, and computing it in both places invites the two to disagree.
 	present+=(AF); spec="$spec,FORMAT/AF"; exprs+=("af")
+	# SOR (phase 2): the strand-bias metric, derived here from ADF/ADR exactly as AF is. Needs both
+	# strand-split tags; a provider that omits either simply gets no SOR column.
+	case " ${present[*]} " in *" ADF "*) case " ${present[*]} " in *" ADR "*)
+		present+=(SOR); spec="$spec,FORMAT/SOR"; exprs+=("sor") ;; esac ;; esac
 	# Two additions that cost nothing and remove a trap: AF=0 for an unscorable allele is
 	# indistinguishable from AF=0 for a variant that genuinely is not there.
 	present+=(AD_OTHER); spec="$spec,FORMAT/AD_OTHER"
@@ -120,6 +127,14 @@ for T in "${TABLES[@]}"; do
 	  # manufacturing a misleading value -- "." is the VCF-native way to say no information, and every
 	  # consumer already skips missing without having to know about the flag.
 	  echo -n 'af = nomodel ? "." : ((t>0) ? sprintf("%.4f",a/t) : ".");'
+	  # SOR: 2x2 = [ADF_REF=$9, ADR_REF=$11 ; ADF_ALT=$10, ADR_ALT=$12], GATK symmetric odds ratio with
+	  # +1 pseudocounts, gated on ALT strand support (ADF_ALT+ADR_ALT) >= 10 (N_min). "." when ungated
+	  # or a strand cell is missing. New variable names only -- a/d/r/t above are AD/DP, not strand.
+	  echo -n 'sfr=($9=="."?0:$9); srr=($11=="."?0:$11); sfa=($10=="."?0:$10); sra=($12=="."?0:$12); sas=sfa+sra;'
+	  echo -n 'if($9=="."||$11=="."||$10=="."||$12=="."||sas<10){sor="."}'
+	  echo -n 'else{pa=sfr+1;pb=srr+1;pc=sfa+1;pd=sra+1; sym=(pa*pd)/(pc*pb)+(pc*pb)/(pa*pd);'
+	  echo -n 'rr=(pa<pb?pa:pb)/(pa>pb?pa:pb); rl=(pc<pd?pc:pd)/(pc>pd?pc:pd);'
+	  echo -n 'sor=sprintf("%.3f",log(sym)+log(rr)-log(rl))};'
 	  echo -n 'print $1,$2,$3,$4'
 	  for e in "${exprs[@]}"; do echo -n ",$e"; done
 	  echo ',unacc,nomodel}'

@@ -98,4 +98,45 @@ else
 	rc=1
 fi
 
+# 9. SOR (phase 2): declared, and equal to an independent GATK-formula calc on the scorable sites.
+if [ "$(bcftools view -h "$TMP/out.vcf.gz" 2>/dev/null | grep -c 'ID=SOR')" -eq 1 ]; then
+	echo "  ok: FORMAT/SOR declared"
+else echo "  FAIL: FORMAT/SOR header missing"; rc=1; fi
+
+sor_at(){ bcftools query -f '%POS\t[%SOR]\n' "$TMP/out.vcf.gz" 2>/dev/null | awk -F'\t' -v p="$1" '$1==p{print $2}'; }
+ok=1
+for pair in 130000:2.061 120000:1.232 20000:1.044; do
+	p=${pair%%:*}; want=${pair##*:}; got=$(sor_at "$p")
+	[ "$got" = "$want" ] || { echo "  FAIL: SOR at $p expected $want, got '$got'"; ok=0; rc=1; }
+done
+[ "$ok" = 1 ] && echo "  ok: SOR matches the independent GATK-formula calc on scorable sites"
+
+# 10. The N_min=10 gate: below 10 ALT reads -- which is every AD_alt=0 blind class (MNV 150000, long
+#     deletion 170000) and the hom-ref-looking sites -- SOR must be MISSING, not a pseudocount-fed value.
+ok=1
+for p in 55000 111111 150000 170000; do
+	[ "$(sor_at "$p")" = "." ] || { echo "  FAIL: SOR at $p should be '.' (AD_alt below N_min=10)"; ok=0; rc=1; }
+done
+[ "$ok" = 1 ] && echo "  ok: SOR is '.' for every site under the N_min=10 ALT-read gate (incl. all AD_alt=0)"
+
+# 11. The metric must SEPARATE a strand-skewed site from a balanced one. Synthetic 2x2s (NOT from the
+#     golden fixture, so the conformance capture stays untouched): an all-forward ALT vs a balanced one
+#     at the same depth. Biased must clear the SNV threshold (SOR>3); balanced must not.
+sdir="$TMP/syn"; mkdir -p "$sdir"
+{ grep '^#' "$FIX/golden.subject.tsv"
+  grep '^CHROM' "$FIX/golden.subject.tsv"
+  printf 'chr20\t200000\tA\tC\tSUBJECT\t40\t20\t20\t10\t20\t10\t0\t.\t.\t.\t.\t0\t.\t.\t.\t.\t.\t.\t0\t0\t.\n'
+  printf 'chr20\t210000\tA\tG\tSUBJECT\t40\t20\t20\t10\t10\t10\t10\t.\t.\t.\t.\t0\t.\t.\t.\t.\t.\t.\t0\t0\t.\n'
+} > "$sdir/t.tsv"
+{ bcftools view -h "$TMP/in.vcf.gz" 2>/dev/null
+  printf 'chr20\t200000\t.\tA\tC\t.\t.\t.\tGT\t0/1\n'
+  printf 'chr20\t210000\t.\tA\tG\t.\t.\t.\tGT\t0/1\n'
+} | bgzip > "$sdir/in.vcf.gz"; bcftools index -f "$sdir/in.vcf.gz"
+bash "$ROOT/post_process/pileup/annotate_from_pileup.sh" --vcf "$sdir/in.vcf.gz" --out "$sdir/out.vcf.gz" --table "$sdir/t.tsv" 2>/dev/null
+bsor=$(bcftools query -f '%POS\t[%SOR]\n' "$sdir/out.vcf.gz" 2>/dev/null | awk '$1==200000{print $2}')
+nsor=$(bcftools query -f '%POS\t[%SOR]\n' "$sdir/out.vcf.gz" 2>/dev/null | awk '$1==210000{print $2}')
+if awk -v b="$bsor" -v n="$nsor" 'BEGIN{exit !(b+0>3 && n+0<3)}'; then
+	echo "  ok: SOR separates strand bias -- all-forward ALT SOR=$bsor (>3), balanced SOR=$nsor (<3)"
+else echo "  FAIL: SOR did not separate biased ($bsor) from balanced ($nsor)"; rc=1; fi
+
 exit $rc

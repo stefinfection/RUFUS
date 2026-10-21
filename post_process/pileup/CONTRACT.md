@@ -127,6 +127,15 @@ deletion `AD_OTHER` is 0, because the spanning reads align cleanly as reference.
 still reads as `AF=0, NO_PILEUP_MODEL=0`, indistinguishable from a variant that is genuinely absent.
 Until that threshold is chosen, gate on variant class.
 
+**Phase 2 — `FORMAT/SOR`** is the strand-bias metric, derived here from `ADF`/`ADR` (the 2x2 of
+forward/reverse x ref/alt) by the GATK symmetric-odds-ratio formula with +1 pseudocounts; higher means
+stronger bias. It is computed **only when the ALT allele has >= 10 strand-assigned reads**
+(`ADF[alt]+ADR[alt]`, i.e. `N_min=10`) and is `.` otherwise. That one gate is also what keeps SOR off the
+blind classes above: every `AD_ALT=0` record (composite, long deletion, repeat indel) has zero ALT
+strand reads, so it is never scored — the same "gate on whether the engine saw the ALT, not on the raw
+number" rule, written as an ALT-read floor instead of a class list. The thresholds that turn SOR into a
+FILTER (`SOR>3` SNV, `SOR>10` indel) live in the strand-bias filter step, not in this annotator.
+
 The conformance fixture deliberately contains one of each, asserted as blind. If a future provider
 scores them, the test fails — which is the point: an improvement should be noticed and the contract
 updated, not absorbed silently.
