@@ -60,7 +60,7 @@ api -X PUT "${BUCKET}/${FNAME}" --upload-file "$SIF_PATH" >/dev/null
 echo "Setting version metadata..."
 api -X PUT "${API}/deposit/depositions/${DRAFT_ID}" \
     -H "Content-Type: application/json" \
-    -d "{\"metadata\": $(jq -n --arg v "$VERSION" '.version=$v | .publication_date=(now|strftime("%Y-%m-%d"))' \
+    -d "{\"metadata\": $(jq --arg v "$VERSION" '.version=$v | .publication_date=(now|strftime("%Y-%m-%d")) | del(.dates)' \
             <<<"$(jq '.metadata' <<<"$DRAFT")")}" >/dev/null
 
 echo "Publishing..."
